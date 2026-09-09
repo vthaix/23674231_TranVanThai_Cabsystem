@@ -1,0 +1,17 @@
+{
+  "name": "cab-system-api",
+  "version": "1.0.0",
+  "description": "CAB System REST API - generated from SRS FR01-FR55",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.1.0",
+    "dotenv": "^16.6.1"
+  }
+}

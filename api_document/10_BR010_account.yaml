@@ -1,0 +1,403 @@
+openapi: 3.0.3
+info:
+  title: CAB API - BR010 Account Management
+  version: 1.0.0
+  description: 'API specification for FR52-FR55: registration, login, profile update
+    and role-based access.'
+servers:
+- url: http://localhost:8000/api/v1
+tags:
+- name: BR010
+  description: Quản lý tài khoản
+paths:
+  /auth/register:
+    post:
+      summary: Register account
+      description: Register a customer or driver account.
+      tags:
+      - BR010
+      operationId: register
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: &id001
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  tokenType:
+                    type: string
+                    example: Bearer
+                  userId:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+  /auth/login:
+    post:
+      summary: Login
+      description: Authenticate a user and return an access token.
+      tags:
+      - BR010
+      operationId: login
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /users/me:
+    get:
+      summary: Get current account
+      description: Return the authenticated user's account information.
+      tags:
+      - BR010
+      operationId: getMe
+      responses:
+        '200':
+          description: Account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  fullName:
+                    type: string
+                  phone:
+                    type: string
+                  email:
+                    type: string
+                    format: email
+                  role:
+                    type: string
+                  status:
+                    type: string
+      security:
+      - bearerAuth: []
+    patch:
+      summary: Update account
+      description: Update the authenticated user's profile information.
+      tags:
+      - BR010
+      operationId: updateMe
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                  format: email
+      security:
+      - bearerAuth: []
+  /operations/users/{userId}/role:
+    patch:
+      summary: Change user role
+      description: Admin-only operation to enforce role-based access.
+      tags:
+      - BR010
+      operationId: changeUserRole
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                  - CUSTOMER
+                  - DRIVER
+                  - OPERATIONS_STAFF
+                  - ADMIN
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid request
+        details:
+          type: object
+          additionalProperties: true
+    Location:
+      type: object
+      required:
+      - latitude
+      - longitude
+      properties:
+        address:
+          type: string
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+    Vehicle:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        licensePlate:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+    Driver:
+      type: object
+      properties:
+        driverId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - BUSY
+          - OFFLINE
+        currentLatitude:
+          type: number
+          format: double
+        currentLongitude:
+          type: number
+          format: double
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+    Trip:
+      type: object
+      properties:
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        pickup:
+          $ref: '#/components/schemas/Location'
+        destination:
+          $ref: '#/components/schemas/Location'
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - SEARCHING_DRIVER
+          - DRIVER_ASSIGNED
+          - DRIVER_ARRIVED
+          - PASSENGER_PICKED_UP
+          - IN_PROGRESS
+          - COMPLETED
+          - CANCELLED
+        fare:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    Payment:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum:
+          - CASH
+          - ONLINE
+        amount:
+          type: number
+          format: double
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SUCCESS
+          - FAILED
+        transactionId:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+    Rating:
+      type: object
+      required:
+      - rating
+      properties:
+        ratingId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+    RegisterRequest:
+      type: object
+      required:
+      - fullName
+      - phone
+      - email
+      - password
+      - role
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        role:
+          type: string
+          enum:
+          - CUSTOMER
+          - DRIVER
+    LoginRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    AuthResponse: *id001

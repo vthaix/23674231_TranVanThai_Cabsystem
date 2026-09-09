@@ -1,0 +1,411 @@
+openapi: 3.0.3
+info:
+  title: CAB API - BR07 Operations
+  version: 1.0.0
+  description: 'API specification for FR39-FR44: operational management of customers,
+    drivers, vehicles and trips.'
+servers:
+- url: http://localhost:8000/api/v1
+tags:
+- name: BR07
+  description: Quản lý vận hành
+paths:
+  /operations/customers:
+    get:
+      summary: List customers
+      description: Operations staff can search and manage customer information.
+      tags:
+      - BR07
+      operationId: listCustomers
+      responses:
+        '200':
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+      security:
+      - bearerAuth: []
+  /operations/customers/{customerId}:
+    get:
+      summary: Get customer
+      description: View customer information.
+      tags:
+      - BR07
+      operationId: getCustomer
+      responses:
+        '200':
+          description: Customer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+                    format: uuid
+                  fullName:
+                    type: string
+                  phone:
+                    type: string
+                  email:
+                    type: string
+                  status:
+                    type: string
+      parameters:
+      - name: customerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+    patch:
+      summary: Update customer
+      description: Update customer information or account status.
+      tags:
+      - BR07
+      operationId: updateCustomer
+      responses:
+        '200':
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                status:
+                  type: string
+      parameters:
+      - name: customerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+  /operations/drivers:
+    get:
+      summary: List drivers
+      description: Operations staff can view and manage driver information.
+      tags:
+      - BR07
+      operationId: listDrivers
+      responses:
+        '200':
+          description: Drivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+      security:
+      - bearerAuth: []
+  /operations/vehicles:
+    get:
+      summary: List vehicles
+      description: Operations staff can manage vehicle information.
+      tags:
+      - BR07
+      operationId: listVehicles
+      responses:
+        '200':
+          description: Vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+      security:
+      - bearerAuth: []
+  /operations/trips:
+    get:
+      summary: List trips
+      description: View trips with operational filters.
+      tags:
+      - BR07
+      operationId: listOperationalTrips
+      responses:
+        '200':
+          description: Trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trip'
+      parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+      - name: driverId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      security:
+      - bearerAuth: []
+  /operations/trips/{tripId}:
+    get:
+      summary: Get trip details
+      description: View full trip details for operations.
+      tags:
+      - BR07
+      operationId: getOperationalTrip
+      responses:
+        '200':
+          description: Trip
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+  /operations/drivers/status:
+    get:
+      summary: Track driver status
+      description: View driver availability and current activity status.
+      tags:
+      - BR07
+      operationId: getDriverStatuses
+      responses:
+        '200':
+          description: Driver statuses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid request
+        details:
+          type: object
+          additionalProperties: true
+    Location:
+      type: object
+      required:
+      - latitude
+      - longitude
+      properties:
+        address:
+          type: string
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+    Vehicle:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        licensePlate:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+    Driver:
+      type: object
+      properties:
+        driverId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - BUSY
+          - OFFLINE
+        currentLatitude:
+          type: number
+          format: double
+        currentLongitude:
+          type: number
+          format: double
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+    Trip:
+      type: object
+      properties:
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        pickup:
+          $ref: '#/components/schemas/Location'
+        destination:
+          $ref: '#/components/schemas/Location'
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - SEARCHING_DRIVER
+          - DRIVER_ASSIGNED
+          - DRIVER_ARRIVED
+          - PASSENGER_PICKED_UP
+          - IN_PROGRESS
+          - COMPLETED
+          - CANCELLED
+        fare:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    Payment:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum:
+          - CASH
+          - ONLINE
+        amount:
+          type: number
+          format: double
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SUCCESS
+          - FAILED
+        transactionId:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+    Rating:
+      type: object
+      required:
+      - rating
+      properties:
+        ratingId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time

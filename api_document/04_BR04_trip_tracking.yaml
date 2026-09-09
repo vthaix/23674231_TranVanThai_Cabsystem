@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: CAB API - BR04 Trip Tracking
+  version: 1.0.0
+  description: 'API specification for FR24-FR27: customer trip status, driver, vehicle
+    and route information.'
+servers:
+- url: http://localhost:8000/api/v1
+tags:
+- name: BR04
+  description: Theo dõi chuyến xe
+paths:
+  /trips/{tripId}:
+    get:
+      summary: Get trip tracking information
+      description: Return current trip status, driver, vehicle, pickup and destination
+        for the customer.
+      tags:
+      - BR04
+      operationId: getTripTracking
+      responses:
+        '200':
+          description: Trip tracking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+  /trips/{tripId}/driver:
+    get:
+      summary: Get assigned driver
+      description: Return basic assigned driver information.
+      tags:
+      - BR04
+      operationId: getTripDriver
+      responses:
+        '200':
+          description: Driver information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+  /trips/{tripId}/vehicle:
+    get:
+      summary: Get trip vehicle
+      description: Return basic vehicle information for the assigned trip.
+      tags:
+      - BR04
+      operationId: getTripVehicle
+      responses:
+        '200':
+          description: Vehicle information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid request
+        details:
+          type: object
+          additionalProperties: true
+    Location:
+      type: object
+      required:
+      - latitude
+      - longitude
+      properties:
+        address:
+          type: string
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+    Vehicle:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        licensePlate:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+    Driver:
+      type: object
+      properties:
+        driverId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - BUSY
+          - OFFLINE
+        currentLatitude:
+          type: number
+          format: double
+        currentLongitude:
+          type: number
+          format: double
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+    Trip:
+      type: object
+      properties:
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        pickup:
+          $ref: '#/components/schemas/Location'
+        destination:
+          $ref: '#/components/schemas/Location'
+        vehicleType:
+          type: string
+          enum:
+          - MOTORBIKE
+          - CAR_4
+          - CAR_7
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - SEARCHING_DRIVER
+          - DRIVER_ASSIGNED
+          - DRIVER_ARRIVED
+          - PASSENGER_PICKED_UP
+          - IN_PROGRESS
+          - COMPLETED
+          - CANCELLED
+        fare:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    Payment:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum:
+          - CASH
+          - ONLINE
+        amount:
+          type: number
+          format: double
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SUCCESS
+          - FAILED
+        transactionId:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+    Rating:
+      type: object
+      required:
+      - rating
+      properties:
+        ratingId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
