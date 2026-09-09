@@ -969,4 +969,138 @@ flowchart TD
 | **AC10.2** | Chuyến chưa hoàn thành      | Customer cố đánh giá       | Hệ thống không cho phép đánh giá                  |
 | **AC10.3** | Customer đã đánh giá chuyến | Customer gửi thêm đánh giá | Hệ thống không tạo đánh giá trùng cho cùng chuyến |
 
-## Bước 14. Truy xuất nguồn gốc yêu cầu (Requirements Traceability)
+# 13.18. Điều kiện nghiệm thu tổng thể hệ thống
+
+CAB System được xem là **đạt Acceptance** khi đáp ứng đồng thời các nhóm điều kiện sau:
+
+### 1. Business Acceptance
+
+* [ ] Quy trình đặt xe được số hóa từ lúc tạo Booking đến khi hoàn thành Trip.
+* [ ] Hệ thống hỗ trợ tìm và phân công tài xế.
+* [ ] Hệ thống quản lý được vòng đời Trip.
+* [ ] Hệ thống hỗ trợ thanh toán tiền mặt và điện tử.
+* [ ] Hệ thống hỗ trợ đánh giá và lịch sử chuyến.
+* [ ] Nhân viên vận hành có thể giám sát và xử lý sự cố.
+* [ ] Ban lãnh đạo có thể xem các báo cáo kinh doanh.
+
+### 2. Functional Acceptance
+
+* [ ] Các Use Case chính hoạt động đúng Main Flow.
+* [ ] Các Alternative Flow được xử lý đúng.
+* [ ] Các Exception quan trọng được xử lý.
+* [ ] Các Business Rule được tuân thủ.
+* [ ] Trạng thái Booking và Trip được cập nhật chính xác.
+* [ ] Dữ liệu được lưu trữ và liên kết đúng.
+
+### 3. Security Acceptance
+
+* [ ] Người dùng được xác thực trước khi truy cập chức năng yêu cầu tài khoản.
+* [ ] Quyền truy cập được kiểm soát theo vai trò.
+* [ ] Người dùng không thể truy cập dữ liệu không thuộc quyền.
+* [ ] Dữ liệu cá nhân, vị trí và giao dịch được bảo vệ.
+* [ ] Các thao tác quan trọng có Audit Log.
+* [ ] CAB System không lưu trực tiếp dữ liệu thanh toán nhạy cảm.
+
+### 4. Integration Acceptance
+
+* [ ] Payment Provider có thể xử lý giao dịch thành công.
+* [ ] Payment Provider có thể trả về trạng thái thất bại.
+* [ ] Hệ thống xử lý được trường hợp Payment Provider không phản hồi.
+* [ ] Notification Provider có thể nhận yêu cầu gửi thông báo.
+* [ ] Lỗi Notification Provider không làm dừng toàn bộ quy trình đặt xe.
+
+### 5. Quality Acceptance
+
+* [ ] Hệ thống đáp ứng các yêu cầu Performance đã được stakeholder xác nhận.
+* [ ] Hệ thống có khả năng mở rộng theo quy mô được xác định.
+* [ ] Hệ thống duy trì tính nhất quán của Booking, Trip và Payment.
+* [ ] Hệ thống không tạo Trip trùng cho cùng một Booking.
+* [ ] Các thành phần có thể được bảo trì và mở rộng phù hợp.
+* [ ] Các tiêu chí SLA, Performance và Capacity được xác nhận trước khi triển khai chính thức.
+
+---
+
+## 13.19. Tổng kết Acceptance Criteria
+
+Acceptance Criteria của CAB System tập trung vào **5 nhóm chính**:
+
+```text
+CAB SYSTEM – ACCEPTANCE CRITERIA
+│
+├── 1. Business Flow
+│   ├── Booking
+│   ├── Driver Matching
+│   ├── Trip
+│   ├── Payment
+│   └── Rating & History
+│
+├── 2. Business Rules
+│   ├── Booking Validation
+│   ├── Driver Assignment
+│   ├── Trip State
+│   ├── Payment
+│   └── Access Control
+│
+├── 3. Exception Handling
+│   ├── No Driver
+│   ├── Driver Reject/Timeout
+│   ├── Payment Failure
+│   ├── Provider Failure
+│   └── Operational Error
+│
+├── 4. Security & Audit
+│   ├── Authentication
+│   ├── Authorization
+│   ├── Data Protection
+│   └── Audit Log
+│
+└── 5. Non-Functional Quality
+    ├── Performance
+    ├── Availability
+    ├── Reliability
+    ├── Scalability
+    ├── Maintainability
+    └── Extensibility
+```
+
+Như vậy, Acceptance Criteria không chỉ xác nhận rằng **chức năng có hoạt động hay không**, mà còn xác nhận hệ thống CAB có thực hiện đúng **Business Process, Business Rule, Exception, quyền truy cập, tính toàn vẹn dữ liệu và các yêu cầu chất lượng** đã được xác định ở các phần trước hay không.
+
+Các tiêu chí định lượng chưa được Customer Requirement xác định như **Response Time, Concurrent Users, Throughput, Availability/SLA, thời gian phản hồi của tài xế và thời gian lưu trữ dữ liệu** cần được xem là **Open Issues** và phải được xác nhận với stakeholder trước khi sử dụng làm tiêu chí nghiệm thu chính thức.
+
+
+## 15. Requirement Traceability Matrix
+
+| Requirement ID | Yêu cầu hệ thống                            | Functional Requirement                | Use Case                     | Acceptance Criteria                                                                                                   | Priority |
+| -------------- | ------------------------------------------- | ------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
+| **FR-01**      | Người dùng có thể đăng ký tài khoản         | FR-01: Đăng ký tài khoản              | UC-01: Đăng ký tài khoản     | **AC-01:** Đăng ký thành công khi thông tin hợp lệ. **AC-02:** Hệ thống thông báo lỗi khi email/tài khoản đã tồn tại. | High     |
+| **FR-02**      | Người dùng có thể đăng nhập                 | FR-02: Đăng nhập                      | UC-02: Đăng nhập             | **AC-03:** Đăng nhập thành công với thông tin chính xác. **AC-04:** Hiển thị thông báo khi sai tài khoản/mật khẩu.    | High     |
+| **FR-03**      | Người dùng có thể quản lý thông tin cá nhân | FR-03: Quản lý hồ sơ                  | UC-03: Quản lý hồ sơ         | **AC-05:** Người dùng có thể xem và cập nhật thông tin cá nhân.                                                       | Medium   |
+| **FR-04**      | Khách hàng có thể tạo chuyến                | FR-04: Đặt chuyến                     | UC-04: Đặt chuyến            | **AC-06:** Hệ thống tạo chuyến khi thông tin điểm đón, điểm đến hợp lệ.                                               | High     |
+| **FR-05**      | Hệ thống xác nhận chuyến                    | FR-05: Xác nhận chuyến                | UC-05: Xác nhận chuyến       | **AC-07:** Chuyến được chuyển sang trạng thái **Đã nhận chuyến** sau khi được xác nhận.                               | High     |
+| **FR-06**      | Tài xế có thể nhận chuyến                   | FR-06: Nhận chuyến                    | UC-06: Nhận chuyến           | **AC-08:** Tài xế có thể nhận chuyến đang chờ. **AC-09:** Chuyến không thể được nhận bởi nhiều tài xế cùng lúc.       | High     |
+| **FR-07**      | Tài xế cập nhật trạng thái chuyến           | FR-07: Cập nhật trạng thái chuyến     | UC-07: Cập nhật trạng thái   | **AC-10:** Trạng thái được cập nhật theo đúng trình tự nghiệp vụ.                                                     | High     |
+| **FR-08**      | Hệ thống theo dõi quá trình chuyến          | FR-08: Theo dõi chuyến                | UC-08: Theo dõi chuyến       | **AC-11:** Khách hàng có thể xem trạng thái hiện tại của chuyến.                                                      | High     |
+| **FR-09**      | Tài xế hoàn thành chuyến                    | FR-09: Hoàn thành chuyến              | UC-09: Hoàn thành chuyến     | **AC-12:** Chuyến được chuyển sang trạng thái **Hoàn thành** khi tài xế kết thúc chuyến.                              | High     |
+| **FR-10**      | Người dùng có thể xem lịch sử chuyến        | FR-10: Quản lý lịch sử chuyến         | UC-10: Xem lịch sử chuyến    | **AC-13:** Hiển thị danh sách các chuyến đã thực hiện.                                                                | Medium   |
+| **FR-11**      | Người dùng có thể đánh giá chuyến           | FR-11: Đánh giá chuyến                | UC-11: Đánh giá chuyến       | **AC-14:** Người dùng có thể đánh giá sau khi chuyến hoàn thành.                                                      | Medium   |
+| **FR-12**      | Quản trị viên quản lý người dùng            | FR-12: Quản lý người dùng             | UC-12: Quản lý người dùng    | **AC-15:** Admin có thể xem, khóa/mở khóa tài khoản theo quyền hạn.                                                   | High     |
+| **FR-13**      | Quản trị viên quản lý chuyến                | FR-13: Quản lý chuyến                 | UC-13: Quản lý chuyến        | **AC-16:** Admin có thể xem và quản lý thông tin chuyến.                                                              | High     |
+| **FR-14**      | Hệ thống xác thực và phân quyền             | FR-14: Authentication & Authorization | UC-14: Phân quyền người dùng | **AC-17:** Người dùng chỉ được truy cập chức năng phù hợp với vai trò.                                                | High     |
+
+``` mermaid
+flowchart LR
+    A["FR-07<br/>Cập nhật trạng thái chuyến"]
+    B["UC-07<br/>Cập nhật trạng thái"]
+    C["Đã nhận chuyến"]
+    D["Đã đến điểm đón"]
+    E["Đã đón khách"]
+    F["Đang di chuyển"]
+    G["Hoàn thành chuyến"]
+    H["AC-10<br/>Trạng thái đúng trình tự"]
+
+    A --> B
+    B --> C --> D --> E --> F --> G
+    B --> H
+```
+
+
