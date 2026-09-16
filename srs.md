@@ -739,7 +739,7 @@ classDiagram
     Administrator ..> Permission : quản lý
     Role "1" --> "0..*" Permission : cấp
     Administrator ..> AuditLog : theo dõi
-```
+
 mermaid
 classDiagram
     class Customer {
@@ -868,7 +868,7 @@ classDiagram
     Administrator ..> Permission : quản lý quyền
     Administrator ..> AuditLog : theo dõi audit
     ManagementUser ..> ManagementReport : xem báo cáo
-```
+
 
 ## Bước 10. Xác định yêu cầu phi chức năng (Non-Functional Requirements)
 
