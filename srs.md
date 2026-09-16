@@ -739,8 +739,9 @@ classDiagram
     Administrator ..> Permission : quản lý
     Role "1" --> "0..*" Permission : cấp
     Administrator ..> AuditLog : theo dõi
+```
 
-mermaid
+```mermaid
 classDiagram
     class Customer {
         +UUID customerId
@@ -868,7 +869,7 @@ classDiagram
     Administrator ..> Permission : quản lý quyền
     Administrator ..> AuditLog : theo dõi audit
     ManagementUser ..> ManagementReport : xem báo cáo
-
+```
 
 ## Bước 10. Xác định yêu cầu phi chức năng (Non-Functional Requirements)
 
@@ -957,13 +958,13 @@ flowchart LR
     Management --> UC01
     Management --> UC21
 
-    UC02 ..> UC11 : <<include>>
-    UC11 ..> UC14 : <<include>>
-    UC07 ..> UC14 : <<include>>
-    UC08 ..> UC11 : <<include>>
-    UC09 ..> UC14 : <<include>>
-    UC03 ..> UC14 : <<include>>
-    UC13 ..> UC12 : <<include>>
+    UC02 -.->|include| UC11
+    UC11 -.->|include| UC14
+    UC07 -.->|include| UC14
+    UC08 -.->|include| UC11
+    UC09 -.->|include| UC14
+    UC03 -.->|include| UC14
+    UC13 -.->|include| UC12
     UC13 --> Payment
     UC14 --> Notification
 ```
@@ -997,9 +998,9 @@ flowchart TD
     U["Management"] --> V["Xem báo cáo quản trị"]
     M --> V
     J --> V
-
 ```
-mermaid
+
+```mermaid
 flowchart TD
     A["Customer<br/>Đặt xe"] --> B["Tạo yêu cầu đặt xe"]
     B --> C["Tìm và phân công tài xế"]
@@ -2244,7 +2245,9 @@ Các tiêu chí định lượng chưa được Customer Requirement xác địn
 | **FR69** | Xử lý sự cố vận hành | FR69: Operational incident handling | UC23 | AC23.1, AC23.2, AC23.3 | High |
 | **FR70** | Cập nhật trạng thái sẵn sàng của tài xế | FR70: Driver availability status | UC07 | AC07.4 | Medium |
 
+
 ```mermaid
+
 flowchart LR
     A["FR19-FR22<br/>Cập nhật trạng thái chuyến"]
     B["UC09<br/>Cập nhật trạng thái"]
