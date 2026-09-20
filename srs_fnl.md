@@ -51,6 +51,7 @@ Khách hàng tạo yêu cầu -> Hệ thống tìm tài xế phù hợp -> Tài 
 | **Quản trị viên**                          | Quản lý tài khoản và phân quyền, thực hiện các thao tác quản trị nhạy cảm, kiểm soát truy cập và theo dõi nhật ký hoạt động.                                    |
 | **Ban lãnh đạo**                              | Theo dõi báo cáo về số lượng chuyến, doanh thu, tỷ lệ hoàn thành, tỷ lệ hủy và hiệu quả hoạt động của tài xế để hỗ trợ ra quyết định.                           |
 | **Nhà cung cấp thanh toán**             | Xử lý các giao dịch thanh toán điện tử và trả kết quả thành công/thất bại cho hệ thống CAB.
+| **Nhà cung cấp thông báo**               | Cung cấp dịch vụ gửi thông báo đến khách hàng và tài xế khi hệ thống phát sinh sự kiện cần thông báo.
 
 
 **Yêu cầu 2. Vẽ ma trận Stakeholders**
@@ -92,6 +93,9 @@ Khách hàng tạo yêu cầu -> Hệ thống tìm tài xế phù hợp -> Tài 
 | **In Scope** | Thông báo các sự kiện quan trọng của chuyến đi |
 | **In Scope** | Xem lịch sử chuyến đi và thông tin thanh toán |
 | **In Scope** | Khách hàng đánh giá tài xế sau chuyến đi |
+| **In Scope** | Khách hàng và tài xế quản lý/cập nhật hồ sơ cá nhân trong phạm vi cho phép |
+| **In Scope** | Tài xế quản lý thông tin phương tiện của mình trong phạm vi cho phép |
+| **In Scope** | Nhân viên vận hành tiếp nhận và xử lý sự cố vận hành |
 | **In Scope** | Nhân viên vận hành xem và quản lý khách hàng, tài xế, phương tiện và chuyến đi |
 | **In Scope** | Ban lãnh đạo xem báo cáo số lượng chuyến và các chỉ số vận hành, kinh doanh |
 | **In Scope** | Lọc báo cáo theo khoảng thời gian và xem chi tiết dữ liệu nguồn |
@@ -106,10 +110,10 @@ Khách hàng tạo yêu cầu -> Hệ thống tìm tài xế phù hợp -> Tài 
 | **BR04** | Theo dõi chuyến xe | Hệ thống phải hỗ trợ khách hàng và nhân viên vận hành theo dõi trạng thái chuyến xe trong quá trình sử dụng dịch vụ. |
 | **BR05** | Thanh toán chuyến xe | Hệ thống phải hỗ trợ tính cước và thu tiền theo hình thức tiền mặt hoặc thanh toán trực tuyến cho các chuyến xe hoàn thành. |
 | **BR06** | Thông báo | Hệ thống phải hỗ trợ gửi thông báo về các sự kiện quan trọng trong quá trình đặt và thực hiện chuyến xe. |
-| **BR07** | Quản lý vận hành | Hệ thống phải hỗ trợ nhân viên vận hành theo dõi và quản lý khách hàng, tài xế, phương tiện và chuyến xe. |
+| **BR07** | Quản lý vận hành | Hệ thống phải hỗ trợ nhân viên vận hành theo dõi và quản lý khách hàng, tài xế, phương tiện, chuyến xe và xử lý các sự cố vận hành. |
 | **BR08** | Lưu trữ lịch sử | Hệ thống phải lưu trữ thông tin chuyến xe và giao dịch để phục vụ tra cứu. |
 | **BR09** | Đánh giá tài xế | Hệ thống phải hỗ trợ khách hàng đánh giá tài xế sau khi hoàn thành chuyến xe và lưu kết quả đánh giá. |
-| **BR10** | Quản lý tài khoản và phân quyền | Hệ thống phải cho phép người dùng quản lý thông tin tài khoản và cho phép quản trị viên quản lý trạng thái tài khoản, vai trò và quyền truy cập. |
+| **BR10** | Quản lý tài khoản, hồ sơ và phân quyền | Hệ thống phải cho phép người dùng quản lý hồ sơ cá nhân và cho phép quản trị viên quản lý trạng thái tài khoản, vai trò và quyền truy cập. |
 | **BR11** | Báo cáo quản trị | Hệ thống phải cung cấp báo cáo về số lượng chuyến, doanh thu, tỷ lệ hoàn thành, tỷ lệ hủy và hiệu quả hoạt động của tài xế cho Ban lãnh đạo. |
 
 ## Bước 6. Kết hợp các nghiệp vụ (Business Process)
@@ -269,7 +273,7 @@ Dưới đây là bản đầy đủ **Mã – Tên yêu cầu – Mô tả**, b
 | -------- | ------------------- | --------------------------------------------------------------------------- |
 | **FR52** | Đăng ký tài khoản | Hệ thống phải cho phép tạo tài khoản cho khách hàng và tài xế. |
 | **FR53** | Đăng nhập | Hệ thống phải cho phép người dùng đăng nhập và xác thực thông tin tài khoản. |
-| **FR54** | Cập nhật tài khoản | Hệ thống phải cho phép người dùng thay đổi thông tin tài khoản trong phạm vi được phép. |
+| **FR54** | Cập nhật thông tin tài khoản | Hệ thống phải cho phép người dùng thay đổi các thông tin tài khoản được phép cập nhật, bao gồm thông tin liên hệ và thông tin xác thực theo chính sách. |
 | **FR55** | Phân quyền người dùng | Hệ thống phải phân quyền người dùng đúng theo vai trò và quyền được cấp. |
 | **FR56** | Quản lý trạng thái tài khoản | Hệ thống phải cho phép quản trị viên xem, khóa, mở khóa hoặc vô hiệu hóa tài khoản theo quyền hạn. |
 | **FR57** | Quản lý vai trò | Hệ thống phải cho phép quản trị viên gán hoặc thay đổi vai trò của tài khoản theo chính sách. |
@@ -287,6 +291,10 @@ Dưới đây là bản đầy đủ **Mã – Tên yêu cầu – Mô tả**, b
 | **FR64** | Báo cáo hiệu quả hoạt động tài xế | Hệ thống phải cung cấp các chỉ số phục vụ đánh giá hoạt động tài xế như số chuyến được phân công, số chuyến hoàn thành, tỷ lệ nhận chuyến và điểm đánh giá trung bình (khi có dữ liệu). |
 | **FR65** | Lọc báo cáo theo thời gian | Hệ thống phải cho phép Ban lãnh đạo chọn khoảng thời gian để giới hạn dữ liệu báo cáo. |
 | **FR66** | Xem chi tiết dữ liệu báo cáo | Hệ thống phải cho phép xem các dữ liệu nguồn hoặc chi tiết chuyến/giao dịch tạo nên chỉ số báo cáo theo quyền hạn. |
+| **FR67** | Quản lý hồ sơ cá nhân | Hệ thống phải cho phép khách hàng và tài xế xem, cập nhật thông tin hồ sơ cá nhân trong phạm vi được phép. |
+| **FR68** | Quản lý phương tiện cá nhân | Hệ thống phải cho phép tài xế xem và cập nhật thông tin phương tiện do mình sử dụng trong phạm vi được phép. |
+| **FR69** | Xử lý sự cố vận hành | Hệ thống phải cho phép nhân viên vận hành ghi nhận, theo dõi, cập nhật trạng thái và xử lý các sự cố phát sinh trong quá trình vận hành chuyến xe. |
+| **FR70** | Cập nhật trạng thái sẵn sàng của tài xế | Hệ thống phải cho phép tài xế chuyển trạng thái sẵn sàng/không sẵn sàng nhận chuyến theo điều kiện nghiệp vụ. |
 
 ## 8. Quy tắc nghiệp vụ và ngoại lệ (Business Rules & Exceptions)
 
@@ -314,6 +322,8 @@ Với CAB System và scope **MVP 7 tuần**, phần **Business Rules & Exception
 | **BRULE16** | Doanh thu báo cáo dựa trên giao dịch thành công | Chỉ các giao dịch thanh toán được xác nhận thành công mới được tính vào doanh thu báo cáo. |
 | **BRULE17** | Tỷ lệ hoàn thành và hủy dùng cùng phạm vi tổng chuyến | Tỷ lệ hoàn thành và tỷ lệ hủy được tính trên tổng số chuyến thuộc cùng phạm vi báo cáo. |
 | **BRULE18** | Chỉ số hiệu quả tài xế phụ thuộc dữ liệu có sẵn | Hệ thống chỉ hiển thị các chỉ số tài xế khi có dữ liệu tương ứng và phải thể hiện trường hợp không đủ dữ liệu. |
+| **BRULE19** | Tài xế chỉ được chuyển sang sẵn sàng khi không có chuyến đang thực hiện | Tài xế không được chuyển sang trạng thái sẵn sàng nếu đang có chuyến ở trạng thái đang thực hiện. |
+| **BRULE20** | Chỉ người có quyền mới được xử lý sự cố | Nhân viên vận hành chỉ được xem và cập nhật sự cố trong phạm vi quyền hạn được cấp. |
 
 ### 8.2. Exceptions
 
@@ -401,7 +411,127 @@ Với CAB System và scope **MVP 7 tuần**, phần **Business Rules & Exception
 | `createdAt` | DateTime | Thời điểm tạo tài khoản |
 | `updatedAt` | DateTime | Thời điểm cập nhật thông tin |
 
-### 9.6. Lớp ManagementReport
+### 9.6. Lớp Booking
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `bookingId` | UUID | Mã yêu cầu đặt xe |
+| `customerId` | UUID | Khách hàng tạo yêu cầu |
+| `pickupLocation` | String | Điểm đón |
+| `destination` | String | Điểm đến |
+| `vehicleType` | Enum | Loại xe yêu cầu |
+| `status` | Enum | Trạng thái Booking |
+| `createdAt` | DateTime | Thời điểm tạo yêu cầu |
+| `updatedAt` | DateTime | Thời điểm cập nhật |
+
+### 9.7. Lớp Trip
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `tripId` | UUID | Mã chuyến xe |
+| `bookingId` | UUID | Booking tạo ra chuyến |
+| `customerId` | UUID | Khách hàng của chuyến |
+| `driverId` | UUID | Tài xế được phân công |
+| `vehicleId` | UUID | Phương tiện thực hiện chuyến |
+| `status` | Enum | Trạng thái chuyến |
+| `fare` | Decimal | Cước chuyến xe |
+| `startedAt` | DateTime | Thời điểm bắt đầu chuyến |
+| `completedAt` | DateTime | Thời điểm hoàn thành chuyến |
+| `cancelledAt` | DateTime | Thời điểm hủy nếu có |
+| `cancellationReason` | String | Lý do hủy nếu có |
+
+### 9.8. Lớp Payment
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `paymentId` | UUID | Mã thanh toán |
+| `tripId` | UUID | Mã chuyến liên quan |
+| `method` | Enum | Phương thức thanh toán |
+| `amount` | Decimal | Số tiền thanh toán |
+| `status` | Enum | Trạng thái thanh toán |
+| `providerTransactionId` | String | Mã giao dịch từ cổng thanh toán nếu có |
+| `paidAt` | DateTime | Thời điểm thanh toán thành công |
+
+### 9.9. Lớp Rating
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `ratingId` | UUID | Mã đánh giá |
+| `tripId` | UUID | Chuyến được đánh giá |
+| `customerId` | UUID | Khách hàng đánh giá |
+| `driverId` | UUID | Tài xế được đánh giá |
+| `score` | Integer | Điểm đánh giá |
+| `comment` | String | Nội dung nhận xét nếu có |
+| `createdAt` | DateTime | Thời điểm đánh giá |
+
+### 9.10. Lớp Notification
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `notificationId` | UUID | Mã thông báo |
+| `tripId` | UUID | Chuyến liên quan nếu có |
+| `recipientId` | UUID | Người nhận |
+| `type` | Enum | Loại thông báo |
+| `status` | Enum | Trạng thái gửi |
+| `sentAt` | DateTime | Thời điểm gửi |
+
+### 9.11. Lớp ManagementUser
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `managementId` | UUID | Mã định danh người dùng Ban lãnh đạo |
+| `fullName` | String | Họ và tên |
+| `email` | String | Email đăng nhập |
+| `passwordHash` | String | Mật khẩu đã được mã hóa |
+| `role` | Enum | Vai trò quản trị/báo cáo |
+| `status` | Enum | Trạng thái tài khoản |
+| `createdAt` | DateTime | Thời điểm tạo tài khoản |
+| `updatedAt` | DateTime | Thời điểm cập nhật thông tin |
+
+### 9.12. Lớp Incident
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `incidentId` | UUID | Mã sự cố |
+| `tripId` | UUID | Mã chuyến liên quan nếu có |
+| `reportedBy` | UUID | Người ghi nhận sự cố |
+| `type` | Enum | Loại sự cố |
+| `description` | String | Mô tả sự cố |
+| `status` | Enum | Trạng thái xử lý sự cố |
+| `resolution` | String | Kết quả/xử lý sự cố |
+| `createdAt` | DateTime | Thời điểm ghi nhận |
+| `resolvedAt` | DateTime | Thời điểm xử lý xong |
+
+### 9.13. Lớp Role
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `roleId` | UUID | Mã vai trò |
+| `name` | String | Tên vai trò |
+| `description` | String | Mô tả vai trò |
+
+### 9.14. Lớp Permission
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `permissionId` | UUID | Mã quyền |
+| `code` | String | Mã quyền |
+| `name` | String | Tên quyền |
+| `description` | String | Mô tả quyền |
+
+### 9.15. Lớp AuditLog
+
+| Thuộc tính | Kiểu dữ liệu | Mô tả |
+| -------------- | ------------ | ----------------------- |
+| `logId` | UUID | Mã log |
+| `actorId` | UUID | Người thực hiện thao tác |
+| `action` | String | Hành động được thực hiện |
+| `targetType` | String | Loại đối tượng bị tác động |
+| `targetId` | UUID | Mã đối tượng bị tác động |
+| `timestamp` | DateTime | Thời điểm thực hiện |
+| `details` | String | Chi tiết thao tác |
+
+### 9.16. Lớp ManagementReport
 
 | Thuộc tính | Kiểu dữ liệu | Mô tả |
 | -------------- | ------------ | ----------------------- |
@@ -418,7 +548,7 @@ Với CAB System và scope **MVP 7 tuần**, phần **Business Rules & Exception
 
 `ManagementReport` là dữ liệu tổng hợp phục vụ hiển thị báo cáo và có thể được tạo động từ dữ liệu chuyến xe, thanh toán, tài xế và đánh giá; không nhất thiết là thực thể nghiệp vụ độc lập được lưu lâu dài.
 
-### 9.7. Quan hệ giữa các lớp người dùng và báo cáo
+### 9.17. Quan hệ giữa các lớp người dùng, nghiệp vụ và báo cáo
 
 ```mermaid
 classDiagram
@@ -477,6 +607,243 @@ classDiagram
         +DateTime updatedAt
     }
 
+    class ManagementUser {
+        +UUID managementId
+        +String fullName
+        +String email
+        +String passwordHash
+        +Role role
+        +Status status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Booking {
+        +UUID bookingId
+        +UUID customerId
+        +String pickupLocation
+        +String destination
+        +VehicleType vehicleType
+        +BookingStatus status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Trip {
+        +UUID tripId
+        +UUID bookingId
+        +UUID customerId
+        +UUID driverId
+        +UUID vehicleId
+        +TripStatus status
+        +Decimal fare
+        +DateTime startedAt
+        +DateTime completedAt
+        +DateTime cancelledAt
+        +String cancellationReason
+    }
+
+    class Payment {
+        +UUID paymentId
+        +UUID tripId
+        +PaymentMethod method
+        +Decimal amount
+        +PaymentStatus status
+        +String providerTransactionId
+        +DateTime paidAt
+    }
+
+    class Rating {
+        +UUID ratingId
+        +UUID tripId
+        +UUID customerId
+        +UUID driverId
+        +Integer score
+        +String comment
+        +DateTime createdAt
+    }
+
+    class Notification {
+        +UUID notificationId
+        +UUID tripId
+        +UUID recipientId
+        +NotificationType type
+        +NotificationStatus status
+        +DateTime sentAt
+    }
+
+    class Incident {
+        +UUID incidentId
+        +UUID tripId
+        +UUID reportedBy
+        +IncidentType type
+        +String description
+        +IncidentStatus status
+        +String resolution
+        +DateTime createdAt
+        +DateTime resolvedAt
+    }
+
+    class Role {
+        +UUID roleId
+        +String name
+        +String description
+    }
+
+    class Permission {
+        +UUID permissionId
+        +String code
+        +String name
+        +String description
+    }
+
+    class AuditLog {
+        +UUID logId
+        +UUID actorId
+        +String action
+        +String targetType
+        +UUID targetId
+        +DateTime timestamp
+        +String details
+    }
+
+    class ManagementReport {
+        +UUID reportId
+        +DateTime fromDate
+        +DateTime toDate
+        +Integer totalTrips
+        +Integer completedTrips
+        +Integer cancelledTrips
+        +Decimal revenue
+        +Decimal completionRate
+        +Decimal cancellationRate
+        +Object driverMetrics
+    }
+
+    Customer "1" --> "0..*" Booking : tạo
+    Booking "1" --> "0..1" Trip : tạo chuyến
+    Driver "1" --> "0..*" Trip : thực hiện
+    Driver "1" --> "1..*" Vehicle : sử dụng
+    Vehicle "1" --> "0..*" Trip : phục vụ
+    Trip "1" --> "0..1" Payment : có thanh toán
+    Trip "1" --> "0..1" Rating : có đánh giá
+    Driver "1" --> "0..*" Rating : nhận
+    Trip "1" --> "0..*" Notification : phát sinh
+    Trip "0..1" --> "0..*" Incident : liên quan
+    OperationsStaff "1" --> "0..*" Incident : xử lý
+    ManagementReport ..> Trip : tổng hợp dữ liệu
+    ManagementReport ..> Payment : tổng hợp doanh thu
+    ManagementReport ..> Driver : tổng hợp hiệu quả
+    ManagementUser ..> ManagementReport : xem
+    Administrator ..> Role : quản lý
+    Administrator ..> Permission : quản lý
+    Role "1" --> "0..*" Permission : cấp
+    Administrator ..> AuditLog : theo dõi
+```
+
+```mermaid
+classDiagram
+    class Customer {
+        +UUID customerId
+        +String fullName
+        +String phone
+        +String email
+        +String passwordHash
+        +Status status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Driver {
+        +UUID driverId
+        +String fullName
+        +String phone
+        +String email
+        +String passwordHash
+        +DriverStatus status
+        +Decimal currentLatitude
+        +Decimal currentLongitude
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Vehicle {
+        +UUID vehicleId
+        +UUID driverId
+        +VehicleType vehicleType
+        +String licensePlate
+        +String model
+        +VehicleStatus status
+    }
+
+    class OperationsStaff {
+        +UUID staffId
+        +String fullName
+        +String email
+        +String passwordHash
+        +Role role
+        +Status status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Administrator {
+        +UUID adminId
+        +String fullName
+        +String email
+        +String passwordHash
+        +Role role
+        +Status status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class ManagementUser {
+        +UUID managementId
+        +String fullName
+        +String email
+        +String passwordHash
+        +Role role
+        +Status status
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class Incident {
+        +UUID incidentId
+        +UUID tripId
+        +UUID reportedBy
+        +IncidentType type
+        +String description
+        +IncidentStatus status
+        +String resolution
+        +DateTime createdAt
+        +DateTime resolvedAt
+    }
+
+    class Role {
+        +UUID roleId
+        +String name
+        +String description
+    }
+
+    class Permission {
+        +UUID permissionId
+        +String code
+        +String name
+        +String description
+    }
+
+    class AuditLog {
+        +UUID logId
+        +UUID actorId
+        +String action
+        +String targetType
+        +UUID targetId
+        +DateTime timestamp
+        +String details
+    }
+
     class ManagementReport {
         +UUID reportId
         +DateTime fromDate
@@ -491,10 +858,17 @@ classDiagram
     }
 
     Driver "1" --> "1..*" Vehicle : sử dụng
+    OperationsStaff "1" --> "0..*" Incident : xử lý
+    Incident "0..*" --> "0..1" ManagementReport : nguồn dữ liệu tổng hợp
+    Role "1" --> "0..*" Permission : cấp quyền
     Administrator ..> Customer : quản lý tài khoản
     Administrator ..> Driver : quản lý tài khoản
     Administrator ..> OperationsStaff : quản lý quyền truy cập
-    Administrator ..> ManagementReport : không truy cập trực tiếp dữ liệu báo cáo
+    Administrator ..> ManagementUser : quản lý tài khoản
+    Administrator ..> Role : quản lý vai trò
+    Administrator ..> Permission : quản lý quyền
+    Administrator ..> AuditLog : theo dõi audit
+    ManagementUser ..> ManagementReport : xem báo cáo
 ```
 
 ## Bước 10. Xác định yêu cầu phi chức năng (Non-Functional Requirements)
@@ -528,7 +902,7 @@ flowchart LR
         UC01(("Đăng ký / Đăng nhập"))
         UC02(("Đặt xe"))
         UC03(("Hủy chuyến"))
-        UC04(("Theo dõi chuyến xe"))
+        UC04(("Theo dõi chuyến xe - Customer"))
         UC05(("Xem lịch sử chuyến"))
         UC06(("Đánh giá tài xế"))
 
@@ -545,50 +919,86 @@ flowchart LR
         UC15(("Quản lý khách hàng"))
         UC16(("Quản lý tài xế"))
         UC17(("Quản lý phương tiện"))
-        UC18(("Theo dõi chuyến xe"))
+        UC18(("Theo dõi chuyến xe - Vận hành"))
         UC19(("Tra cứu giao dịch"))
         UC20(("Quản lý tài khoản và phân quyền"))
         UC21(("Xem báo cáo quản trị"))
+        UC22(("Quản lý hồ sơ cá nhân"))
+        UC23(("Xử lý sự cố vận hành"))
     end
 
     Customer --> UC01
     Customer --> UC02
     Customer --> UC03
+    Driver --> UC03
+    Staff --> UC03
     Customer --> UC04
     Customer --> UC05
     Customer --> UC06
     Customer --> UC13
+    Customer --> UC22
 
     Driver --> UC01
     Driver --> UC07
     Driver --> UC08
     Driver --> UC09
     Driver --> UC10
+    Driver --> UC17
+    Driver --> UC22
 
+    Staff --> UC01
     Staff --> UC15
     Staff --> UC16
     Staff --> UC17
     Staff --> UC18
     Staff --> UC19
+    Staff --> UC23
 
     Admin --> UC20
+    Management --> UC01
     Management --> UC21
 
-    UC02 --> UC11
-    UC11 --> UC14
-    UC07 --> UC14
-    UC09 --> UC14
-    UC12 --> UC13
+    UC02 -.->|include| UC11
+    UC11 -.->|include| UC14
+    UC07 -.->|include| UC14
+    UC08 -.->|include| UC11
+    UC09 -.->|include| UC14
+    UC03 -.->|include| UC14
+    UC13 -.->|include| UC12
     UC13 --> Payment
-    UC13 --> UC14
     UC14 --> Notification
-    UC08 --> UC11
-    UC03 --> UC14
-    UC21 --> UC19
-    UC21 --> UC18
 ```
 
+
 ### Luồng Use Case chính
+
+```mermaid
+flowchart TD
+    A["Customer<br/>Đặt xe"] --> B["Tạo yêu cầu đặt xe"]
+    B --> C["Tìm và phân công tài xế"]
+    C --> D{"Tài xế nhận?"}
+
+    D -- "Không / Từ chối / Timeout" --> C
+    D -- "Có" --> E["Tài xế nhận chuyến"]
+    E --> F["Cập nhật trạng thái và vị trí"]
+    F --> G["Customer theo dõi chuyến"]
+    F --> H["Staff theo dõi chuyến"]
+    F --> I["Xử lý sự cố nếu phát sinh"]
+    G --> J["Chuyến hoàn thành"]
+    H --> J
+    I --> J
+    J --> K["Tính cước"]
+    K --> L["Thanh toán"]
+    L --> M["Lưu lịch sử / giao dịch"]
+    M --> N["Customer đánh giá tài xế"]
+
+    O["Customer / Driver"] --> P["Quản lý hồ sơ cá nhân"]
+    Q["Driver"] --> R["Quản lý phương tiện"]
+    S["Administrator"] --> T["Quản lý tài khoản và phân quyền"]
+    U["Management"] --> V["Xem báo cáo quản trị"]
+    M --> V
+    J --> V
+```
 
 ```mermaid
 flowchart TD
@@ -623,8 +1033,8 @@ flowchart TD
 | --- | --- |
 | **Use Case ID** | UC01 |
 | **Tên** | Đăng ký / Đăng nhập |
-| **Actor chính** | Customer, Driver |
-| **Actor phụ** | Administrator (quản lý trạng thái tài khoản) |
+| **Actor chính** | Customer, Driver, Operations Staff, Administrator, Management |
+| **Actor phụ** | — |
 | **Mục tiêu** | Cho phép người dùng tạo tài khoản, xác thực và truy cập hệ thống theo vai trò. |
 | **Tiền điều kiện** | Người dùng chưa đăng nhập; tài khoản phải ở trạng thái được phép truy cập khi đăng nhập. |
 | **Hậu điều kiện** | Tài khoản được tạo hoặc phiên đăng nhập được xác thực thành công. |
@@ -700,19 +1110,19 @@ flowchart TD
 | --- | --- |
 | **Use Case ID** | UC03 |
 | **Tên** | Hủy chuyến |
-| **Actor chính** | Customer |
-| **Actor phụ** | Driver, Operations Staff, Notification Provider |
-| **Mục tiêu** | Cho phép hủy chuyến theo trạng thái và chính sách. |
-| **Tiền điều kiện** | Customer có một chuyến ở trạng thái cho phép hủy. |
+| **Actor chính** | Customer, Driver |
+| **Actor phụ** | Operations Staff, Notification Provider |
+| **Mục tiêu** | Cho phép Customer hoặc Driver hủy chuyến theo trạng thái và chính sách được áp dụng. |
+| **Tiền điều kiện** | Customer hoặc Driver có một chuyến ở trạng thái cho phép hủy và actor có quyền thực hiện. |
 | **Hậu điều kiện** | Chuyến chuyển sang trạng thái Hủy và các xử lý liên quan được dừng/cập nhật. |
 | **Trigger** | Customer yêu cầu hủy chuyến. |
 
 ### Main Flow
 
-1. Customer chọn chuyến đang hoạt động.
-2. Hệ thống kiểm tra trạng thái chuyến và quyền hủy.
+1. Actor chọn chuyến đang hoạt động.
+2. Hệ thống kiểm tra trạng thái chuyến và quyền hủy của actor.
 3. Hệ thống hiển thị thông tin xác nhận hủy.
-4. Customer xác nhận hủy.
+4. Actor xác nhận hủy.
 5. Hệ thống cập nhật trạng thái chuyến thành Hủy.
 6. Hệ thống dừng việc tìm/phân công tài xế nếu còn đang diễn ra.
 7. Hệ thống thông báo kết quả hủy đến các bên liên quan.
@@ -774,8 +1184,8 @@ flowchart TD
 | **Use Case ID** | UC05 |
 | **Tên** | Xem lịch sử chuyến |
 | **Actor chính** | Customer |
-| **Actor phụ** | Operations Staff |
-| **Mục tiêu** | Cho phép tra cứu các chuyến xe đã phát sinh trong phạm vi quyền. |
+| **Actor phụ** | — |
+| **Mục tiêu** | Cho phép khách hàng tra cứu các chuyến xe đã phát sinh của chính mình. |
 | **Tiền điều kiện** | Người dùng đã đăng nhập. |
 | **Hậu điều kiện** | Danh sách và/hoặc chi tiết lịch sử được hiển thị. |
 | **Trigger** | Người dùng mở chức năng lịch sử. |
@@ -1205,23 +1615,24 @@ flowchart TD
 | **Use Case ID** | UC17 |
 | **Tên** | Quản lý phương tiện |
 | **Actor chính** | Operations Staff |
-| **Actor phụ** | Administrator |
-| **Mục tiêu** | Cho phép nhân viên vận hành quản lý thông tin phương tiện của tài xế. |
-| **Tiền điều kiện** | Staff đã đăng nhập và có quyền vận hành. |
-| **Hậu điều kiện** | Thông tin phương tiện được cập nhật hoặc xem thành công. |
-| **Trigger** | Staff chọn chức năng quản lý phương tiện. |
+| **Actor phụ** | Driver |
+| **Mục tiêu** | Cho phép nhân viên vận hành quản lý phương tiện và cho phép tài xế xem, cập nhật phương tiện do mình sử dụng trong phạm vi được phép. |
+| **Tiền điều kiện** | Actor đã đăng nhập và có quyền tương ứng. |
+| **Hậu điều kiện** | Thông tin phương tiện được xem hoặc cập nhật thành công trong đúng phạm vi quyền. |
+| **Trigger** | Actor chọn chức năng quản lý phương tiện. |
 
 ### Main Flow
 
-1. Staff chọn phương tiện.
-2. Hệ thống kiểm tra quyền.
-3. Hệ thống hiển thị danh sách.
-4. Staff chọn phương tiện.
-5. Hệ thống hiển thị chi tiết.
-6. Staff thêm/sửa thông tin trong phạm vi được phép.
-7. Hệ thống kiểm tra dữ liệu.
+1. Actor chọn chức năng phương tiện.
+2. Hệ thống xác định vai trò và kiểm tra quyền.
+3. Hệ thống hiển thị danh sách phương tiện trong phạm vi actor được phép xem.
+4. Actor chọn phương tiện cần xem hoặc cập nhật.
+5. Hệ thống hiển thị thông tin chi tiết.
+6. Actor thực hiện thao tác được phép; Driver chỉ được thao tác trên phương tiện của mình.
+7. Hệ thống kiểm tra dữ liệu và phạm vi sở hữu/quản lý.
 8. Hệ thống lưu thay đổi.
-9. Use Case kết thúc.
+9. Hệ thống ghi log đối với thay đổi quan trọng nếu cần.
+10. Use Case kết thúc.
 
 ### Alternative / Exception Flow
 
@@ -1242,8 +1653,8 @@ flowchart TD
 | **Use Case ID** | UC18 |
 | **Tên** | Theo dõi chuyến xe |
 | **Actor chính** | Operations Staff |
-| **Actor phụ** | Customer, Driver |
-| **Mục tiêu** | Cho phép nhân viên vận hành giám sát các chuyến đang diễn ra và xử lý thông tin vận hành. |
+| **Actor phụ** | — |
+| **Mục tiêu** | Cho phép nhân viên vận hành giám sát các chuyến đang diễn ra và xử lý thông tin vận hành trong phạm vi được phép. |
 | **Tiền điều kiện** | Staff đã đăng nhập và có quyền theo dõi. |
 | **Hậu điều kiện** | Danh sách/trạng thái chuyến được hiển thị theo thời gian hệ thống hỗ trợ. |
 | **Trigger** | Staff mở màn hình theo dõi chuyến. |
@@ -1278,8 +1689,8 @@ flowchart TD
 | **Use Case ID** | UC19 |
 | **Tên** | Tra cứu giao dịch |
 | **Actor chính** | Operations Staff |
-| **Actor phụ** | Payment Provider |
-| **Mục tiêu** | Cho phép nhân viên vận hành tra cứu thông tin và trạng thái các giao dịch thanh toán. |
+| **Actor phụ** | — |
+| **Mục tiêu** | Cho phép nhân viên vận hành tra cứu thông tin và trạng thái các giao dịch thanh toán đã được hệ thống ghi nhận. |
 | **Tiền điều kiện** | Staff đã đăng nhập và có quyền tra cứu. |
 | **Hậu điều kiện** | Danh sách hoặc chi tiết giao dịch được hiển thị theo phạm vi quyền. |
 | **Trigger** | Staff tìm kiếm giao dịch. |
@@ -1354,7 +1765,7 @@ flowchart TD
 | **Use Case ID** | UC21 |
 | **Tên** | Xem báo cáo quản trị |
 | **Actor chính** | Ban lãnh đạo |
-| **Actor phụ** | Operations Staff |
+| **Actor phụ** | — |
 | **Mục tiêu** | Cho phép Ban lãnh đạo xem báo cáo tổng hợp về chuyến xe, doanh thu và hiệu quả hoạt động của tài xế. |
 | **Tiền điều kiện** | Ban lãnh đạo đã đăng nhập và có quyền xem báo cáo. |
 | **Hậu điều kiện** | Báo cáo được hiển thị theo phạm vi thời gian và dữ liệu được xác định. |
@@ -1385,9 +1796,83 @@ flowchart TD
 | **A4** | 6 | Không có dữ liệu thanh toán thành công | Hệ thống hiển thị doanh thu bằng 0/không có dữ liệu theo cách biểu diễn của hệ thống. |
 | **A5** | 9 | Dữ liệu tài xế không đủ | Hệ thống hiển thị các chỉ số có thể tính và thông báo phần thiếu dữ liệu. |
 
-## Bước 13. Tiêu chí chấp nhận (Acceptant Criteria)
+# UC22 – Quản lý hồ sơ cá nhân
 
-Các tiêu chí dưới đây được xây dựng bám theo 21 Use Case trong Use Case Diagram và các Functional Requirement tương ứng.
+| Thành phần | Nội dung |
+| --- | --- |
+| **Use Case ID** | UC22 |
+| **Tên** | Quản lý hồ sơ cá nhân |
+| **Actor chính** | Customer, Driver |
+| **Actor phụ** | — |
+| **Mục tiêu** | Cho phép Customer và Driver xem và cập nhật thông tin tài khoản, hồ sơ cá nhân trong phạm vi được phép. |
+| **Tiền điều kiện** | Customer hoặc Driver đã đăng nhập. |
+| **Hậu điều kiện** | Thông tin hồ sơ hợp lệ được cập nhật thành công hoặc không thay đổi nếu dữ liệu không hợp lệ. |
+| **Trigger** | Người dùng mở chức năng hồ sơ cá nhân. |
+
+### Main Flow
+
+1. Người dùng mở hồ sơ cá nhân.
+2. Hệ thống xác định tài khoản hiện tại.
+3. Hệ thống hiển thị thông tin tài khoản và hồ sơ được phép xem.
+4. Người dùng chỉnh sửa thông tin cần cập nhật.
+5. Hệ thống kiểm tra định dạng và dữ liệu hợp lệ.
+6. Hệ thống lưu thay đổi.
+7. Hệ thống thông báo cập nhật thành công.
+8. Use Case kết thúc.
+
+### Alternative / Exception Flow
+
+| Mã | Tại bước | Trường hợp | Xử lý |
+| --- | ---: | --- | --- |
+| **A1** | 2 | Không xác định được tài khoản | Hệ thống yêu cầu đăng nhập lại. |
+| **A2** | 5 | Dữ liệu không hợp lệ | Hệ thống yêu cầu chỉnh sửa. |
+| **A3** | 5 | Người dùng cố cập nhật trường không được phép | Hệ thống từ chối trường dữ liệu đó. |
+| **A4** | 6 | Không thể lưu thay đổi | Hệ thống thông báo thất bại và giữ dữ liệu cũ. |
+
+---
+
+# UC23 – Xử lý sự cố vận hành
+
+| Thành phần | Nội dung |
+| --- | --- |
+| **Use Case ID** | UC23 |
+| **Tên** | Xử lý sự cố vận hành |
+| **Actor chính** | Operations Staff |
+| **Actor phụ** | Customer, Driver |
+| **Mục tiêu** | Cho phép nhân viên vận hành ghi nhận, theo dõi và xử lý các sự cố phát sinh trong quá trình vận hành chuyến xe. |
+| **Tiền điều kiện** | Staff đã đăng nhập và có quyền xử lý sự cố. |
+| **Hậu điều kiện** | Sự cố được ghi nhận với trạng thái xử lý phù hợp và có kết quả xử lý khi đã hoàn tất. |
+| **Trigger** | Sự cố được phát hiện hoặc được Customer/Driver báo cho bộ phận vận hành. |
+
+### Main Flow
+
+1. Staff mở chức năng xử lý sự cố.
+2. Staff tạo mới/chọn sự cố hoặc tiếp nhận sự cố do Customer/Driver báo.
+3. Hệ thống kiểm tra quyền truy cập.
+4. Hệ thống hiển thị thông tin sự cố và chuyến xe liên quan nếu có.
+5. Staff cập nhật loại sự cố, mô tả và trạng thái xử lý.
+6. Hệ thống kiểm tra dữ liệu.
+7. Hệ thống lưu thông tin sự cố.
+8. Staff thực hiện biện pháp xử lý trong phạm vi được phép.
+9. Staff cập nhật kết quả xử lý và trạng thái hoàn tất khi phù hợp.
+10. Hệ thống lưu nhật ký xử lý.
+11. Use Case kết thúc.
+
+### Alternative / Exception Flow
+
+| Mã | Tại bước | Trường hợp | Xử lý |
+| --- | ---: | --- | --- |
+| **A1** | 3 | Staff không có quyền | Hệ thống từ chối thao tác. |
+| **A2** | 4 | Không tìm thấy chuyến liên quan | Hệ thống cho phép ghi nhận sự cố không gắn chuyến nếu chính sách cho phép. |
+| **A3** | 6 | Dữ liệu sự cố không hợp lệ | Hệ thống yêu cầu chỉnh sửa. |
+| **A4** | 7 | Không thể lưu sự cố | Hệ thống thông báo thất bại và ghi log. |
+| **A5** | 8 | Không thể thực hiện biện pháp xử lý | Hệ thống giữ sự cố ở trạng thái đang xử lý và ghi nhận nguyên nhân. |
+
+---
+
+## Bước 13. Tiêu chí chấp nhận (Acceptance Criteria)
+
+Các tiêu chí dưới đây được xây dựng bám theo 23 Use Case trong Use Case Diagram và các Functional Requirement tương ứng.
 
 ### AC01 – Đăng ký / Đăng nhập
 
@@ -1446,6 +1931,7 @@ Các tiêu chí dưới đây được xây dựng bám theo 21 Use Case trong U
 | **AC07.1** | Driver sẵn sàng và Booking đang chờ | Driver nhận | Chuyến được gán cho Driver. |
 | **AC07.2** | Booking đã được Driver khác nhận | Driver nhận | Hệ thống từ chối thao tác. |
 | **AC07.3** | Driver nhận thành công | Sau khi nhận | Driver chuyển sang trạng thái bận và Customer được thông báo. |
+| **AC07.4** | Driver đã đăng nhập và không có chuyến đang thực hiện | Chuyển sang sẵn sàng | Hệ thống cập nhật Driver sang trạng thái sẵn sàng. |
 
 ### AC08 – Từ chối chuyến
 
@@ -1525,9 +2011,9 @@ Các tiêu chí dưới đây được xây dựng bám theo 21 Use Case trong U
 
 | Mã | Given | When | Then |
 | --- | --- | --- | --- |
-| **AC17.1** | Staff có quyền | Mở quản lý phương tiện | Danh sách phương tiện được hiển thị. |
-| **AC17.2** | Thông tin phương tiện hợp lệ | Thêm/sửa | Hệ thống lưu thay đổi. |
-| **AC17.3** | Thông tin không hợp lệ | Thêm/sửa | Hệ thống từ chối lưu và thông báo lỗi. |
+| **AC17.1** | Staff có quyền hoặc Driver đang quản lý phương tiện của mình | Mở quản lý phương tiện | Hệ thống hiển thị phương tiện trong đúng phạm vi quyền. |
+| **AC17.2** | Actor có quyền và thông tin phương tiện hợp lệ | Thêm/sửa | Hệ thống lưu thay đổi; Driver chỉ được cập nhật phương tiện của mình. |
+| **AC17.3** | Actor không có quyền hoặc thông tin không hợp lệ | Thêm/sửa | Hệ thống từ chối lưu và thông báo lỗi. |
 
 ### AC18 – Theo dõi chuyến xe vận hành
 
@@ -1565,6 +2051,22 @@ Các tiêu chí dưới đây được xây dựng bám theo 21 Use Case trong U
 | **AC21.4** | Không có dữ liệu | Xem báo cáo | Hệ thống thông báo không có dữ liệu phù hợp. |
 | **AC21.5** | Chọn xem chi tiết | Xem chi tiết | Hệ thống hiển thị dữ liệu chuyến/giao dịch nguồn theo quyền. |
 
+### AC22 – Quản lý hồ sơ cá nhân
+
+| Mã | Given | When | Then |
+| --- | --- | --- | --- |
+| **AC22.1** | Customer hoặc Driver đã đăng nhập | Mở hồ sơ | Hệ thống hiển thị thông tin hồ sơ của chính người dùng. |
+| **AC22.2** | Dữ liệu cập nhật hợp lệ | Lưu hồ sơ | Hệ thống lưu thay đổi thành công. |
+| **AC22.3** | Người dùng nhập dữ liệu không hợp lệ | Lưu hồ sơ | Hệ thống từ chối lưu và yêu cầu chỉnh sửa. |
+
+### AC23 – Xử lý sự cố vận hành
+
+| Mã | Given | When | Then |
+| --- | --- | --- | --- |
+| **AC23.1** | Staff có quyền xử lý sự cố | Tạo sự cố | Sự cố được ghi nhận với mã và trạng thái ban đầu. |
+| **AC23.2** | Sự cố tồn tại | Cập nhật xử lý | Hệ thống lưu trạng thái, mô tả và kết quả xử lý. |
+| **AC23.3** | Staff không có quyền | Xử lý sự cố | Hệ thống từ chối thao tác. |
+
 ## 13.18. Điều kiện nghiệm thu tổng thể hệ thống
 
 CAB System được xem là **đạt Acceptance** khi đáp ứng đồng thời các nhóm điều kiện sau:
@@ -1582,7 +2084,7 @@ CAB System được xem là **đạt Acceptance** khi đáp ứng đồng thời
 
 ### 2. Functional Acceptance
 
-* [ ] 21 Use Case hoạt động đúng Main Flow.
+* [ ] 23 Use Case hoạt động đúng Main Flow.
 * [ ] Các Alternative Flow được xử lý đúng.
 * [ ] Các Exception quan trọng được xử lý.
 * [ ] Các Business Rule được tuân thủ.
@@ -1712,7 +2214,7 @@ Các tiêu chí định lượng chưa được Customer Requirement xác địn
 | **FR38** | Thông báo thanh toán | FR38: Payment result notification | UC14 | AC14.1, AC14.3 | Medium |
 | **FR39** | Quản lý khách hàng | FR39: Customer management | UC15 | AC15.1, AC15.2, AC15.3 | High |
 | **FR40** | Quản lý tài xế | FR40: Driver management | UC16 | AC16.1, AC16.2, AC16.3 | High |
-| **FR41** | Quản lý phương tiện | FR41: Vehicle management | UC17 | AC17.1, AC17.2, AC17.3 | Medium |
+| **FR41** | Quản lý phương tiện | FR41: Vehicle management | UC17 | AC17.1, AC17.2, AC17.3 | High |
 | **FR42** | Xem danh sách chuyến | FR42: Trip list | UC18 | AC18.1 | High |
 | **FR43** | Xem chi tiết chuyến | FR43: Trip detail | UC18 | AC18.2 | High |
 | **FR44** | Theo dõi trạng thái tài xế | FR44: Driver status | UC16, UC18 | AC16.2, AC18.2 | Medium |
@@ -1725,7 +2227,7 @@ Các tiêu chí định lượng chưa được Customer Requirement xác địn
 | **FR51** | Xem đánh giá tài xế | FR51: View driver ratings | UC06, UC21 | AC06.1, AC21.3 | Low |
 | **FR52** | Đăng ký tài khoản | FR52: Registration | UC01 | AC01.1, AC01.2 | High |
 | **FR53** | Đăng nhập | FR53: Login | UC01 | AC01.3, AC01.4 | High |
-| **FR54** | Cập nhật tài khoản | FR54: Account update | UC01, UC20 | AC01.3, AC20.1 | Medium |
+| **FR54** | Cập nhật tài khoản | FR54: Account update | UC22 | AC22.1, AC22.2, AC22.3 | Medium |
 | **FR55** | Phân quyền người dùng | FR55: Authorization | UC20 | AC20.3, AC20.4 | High |
 | **FR56** | Quản lý trạng thái tài khoản | FR56: Account status | UC20 | AC20.2 | High |
 | **FR57** | Quản lý vai trò | FR57: Role management | UC20 | AC20.3, AC20.4 | High |
@@ -1738,8 +2240,14 @@ Các tiêu chí định lượng chưa được Customer Requirement xác địn
 | **FR64** | Hiệu quả hoạt động tài xế | FR64: Driver performance report | UC21 | AC21.3 | High |
 | **FR65** | Lọc theo thời gian | FR65: Report time filter | UC21 | AC21.2 | Medium |
 | **FR66** | Xem chi tiết báo cáo | FR66: Report detail | UC21 | AC21.5 | Medium |
+| **FR67** | Quản lý hồ sơ cá nhân | FR67: Personal profile management | UC22 | AC22.1, AC22.2, AC22.3 | Medium |
+| **FR68** | Quản lý phương tiện cá nhân | FR68: Personal vehicle management | UC17 | AC17.1, AC17.2, AC17.3 | Medium |
+| **FR69** | Xử lý sự cố vận hành | FR69: Operational incident handling | UC23 | AC23.1, AC23.2, AC23.3 | High |
+| **FR70** | Cập nhật trạng thái sẵn sàng của tài xế | FR70: Driver availability status | UC07 | AC07.4 | Medium |
+
 
 ```mermaid
+
 flowchart LR
     A["FR19-FR22<br/>Cập nhật trạng thái chuyến"]
     B["UC09<br/>Cập nhật trạng thái"]
