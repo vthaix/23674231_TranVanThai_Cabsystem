@@ -2,10 +2,7 @@
 
 # CAB SYSTEM
 
-**Phiên bản:** 2.0
 **Hệ thống:** CAB System – Hệ thống quản lý và đặt xe
-**Trạng thái:** Draft / Development Baseline
-**Mục tiêu:** Làm tài liệu đặc tả yêu cầu làm nguồn tham chiếu chính cho thiết kế, database, API, UI và vibe coding.
 
 ---
 
