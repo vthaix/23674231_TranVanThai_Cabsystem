@@ -1,0 +1,91 @@
+name: BR09 - Fare
+version: '1.0'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
+- SRS is the source of truth for requirements.
+- Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
+- Concrete HTTP routes are not defined by SRS unless explicitly stated.
+- Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR57_POS
+  uc: UC22
+  scenario: '[Positive] Tinh va luu fare cho Trip COMPLETED (FR57,58,59,60)'
+  case: '[Positive] Tinh va luu fare cho Trip COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR09
+    fr:
+    - FR57
+    - FR58
+    - FR59
+    - FR60
+    brule:
+    - BRULE16
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/fare
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip COMPLETED
+  - co pickup/destination/vehicleType.
+  test_steps:
+  - step: 1
+    action: Tinh fare
+  - step: 2
+    action: Luu Trip.fare
+  - step: 3
+    action: Hien thi
+  assertions:
+  - Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
+  expected_result: Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
+  test_data:
+  - Trip input hop le
+- id: TC_FR60_NEG
+  uc: UC22
+  scenario: '[Negative] Khong tinh Payment truoc khi Trip COMPLETED (FR60)'
+  case: '[Negative] Khong tinh Payment truoc khi Trip COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR09
+    fr:
+    - FR60
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/fare
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip chua COMPLETED.
+  test_steps:
+  - step: 1
+    action: Kich hoat quy trinh payment/tinh fare
+  assertions:
+  - He thong khong cho thanh toan truoc khi Trip COMPLETED.
+  expected_result: He thong khong cho thanh toan truoc khi Trip COMPLETED.
+  test_data:
+  - Trip IN_PROGRESS

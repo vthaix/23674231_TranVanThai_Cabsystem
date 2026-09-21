@@ -1,0 +1,470 @@
+name: BR04 - Booking
+version: '1.0'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
+- SRS is the source of truth for requirements.
+- Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
+- Concrete HTTP routes are not defined by SRS unless explicitly stated.
+- Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR17_18_19_POS
+  uc: UC11
+  scenario: '[Positive] Tao Booking voi pickup, destination va vehicleType hop le (FR17,18,19,20,21)'
+  case: '[Positive] Tao Booking voi pickup, destination va vehicleType hop le'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR17
+    - FR18
+    - FR19
+    - FR20
+    - FR21
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer da dang nhap
+  - Account ACTIVE.
+  test_steps:
+  - step: 1
+    action: Nhap pickup
+  - step: 2
+    action: Nhap destination
+  - step: 3
+    action: Chon vehicleType
+  - step: 4
+    action: Gui tao Booking
+  assertions:
+  - Booking duoc tao, status=SEARCHING va kich hoat Driver Matching.
+  expected_result: Booking duoc tao, status=SEARCHING va kich hoat Driver Matching.
+  test_data:
+  - Pickup hop le
+  - destination hop le
+  - vehicleType hop le
+- id: TC_FR17_MISSING
+  uc: UC11
+  scenario: '[Missing Data] Tao Booking thieu pickup (FR17,20,21)'
+  case: '[Missing Data] Tao Booking thieu pickup'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR17
+    - FR20
+    - FR21
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer ACTIVE dang o man hinh Booking.
+  test_steps:
+  - step: 1
+    action: Bo trong pickup
+  - step: 2
+    action: Gui tao
+  assertions:
+  - He thong reject
+  - khong tao Booking.
+  expected_result: He thong reject; khong tao Booking.
+  test_data:
+  - Pickup trong
+- id: TC_FR18_MISSING
+  uc: UC11
+  scenario: '[Missing Data] Tao Booking thieu destination (FR18,20,21)'
+  case: '[Missing Data] Tao Booking thieu destination'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR18
+    - FR20
+    - FR21
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer ACTIVE.
+  test_steps:
+  - step: 1
+    action: Bo trong destination
+  - step: 2
+    action: Gui tao
+  assertions:
+  - He thong reject
+  - khong tao Booking.
+  expected_result: He thong reject; khong tao Booking.
+  test_data:
+  - Destination trong
+- id: TC_FR19_INVALID
+  uc: UC11
+  scenario: '[Negative] Tao Booking voi vehicleType khong hop le (FR19,20,21)'
+  case: '[Negative] Tao Booking voi vehicleType khong hop le'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR19
+    - FR20
+    - FR21
+    brule: []
+    nfr:
+    - NFR07
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer ACTIVE.
+  test_steps:
+  - step: 1
+    action: Chon vehicleType khong ton tai/khong hop le
+  - step: 2
+    action: Gui tao
+  assertions:
+  - He thong reject
+  - khong tao Booking.
+  expected_result: He thong reject; khong tao Booking.
+  test_data:
+  - VehicleType invalid
+- id: TC_FR20_INACTIVE
+  uc: UC11
+  scenario: '[Exception] Tao Booking khi Customer khong con ACTIVE (FR20,21)'
+  case: '[Exception] Tao Booking khi Customer khong con ACTIVE'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR20
+    - FR21
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer bi inactive/locked.
+  test_steps:
+  - step: 1
+    action: Gui tao Booking
+  assertions:
+  - He thong reject
+  - khong tao Booking.
+  expected_result: He thong reject; khong tao Booking.
+  test_data:
+  - Account inactive
+- id: TC_FR21_NOTIFY
+  uc: UC11
+  scenario: '[Positive] Tao Booking va luu dung trang thai (FR21)'
+  case: '[Positive] Tao Booking va luu dung trang thai'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR21
+    brule:
+    - BRULE01
+    - BRULE02
+    nfr: []
+  api:
+    method: POST
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+    note: Backend gop Booking va Trip lam mot qua /trips (khong co entity Booking rieng).
+  preconditions:
+  - Customer ACTIVE
+  - du lieu hop le.
+  test_steps:
+  - step: 1
+    action: Tao Booking
+  - step: 2
+    action: Kiem tra DB
+  assertions:
+  - Booking duoc CREATE voi status SEARCHING
+  - Notification xac nhan duoc kich hoat.
+  expected_result: Booking duoc CREATE voi status SEARCHING; Notification xac nhan duoc kich hoat.
+  test_data:
+  - Booking hop le
+- id: TC_FR22_ISO
+  uc: UC12
+  scenario: '[Negative] Customer xem Booking cua Customer khac (FR22)'
+  case: '[Negative] Customer xem Booking cua Customer khac'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR22
+    brule: []
+    nfr:
+    - NFR05
+  api:
+    method: GET
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+  preconditions:
+  - Customer A dang nhap
+  - Booking B cua Customer B.
+  test_steps:
+  - step: 1
+    action: Yeu cau xem Booking B
+  assertions:
+  - He thong tu choi truy cap.
+  expected_result: He thong tu choi truy cap.
+  test_data:
+  - Booking B
+- id: TC_FR22_POS
+  uc: UC12
+  scenario: '[Positive] Customer xem Booking cua chinh minh (FR22)'
+  case: '[Positive] Customer xem Booking cua chinh minh'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR22
+    brule:
+    - BRULE21
+    nfr: []
+  api:
+    method: GET
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+  preconditions:
+  - Customer dang nhap
+  - co Booking.
+  test_steps:
+  - step: 1
+    action: Mo danh sach/chi tiet Booking
+  assertions:
+  - He thong chi tra ve Booking thuoc Customer.
+  expected_result: He thong chi tra ve Booking thuoc Customer.
+  test_data:
+  - Booking cua Customer
+- id: TC_FR22_STAFF
+  uc: UC12
+  scenario: '[Positive] Operations Staff xem Booking theo permission (FR22)'
+  case: '[Positive] Operations Staff xem Booking theo permission'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR22
+    brule: []
+    nfr:
+    - NFR02
+  api:
+    method: GET
+    path: /trips
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${OPERATIONS_TOKEN}
+    body: {}
+  preconditions:
+  - Staff dang nhap va co permission.
+  test_steps:
+  - step: 1
+    action: Mo chuc nang Booking
+  - step: 2
+    action: Tra cuu
+  assertions:
+  - He thong cho xem Booking trong pham vi permission.
+  expected_result: He thong cho xem Booking trong pham vi permission.
+  test_data:
+  - Permission hop le
+- id: TC_FR23_AUTH
+  uc: UC13
+  scenario: '[Negative] Huy Booking khong thuoc quyen (FR23)'
+  case: '[Negative] Huy Booking khong thuoc quyen'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR23
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking cua user khac.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy Booking
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Booking cua user khac
+- id: TC_FR23_POS
+  uc: UC13
+  scenario: '[Positive] Huy Booking hop le (FR23,24)'
+  case: '[Positive] Huy Booking hop le'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR23
+    - FR24
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking thuoc actor va dang o trang thai cho phep huy.
+  test_steps:
+  - step: 1
+    action: Xac dinh Booking
+  - step: 2
+    action: Xac nhan huy
+  assertions:
+  - Booking chuyen CANCELLED
+  - luu cancellationReason
+  - gui Notification.
+  expected_result: Booking chuyen CANCELLED; luu cancellationReason; gui Notification.
+  test_data:
+  - Booking status SEARCHING/ASSIGNED theo policy
+- id: TC_FR23_STATE
+  uc: UC13
+  scenario: '[Negative] Huy Booking khong duoc phep theo status/policy (FR23)'
+  case: '[Negative] Huy Booking khong duoc phep theo status/policy'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR23
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking o trang thai khong cho phep huy.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy
+  assertions:
+  - He thong reject
+  - khong doi status.
+  expected_result: He thong reject; khong doi status.
+  test_data:
+  - Status khong cho phep
+- id: TC_FR24_NOTIFY
+  uc: UC13
+  scenario: '[Positive] Cap nhat trang thai Booking khi huy (FR24)'
+  case: '[Positive] Cap nhat trang thai Booking khi huy'
+  priority: High
+  traceability:
+    br:
+    - BR04
+    fr:
+    - FR24
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking huy hop le.
+  test_steps:
+  - step: 1
+    action: Thuc hien huy
+  - step: 2
+    action: Kiem tra Booking
+  assertions:
+  - Booking.status duoc cap nhat CANCELLED va du lieu huy duoc luu.
+  expected_result: Booking.status duoc cap nhat CANCELLED va du lieu huy duoc luu.
+  test_data:
+  - Status CANCELLED

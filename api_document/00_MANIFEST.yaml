@@ -1,0 +1,46 @@
+name: CAB System API Test Pack
+version: '1.0'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+structure: 1 YAML file per Business Requirement (BR01-BR17), per explicit instruction.
+files:
+- 01_BR01_account.yaml
+- 02_BR02_profile.yaml
+- 03_BR03_vehicle.yaml
+- 04_BR04_booking.yaml
+- 05_BR05_driver_matching.yaml
+- 06_BR06_assignment.yaml
+- 07_BR07_trip.yaml
+- 08_BR08_tracking.yaml
+- 09_BR09_fare.yaml
+- 10_BR10_payment.yaml
+- 11_BR11_notification.yaml
+- 12_BR12_rating.yaml
+- 13_BR13_incident.yaml
+- 14_BR14_operations.yaml
+- 15_BR15_authorization.yaml
+- 16_BR16_audit.yaml
+- 17_BR17_reporting.yaml
+coverage:
+  use_cases: 41/41 (UC01-UC41)
+  business_requirements: 17/17 (BR01-BR17)
+  functional_requirements: 112/112 (FR01-FR112)
+  business_rules: 30/30 (BRULE01-BRULE30)
+  non_functional_requirements: 11/11 (NFR01-NFR11)
+  total_test_cases: 195
+validation:
+  duplicate_test_case_ids: false
+  missing_test_cases: false
+  extra_test_cases: false
+  unsupported_requirements: false
+  checked_on: '2026-09-21'
+  method: Programmatic diff between CAB_System_TestCases_Final_v2.xlsx Test Case IDs and all IDs found
+    across the 17 YAML files; regex-based traceability extraction cross-checked against srs.md FR/BR/BRULE/NFR
+    inventory.
+backend_cross_reference:
+  repo: cab_backend_nodejs (in vthaix/23674231_TranVanThai_Cabsystem)
+  note: '26/41 UC have a matching real Express route; 15/41 UC have NO matching route in the current backend
+    implementation (api.note = NO_MATCHING_BACKEND_ROUTE in the relevant test entries). All api.path values
+    are still marked mapping_status: IMPLEMENTATION_MAPPING_REQUIRED because srs.md itself does not define
+    concrete HTTP routes.'

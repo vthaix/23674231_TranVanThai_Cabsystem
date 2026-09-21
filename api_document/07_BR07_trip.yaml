@@ -1,0 +1,718 @@
+name: BR07 - Trip
+version: '1.0'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
+- SRS is the source of truth for requirements.
+- Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
+- Concrete HTTP routes are not defined by SRS unless explicitly stated.
+- Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_BRULE30_NOTIFY_FAIL
+  uc: UC21
+  scenario: '[Exception] Notification Provider loi khi hoan thanh Trip (FR48)'
+  case: '[Exception] Notification Provider loi khi hoan thanh Trip'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    brule:
+    - BRULE30
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Dung chung route voi UC18, target status = COMPLETED.
+  preconditions:
+  - Trip IN_PROGRESS
+  - Notification Provider dang loi.
+  test_steps:
+  - step: 1
+    action: Driver Complete
+  - step: 2
+    action: Notification Provider loi
+  - step: 3
+    action: Kiem tra Trip
+  assertions:
+  - Trip van chuyen COMPLETED
+  - transaction nghiep vu chinh khong rollback va loi Notification duoc xu ly/log theo chinh sach (BRULE30).
+  expected_result: Trip van chuyen COMPLETED; transaction nghiep vu chinh khong rollback va loi Notification
+    duoc xu ly/log theo chinh sach (BRULE30).
+  test_data:
+  - Notification provider failure
+- id: TC_EX_TRIP_NOT_FOUND
+  uc: UC18
+  scenario: '[Exception] Cap nhat Trip khong ton tai (FR50)'
+  case: '[Exception] Cap nhat Trip khong ton tai'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR50
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Driver dang nhap.
+  test_steps:
+  - step: 1
+    action: Gui update status voi tripId khong ton tai
+  assertions:
+  - He thong tra 404 va khong thay doi du lieu.
+  expected_result: He thong tra 404 va khong thay doi du lieu.
+  test_data:
+  - tripId khong ton tai
+- id: TC_FR42_INVALID
+  uc: UC17
+  scenario: '[Negative] Khong tao Trip khi Assignment chua ACCEPTED (FR42)'
+  case: '[Negative] Khong tao Trip khi Assignment chua ACCEPTED'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR42
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Trip duoc tao ngam khi Accept thanh cong, khong co endpoint tao Trip rieng.
+  preconditions:
+  - Assignment SENT/REJECTED/TIMEOUT.
+  test_steps:
+  - step: 1
+    action: Co yeu cau tao Trip
+  assertions:
+  - He thong tu choi tao Trip.
+  expected_result: He thong tu choi tao Trip.
+  test_data:
+  - Assignment khong ACCEPTED
+- id: TC_FR42_POS
+  uc: UC17
+  scenario: '[Positive] Tao Trip sau khi Assignment ACCEPTED (FR42)'
+  case: '[Positive] Tao Trip sau khi Assignment ACCEPTED'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR42
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Trip duoc tao ngam khi Accept thanh cong, khong co endpoint tao Trip rieng.
+  preconditions:
+  - Assignment ACCEPTED
+  - Booking ASSIGNED.
+  test_steps:
+  - step: 1
+    action: He thong tao Trip
+  assertions:
+  - Trip duoc CREATE voi status ASSIGNED va lien ket dung cac entity.
+  expected_result: Trip duoc CREATE voi status ASSIGNED va lien ket dung cac entity.
+  test_data:
+  - bookingId, customerId, driverId, vehicleId
+- id: TC_FR45_POS
+  uc: UC18
+  scenario: '[Positive] ASSIGNED -> ARRIVED (FR45,50,51)'
+  case: '[Positive] ASSIGNED -> ARRIVED'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR45
+    - FR50
+    - FR51
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Trip ASSIGNED
+  - Driver so huu Trip.
+  test_steps:
+  - step: 1
+    action: Driver cap nhat ARRIVED
+  assertions:
+  - Transition thanh cong
+  - luu thoi gian trang thai.
+  expected_result: Transition thanh cong; luu thoi gian trang thai.
+  test_data:
+  - Status ARRIVED
+- id: TC_FR46_POS
+  uc: UC18
+  scenario: '[Positive] ARRIVED -> PICKED_UP (FR46,50,51)'
+  case: '[Positive] ARRIVED -> PICKED_UP'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR46
+    - FR50
+    - FR51
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip ARRIVED.
+  test_steps:
+  - step: 1
+    action: Driver cap nhat PICKED_UP
+  assertions:
+  - Transition thanh cong
+  - luu thoi gian.
+  expected_result: Transition thanh cong; luu thoi gian.
+  test_data:
+  - Status PICKED_UP
+- id: TC_FR47_POS
+  uc: UC18
+  scenario: '[Positive] PICKED_UP -> IN_PROGRESS (FR47,50,51)'
+  case: '[Positive] PICKED_UP -> IN_PROGRESS'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR47
+    - FR50
+    - FR51
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip PICKED_UP.
+  test_steps:
+  - step: 1
+    action: Driver cap nhat IN_PROGRESS
+  assertions:
+  - Transition thanh cong
+  - luu thoi gian.
+  expected_result: Transition thanh cong; luu thoi gian.
+  test_data:
+  - Status IN_PROGRESS
+- id: TC_FR48_COMPLETE
+  uc: UC21
+  scenario: '[Positive] Hoan thanh Trip (FR48)'
+  case: '[Positive] Hoan thanh Trip'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    brule:
+    - BRULE29
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+    note: Dung chung route voi UC18, target status = COMPLETED.
+  preconditions:
+  - Trip IN_PROGRESS
+  - Driver so huu Trip.
+  test_steps:
+  - step: 1
+    action: Driver chon Complete
+  assertions:
+  - Trip=COMPLETED
+  - completedAt=now
+  - Driver=AVAILABLE
+  - kich hoat Fare Calculation va Notification.
+  expected_result: Trip=COMPLETED; completedAt=now; Driver=AVAILABLE; kich hoat Fare Calculation va Notification.
+  test_data:
+  - Trip IN_PROGRESS
+- id: TC_FR48_COMPLETED
+  uc: UC18
+  scenario: '[Exception] Cap nhat Trip da COMPLETED (FR48,50)'
+  case: '[Exception] Cap nhat Trip da COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    - FR50
+    brule:
+    - BRULE14
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip COMPLETED.
+  test_steps:
+  - step: 1
+    action: Gui update status
+  assertions:
+  - He thong reject
+  - Trip khong quay lai trang thai truoc.
+  expected_result: He thong reject; Trip khong quay lai trang thai truoc.
+  test_data:
+  - Trip COMPLETED
+- id: TC_FR48_INVALID
+  uc: UC21
+  scenario: '[Negative] Hoan thanh Trip khong o IN_PROGRESS (FR48)'
+  case: '[Negative] Hoan thanh Trip khong o IN_PROGRESS'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Dung chung route voi UC18, target status = COMPLETED.
+  preconditions:
+  - Trip khong o IN_PROGRESS.
+  test_steps:
+  - step: 1
+    action: Driver chon Complete
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Trip ASSIGNED/ARRIVED/PICKED_UP/COMPLETED
+- id: TC_FR48_OWNER
+  uc: UC18
+  scenario: '[Negative] Driver khong so huu Trip (FR45,46,47,48)'
+  case: '[Negative] Driver khong so huu Trip'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR45
+    - FR46
+    - FR47
+    - FR48
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Trip thuoc Driver A
+  - Driver B dang nhap.
+  test_steps:
+  - step: 1
+    action: Driver B cap nhat status
+  assertions:
+  - He thong reject thao tac.
+  expected_result: He thong reject thao tac.
+  test_data:
+  - Trip cua Driver A
+- id: TC_FR48_OWNER_U21
+  uc: UC21
+  scenario: '[Negative] Driver khong so huu Trip khong duoc Complete (FR48)'
+  case: '[Negative] Driver khong so huu Trip khong duoc Complete'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+    note: Dung chung route voi UC18, target status = COMPLETED.
+  preconditions:
+  - Trip thuoc Driver A.
+  test_steps:
+  - step: 1
+    action: Driver B goi Complete
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Trip Driver A
+- id: TC_FR48_POS
+  uc: UC18
+  scenario: '[Positive] IN_PROGRESS -> COMPLETED (FR48,50,51)'
+  case: '[Positive] IN_PROGRESS -> COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    - FR50
+    - FR51
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip IN_PROGRESS.
+  test_steps:
+  - step: 1
+    action: Driver cap nhat COMPLETED
+  assertions:
+  - Transition thanh cong
+  - luu completed/status timestamp.
+  expected_result: Transition thanh cong; luu completed/status timestamp.
+  test_data:
+  - Status COMPLETED
+- id: TC_FR49_AUTH
+  uc: UC20
+  scenario: '[Negative] Huy Trip khong co quyen (FR49)'
+  case: '[Negative] Huy Trip khong co quyen'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR49
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel-by-driver
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Actor khong co quyen voi Trip.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Trip khong thuoc actor/khong permission
+- id: TC_FR49_CANCEL_TRANS
+  uc: UC18
+  scenario: '[Positive] Huy Trip tu trang thai duoc phep (FR49,50)'
+  case: '[Positive] Huy Trip tu trang thai duoc phep'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR49
+    - FR50
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip o ASSIGNED/ARRIVED/PICKED_UP/IN_PROGRESS
+  - policy cho phep.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy
+  assertions:
+  - Trip chuyen CANCELLED
+  - transition hop le theo SRS.
+  expected_result: Trip chuyen CANCELLED; transition hop le theo SRS.
+  test_data:
+  - Status hop le
+  - policy cho phep
+- id: TC_FR49_MISSING
+  uc: UC20
+  scenario: '[Missing Data] Huy Trip thieu ly do khi policy yeu cau ly do (FR49)'
+  case: '[Missing Data] Huy Trip thieu ly do khi policy yeu cau ly do'
+  priority: Medium
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR49
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel-by-driver
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip cho phep huy
+  - policy yeu cau reason.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy khong co reason
+  assertions:
+  - He thong reject yeu cau huy theo policy.
+  expected_result: He thong reject yeu cau huy theo policy.
+  test_data:
+  - cancellationReason trong
+- id: TC_FR49_POS
+  uc: UC20
+  scenario: '[Positive] Huy Trip thanh cong (FR49)'
+  case: '[Positive] Huy Trip thanh cong'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR49
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel-by-driver
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Actor co quyen
+  - Trip o trang thai cho phep huy
+  - policy cho phep.
+  test_steps:
+  - step: 1
+    action: Yeu cau huy
+  - step: 2
+    action: Xac nhan
+  assertions:
+  - Trip=CANCELLED
+  - luu cancelledAt, cancelledBy, cancellationReason
+  - Driver co the AVAILABLE neu phu hop
+  - gui Notification.
+  expected_result: Trip=CANCELLED; luu cancelledAt, cancelledBy, cancellationReason; Driver co the AVAILABLE
+    neu phu hop; gui Notification.
+  test_data:
+  - Trip hop le
+- id: TC_FR49_STATE
+  uc: UC20
+  scenario: '[Negative] Huy Trip o trang thai khong cho phep (FR49)'
+  case: '[Negative] Huy Trip o trang thai khong cho phep'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR49
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/cancel-by-driver
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip COMPLETED/CANCELLED.
+  test_steps:
+  - step: 1
+    action: Gui yeu cau huy
+  assertions:
+  - He thong reject va khong thay doi du lieu.
+  expected_result: He thong reject va khong thay doi du lieu.
+  test_data:
+  - Status COMPLETED hoac CANCELLED
+- id: TC_FR50_CANCELLED_TERMINAL
+  uc: UC18
+  scenario: '[Exception] Cap nhat Trip da CANCELLED sang IN_PROGRESS (FR50)'
+  case: '[Exception] Cap nhat Trip da CANCELLED sang IN_PROGRESS'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR50
+    brule:
+    - BRULE15
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip dang o trang thai CANCELLED.
+  test_steps:
+  - step: 1
+    action: Gui request cap nhat status Trip tu CANCELLED sang IN_PROGRESS
+  assertions:
+  - He thong reject
+  - Trip giu nguyen trang thai CANCELLED, khong chuyen tiep duoc.
+  expected_result: He thong reject; Trip giu nguyen trang thai CANCELLED, khong chuyen tiep duoc.
+  test_data:
+  - Trip CANCELLED
+  - target status IN_PROGRESS
+- id: TC_FR50_INVALID
+  uc: UC18
+  scenario: '[Negative] Thuc hien transition khong hop le (FR50)'
+  case: '[Negative] Thuc hien transition khong hop le'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR50
+    brule:
+    - BRULE13
+    - BRULE14
+    - BRULE15
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip o mot status bat ky.
+  test_steps:
+  - step: 1
+    action: Gui transition khong nam trong allowed transitions
+  assertions:
+  - He thong reject va khong thay doi status.
+  expected_result: He thong reject va khong thay doi status.
+  test_data:
+  - VD COMPLETED -> IN_PROGRESS
+- id: TC_LOG_NOTIFY_FAIL
+  uc: UC21
+  scenario: '[Exception] Ghi log loi Notification Provider (FR48)'
+  case: '[Exception] Ghi log loi Notification Provider'
+  priority: High
+  traceability:
+    br:
+    - BR07
+    fr:
+    - FR48
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /trips/{tripId}/status
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Dung chung route voi UC18, target status = COMPLETED.
+  preconditions:
+  - Trip completion
+  - Notification Provider loi.
+  test_steps:
+  - step: 1
+    action: Complete Trip
+  - step: 2
+    action: Provider loi
+  - step: 3
+    action: Kiem tra log
+  assertions:
+  - Loi Notification duoc log
+  - Trip van hoan thanh.
+  expected_result: Loi Notification duoc log; Trip van hoan thanh.
+  test_data:
+  - Notification provider error

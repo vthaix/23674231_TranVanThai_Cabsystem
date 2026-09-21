@@ -1,0 +1,222 @@
+name: BR16 - Audit
+version: '1.0'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
+- SRS is the source of truth for requirements.
+- Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
+- Concrete HTTP routes are not defined by SRS unless explicitly stated.
+- Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR101_POS
+  uc: UC37
+  scenario: '[Positive] Ghi AuditLog khi Login theo chinh sach (FR101)'
+  case: '[Positive] Ghi AuditLog khi Login theo chinh sach'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR101
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - User login
+  - chinh sach AuditLog ap dung.
+  test_steps:
+  - step: 1
+    action: Login
+  - step: 2
+    action: Kiem tra AuditLog
+  assertions:
+  - AuditLog ghi actor/action/target/timestamp/details phu hop.
+  expected_result: AuditLog ghi actor/action/target/timestamp/details phu hop.
+  test_data:
+  - Login event
+- id: TC_FR102_POS
+  uc: UC37
+  scenario: '[Positive] Ghi AuditLog khi thay doi Role (FR102)'
+  case: '[Positive] Ghi AuditLog khi thay doi Role'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR102
+    brule: []
+    nfr:
+    - NFR06
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - Admin thay doi Role.
+  test_steps:
+  - step: 1
+    action: Update/assign Role
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - AuditLog duoc ghi.
+  expected_result: AuditLog duoc ghi.
+  test_data:
+  - Role change
+- id: TC_FR103_POS
+  uc: UC37
+  scenario: '[Positive] Ghi AuditLog khi thay doi Permission (FR103)'
+  case: '[Positive] Ghi AuditLog khi thay doi Permission'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR103
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - Admin thay doi Permission.
+  test_steps:
+  - step: 1
+    action: Update/assign Permission
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - AuditLog duoc ghi.
+  expected_result: AuditLog duoc ghi.
+  test_data:
+  - Permission change
+- id: TC_FR104_POS
+  uc: UC37
+  scenario: '[Positive] Ghi AuditLog khi lock/unlock Account (FR104)'
+  case: '[Positive] Ghi AuditLog khi lock/unlock Account'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR104
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - Admin co quyen.
+  test_steps:
+  - step: 1
+    action: Lock/Unlock
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - AuditLog duoc ghi.
+  expected_result: AuditLog duoc ghi.
+  test_data:
+  - Account status change
+- id: TC_FR105_NOEDIT
+  uc: UC37
+  scenario: '[Negative] Khong cho sua AuditLog qua UI thong thuong (FR105)'
+  case: '[Negative] Khong cho sua AuditLog qua UI thong thuong'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR105
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - AuditLog ton tai.
+  test_steps:
+  - step: 1
+    action: Mo AuditLog
+  - step: 2
+    action: Tim thao tac Edit
+  assertions:
+  - UI khong cung cap thao tac sua AuditLog.
+  expected_result: UI khong cung cap thao tac sua AuditLog.
+  test_data:
+  - AuditLog record
+- id: TC_FR105_POS
+  uc: UC37
+  scenario: '[Positive] Ghi AuditLog thao tac quan tri quan trong (FR105)'
+  case: '[Positive] Ghi AuditLog thao tac quan tri quan trong'
+  priority: High
+  traceability:
+    br:
+    - BR16
+    fr:
+    - FR105
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /audit-logs
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay audit-log route trong backend hien tai.'
+  preconditions:
+  - Admin thuc hien thao tac nhay cam.
+  test_steps:
+  - step: 1
+    action: Thuc hien action
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - AuditLog luu actor, action, target, timestamp, details.
+  expected_result: AuditLog luu actor, action, target, timestamp, details.
+  test_data:
+  - Admin action
