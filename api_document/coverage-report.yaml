@@ -1,0 +1,1858 @@
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v2.xlsx
+validation:
+  total_test_cases: 236
+  unique_test_case_ids: 196
+  duplicate_test_case_ids:
+  - Test Case ID
+  swagger_entrypoint: openapi.yaml
+  endpoint_status: LOGICAL_MAPPING_REQUIRES_BACKEND_RECONCILIATION
+test_cases:
+- id: Test Case ID
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR01_POS
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR1
+  brule: []
+  nfr: []
+- id: TC_FR01_EMAIL_DUP
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR1
+  brule: []
+  nfr: []
+- id: TC_FR01_PHONE_DUP
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR1
+  brule: []
+  nfr: []
+- id: TC_FR01_PWD_INVALID
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR1
+  brule: []
+  nfr: []
+- id: TC_FR01_MISSING
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR1
+  brule: []
+  nfr: []
+- id: TC_FR05_HASH
+  uc: UC01
+  method: POST
+  path: /auth/register
+  fr:
+  - FR5
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR02_POS
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR2
+  brule: []
+  nfr: []
+- id: TC_FR02_NEG
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR2
+  brule: []
+  nfr: []
+- id: TC_FR02_DISABLED
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR2
+  brule: []
+  nfr: []
+- id: TC_FR02_MISSING
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR2
+  brule: []
+  nfr: []
+- id: TC_FR06_TOKEN
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR6
+  brule: []
+  nfr: []
+- id: TC_LOG_AUTH_FAIL
+  uc: UC02
+  method: POST
+  path: /auth/login
+  fr:
+  - FR2
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC03
+  method: POST
+  path: /auth/logout
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR03_POS
+  uc: UC03
+  method: POST
+  path: /auth/logout
+  fr:
+  - FR3
+  brule: []
+  nfr: []
+- id: TC_FR03_REUSE
+  uc: UC03
+  method: POST
+  path: /auth/logout
+  fr:
+  - FR3
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC04
+  method: GET
+  path: /profile
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR08_POS
+  uc: UC04
+  method: GET
+  path: /profile
+  fr:
+  - FR8
+  brule: []
+  nfr: []
+- id: TC_FR08_ISO
+  uc: UC04
+  method: GET
+  path: /profile
+  fr:
+  - FR8
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC05
+  method: PATCH
+  path: /profile
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR09_POS
+  uc: UC05
+  method: PATCH
+  path: /profile
+  fr:
+  - FR9
+  brule: []
+  nfr: []
+- id: TC_FR09_NEG
+  uc: UC05
+  method: PATCH
+  path: /profile
+  fr:
+  - FR9
+  brule: []
+  nfr: []
+- id: TC_FR09_BACKEND
+  uc: UC05
+  method: PATCH
+  path: /profile
+  fr:
+  - FR11
+  brule: []
+  nfr: []
+- id: TC_FR09_ISO
+  uc: UC05
+  method: PATCH
+  path: /profile
+  fr:
+  - FR9
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC06
+  method: POST
+  path: /profile/password
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR10_POS
+  uc: UC06
+  method: POST
+  path: /profile/password
+  fr:
+  - FR10
+  brule: []
+  nfr: []
+- id: TC_FR10_NEG
+  uc: UC06
+  method: POST
+  path: /profile/password
+  fr:
+  - FR10
+  brule: []
+  nfr: []
+- id: TC_FR10_INVALID
+  uc: UC06
+  method: POST
+  path: /profile/password
+  fr:
+  - FR10
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC07
+  method: GET
+  path: /vehicles
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR12_POS
+  uc: UC07
+  method: GET
+  path: /vehicles
+  fr:
+  - FR12
+  brule: []
+  nfr: []
+- id: TC_FR12_ISO
+  uc: UC07
+  method: GET
+  path: /vehicles
+  fr:
+  - FR12
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC08
+  method: POST
+  path: /vehicles
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR13_POS
+  uc: UC08
+  method: POST
+  path: /vehicles
+  fr:
+  - FR13
+  brule: []
+  nfr: []
+- id: TC_FR13_DUP
+  uc: UC08
+  method: POST
+  path: /vehicles
+  fr:
+  - FR13
+  brule: []
+  nfr: []
+- id: TC_FR13_INVALID
+  uc: UC08
+  method: POST
+  path: /vehicles
+  fr:
+  - FR13
+  brule: []
+  nfr: []
+- id: TC_FR13_MISSING
+  uc: UC08
+  method: POST
+  path: /vehicles
+  fr:
+  - FR13
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC09
+  method: PATCH
+  path: /vehicles/{vehicleId}
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR14_POS
+  uc: UC09
+  method: PATCH
+  path: /vehicles/{vehicleId}
+  fr:
+  - FR14
+  brule: []
+  nfr: []
+- id: TC_FR14_NEG
+  uc: UC09
+  method: PATCH
+  path: /vehicles/{vehicleId}
+  fr:
+  - FR14
+  brule: []
+  nfr: []
+- id: TC_FR14_INVALID
+  uc: UC09
+  method: PATCH
+  path: /vehicles/{vehicleId}
+  fr:
+  - FR14
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC10
+  method: POST
+  path: /vehicles/{vehicleId}/disable
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR15_POS
+  uc: UC10
+  method: POST
+  path: /vehicles/{vehicleId}/disable
+  fr:
+  - FR15
+  brule: []
+  nfr: []
+- id: TC_FR15_HISTORY
+  uc: UC10
+  method: POST
+  path: /vehicles/{vehicleId}/disable
+  fr:
+  - FR15
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR17_18_19_POS
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR17
+  brule: []
+  nfr: []
+- id: TC_FR17_MISSING
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR17
+  brule: []
+  nfr: []
+- id: TC_FR18_MISSING
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR18
+  brule: []
+  nfr: []
+- id: TC_FR19_INVALID
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR19
+  brule: []
+  nfr: []
+- id: TC_FR20_INACTIVE
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR20
+  brule: []
+  nfr: []
+- id: TC_FR21_NOTIFY
+  uc: UC11
+  method: POST
+  path: /bookings
+  fr:
+  - FR21
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC12
+  method: GET
+  path: /bookings/{bookingId}
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR22_POS
+  uc: UC12
+  method: GET
+  path: /bookings/{bookingId}
+  fr:
+  - FR22
+  brule: []
+  nfr: []
+- id: TC_FR22_STAFF
+  uc: UC12
+  method: GET
+  path: /bookings/{bookingId}
+  fr:
+  - FR22
+  brule: []
+  nfr: []
+- id: TC_FR22_ISO
+  uc: UC12
+  method: GET
+  path: /bookings/{bookingId}
+  fr:
+  - FR22
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC13
+  method: POST
+  path: /bookings/{bookingId}/cancel
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR23_POS
+  uc: UC13
+  method: POST
+  path: /bookings/{bookingId}/cancel
+  fr:
+  - FR23
+  brule: []
+  nfr: []
+- id: TC_FR23_AUTH
+  uc: UC13
+  method: POST
+  path: /bookings/{bookingId}/cancel
+  fr:
+  - FR23
+  brule: []
+  nfr: []
+- id: TC_FR23_STATE
+  uc: UC13
+  method: POST
+  path: /bookings/{bookingId}/cancel
+  fr:
+  - FR23
+  brule: []
+  nfr: []
+- id: TC_FR24_NOTIFY
+  uc: UC13
+  method: POST
+  path: /bookings/{bookingId}/cancel
+  fr:
+  - FR24
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR25_26_27_28_POS
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR25
+  brule: []
+  nfr: []
+- id: TC_FR29_ASSIGN
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR29
+  brule: []
+  nfr: []
+- id: TC_FR30_WAIT
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR30
+  brule: []
+  nfr: []
+- id: TC_FR31_ACCEPT
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR32_REJECT
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR32
+  brule: []
+  nfr: []
+- id: TC_FR33_TIMEOUT
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR30
+  brule: []
+  nfr: []
+- id: TC_FR35_NODRIVER
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR35
+  brule: []
+  nfr: []
+- id: TC_FR41_NOREPEAT
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR41
+  brule: []
+  nfr: []
+- id: TC_FR36_MULTI
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR36
+  brule: []
+  nfr: []
+- id: TC_NFR09_QUERY
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR25
+  brule: []
+  nfr: []
+- id: TC_EX_ASSIGN_BUSY
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR25
+  brule: []
+  nfr: []
+- id: TC_LOG_MATCH_FAIL
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR25
+  brule: []
+  nfr: []
+- id: TC_FR25_UNAVAILABLE_CONDITIONS
+  uc: UC14
+  method: POST
+  path: /bookings/{bookingId}/matching
+  fr:
+  - FR25
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR31_43_POS
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR31_RACE
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR31_BOOKING_CHANGED
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR31_DRIVER_BUSY
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR42_TRANSACTION
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR42
+  brule: []
+  nfr: []
+- id: TC_LOG_ASSIGN_FAIL
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR31
+  brule: []
+  nfr: []
+- id: TC_FR42_SECOND_TRIP
+  uc: UC15
+  method: POST
+  path: /assignments/{assignmentId}/accept
+  fr:
+  - FR42
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC16
+  method: POST
+  path: /assignments/{assignmentId}/reject
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR44_REJECT
+  uc: UC16
+  method: POST
+  path: /assignments/{assignmentId}/reject
+  fr:
+  - FR44
+  brule: []
+  nfr: []
+- id: TC_FR44_OTHER
+  uc: UC16
+  method: POST
+  path: /assignments/{assignmentId}/reject
+  fr:
+  - FR44
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC17
+  method: POST
+  path: /trips
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR42_POS
+  uc: UC17
+  method: POST
+  path: /trips
+  fr:
+  - FR42
+  brule: []
+  nfr: []
+- id: TC_FR42_INVALID
+  uc: UC17
+  method: POST
+  path: /trips
+  fr:
+  - FR42
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR45_POS
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR45
+  brule: []
+  nfr: []
+- id: TC_FR46_POS
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR46
+  brule: []
+  nfr: []
+- id: TC_FR47_POS
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR47
+  brule: []
+  nfr: []
+- id: TC_FR48_POS
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_FR50_INVALID
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR50
+  brule: []
+  nfr: []
+- id: TC_FR48_OWNER
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR45
+  brule: []
+  nfr: []
+- id: TC_FR48_COMPLETED
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_FR49_CANCEL_TRANS
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR49
+  brule: []
+  nfr: []
+- id: TC_EX_TRIP_NOT_FOUND
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR50
+  brule: []
+  nfr: []
+- id: TC_FR50_CANCELLED_TERMINAL
+  uc: UC18
+  method: PATCH
+  path: /trips/{tripId}/status
+  fr:
+  - FR50
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC19
+  method: PATCH
+  path: /drivers/me/location
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR52_53_POS
+  uc: UC19
+  method: PATCH
+  path: /drivers/me/location
+  fr:
+  - FR52
+  brule: []
+  nfr: []
+- id: TC_FR52_INVALID
+  uc: UC19
+  method: PATCH
+  path: /drivers/me/location
+  fr:
+  - FR52
+  brule: []
+  nfr: []
+- id: TC_FR54_TIME
+  uc: UC19
+  method: PATCH
+  path: /drivers/me/location
+  fr:
+  - FR54
+  brule: []
+  nfr: []
+- id: TC_FR54_NOGPSHISTORY
+  uc: UC19
+  method: PATCH
+  path: /drivers/me/location
+  fr:
+  - FR52
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC20
+  method: POST
+  path: /trips/{tripId}/cancel
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR49_POS
+  uc: UC20
+  method: POST
+  path: /trips/{tripId}/cancel
+  fr:
+  - FR49
+  brule: []
+  nfr: []
+- id: TC_FR49_AUTH
+  uc: UC20
+  method: POST
+  path: /trips/{tripId}/cancel
+  fr:
+  - FR49
+  brule: []
+  nfr: []
+- id: TC_FR49_STATE
+  uc: UC20
+  method: POST
+  path: /trips/{tripId}/cancel
+  fr:
+  - FR49
+  brule: []
+  nfr: []
+- id: TC_FR49_MISSING
+  uc: UC20
+  method: POST
+  path: /trips/{tripId}/cancel
+  fr:
+  - FR49
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR48_COMPLETE
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_FR48_INVALID
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_FR48_OWNER_U21
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_BRULE30_NOTIFY_FAIL
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: TC_LOG_NOTIFY_FAIL
+  uc: UC21
+  method: POST
+  path: /trips/{tripId}/complete
+  fr:
+  - FR48
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC22
+  method: GET
+  path: /trips/{tripId}/fare
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR57_POS
+  uc: UC22
+  method: GET
+  path: /trips/{tripId}/fare
+  fr:
+  - FR57
+  brule: []
+  nfr: []
+- id: TC_FR60_NEG
+  uc: UC22
+  method: GET
+  path: /trips/{tripId}/fare
+  fr:
+  - FR60
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR61_62_CASH
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR61
+  brule: []
+  nfr: []
+- id: TC_FR63_64_65_68_ONLINE
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR63
+  brule: []
+  nfr: []
+- id: TC_FR66_FAIL
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR64
+  brule: []
+  nfr: []
+- id: TC_FR64_TIMEOUT
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR64
+  brule: []
+  nfr: []
+- id: TC_FR67_DUP
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR67
+  brule: []
+  nfr: []
+- id: TC_FR60_PRE
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR60
+  brule: []
+  nfr: []
+- id: TC_FR69_SECURITY
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR69
+  brule: []
+  nfr: []
+- id: TC_FR23_ROLLBACK
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR63
+  brule: []
+  nfr: []
+- id: TC_LOG_PAYMENT_FAIL
+  uc: UC23
+  method: POST
+  path: /trips/{tripId}/payments
+  fr:
+  - FR64
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC24
+  method: GET
+  path: /payments/{paymentId}
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR94_POS
+  uc: UC24
+  method: GET
+  path: /payments/{paymentId}
+  fr:
+  - FR94
+  brule: []
+  nfr: []
+- id: TC_FR94_CUSTOMER
+  uc: UC24
+  method: GET
+  path: /payments/{paymentId}
+  fr:
+  - FR94
+  brule: []
+  nfr: []
+- id: TC_FR94_ISO
+  uc: UC24
+  method: GET
+  path: /payments/{paymentId}
+  fr:
+  - FR94
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR75_76_77_POS
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr:
+  - FR75
+  brule: []
+  nfr: []
+- id: TC_FR76_INVALID
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr:
+  - FR76
+  brule: []
+  nfr: []
+- id: TC_FR78_NOT_COMPLETED
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr:
+  - FR78
+  brule: []
+  nfr: []
+- id: TC_FR79_DUP
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr:
+  - FR79
+  brule: []
+  nfr: []
+- id: TC_FR75_OWNER
+  uc: UC25
+  method: POST
+  path: /trips/{tripId}/rating
+  fr:
+  - FR75
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC26
+  method: GET
+  path: /ratings/{ratingId}
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR80_DRIVER
+  uc: UC26
+  method: GET
+  path: /ratings/{ratingId}
+  fr:
+  - FR80
+  brule: []
+  nfr: []
+- id: TC_FR80_STAFF
+  uc: UC26
+  method: GET
+  path: /ratings/{ratingId}
+  fr:
+  - FR80
+  brule: []
+  nfr: []
+- id: TC_FR80_DENY
+  uc: UC26
+  method: GET
+  path: /ratings/{ratingId}
+  fr:
+  - FR80
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC27
+  method: GET
+  path: /notifications
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR73_POS
+  uc: UC27
+  method: GET
+  path: /notifications
+  fr:
+  - FR73
+  brule: []
+  nfr: []
+- id: TC_FR73_SORT
+  uc: UC27
+  method: GET
+  path: /notifications
+  fr:
+  - FR73
+  brule: []
+  nfr: []
+- id: TC_FR73_ISO
+  uc: UC27
+  method: GET
+  path: /notifications
+  fr:
+  - FR73
+  brule: []
+  nfr: []
+- id: TC_FR70_71_72_POS
+  uc: UC27
+  method: GET
+  path: /notifications
+  fr:
+  - FR70
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC28
+  method: POST
+  path: /notifications/{notificationId}/read
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR74_POS
+  uc: UC28
+  method: POST
+  path: /notifications/{notificationId}/read
+  fr:
+  - FR74
+  brule: []
+  nfr: []
+- id: TC_FR74_REPEAT
+  uc: UC28
+  method: POST
+  path: /notifications/{notificationId}/read
+  fr:
+  - FR74
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR81_82_POS
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR81
+  brule: []
+  nfr: []
+- id: TC_FR83_84_85_POS
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR83
+  brule: []
+  nfr: []
+- id: TC_FR86_87_POS
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR86
+  brule: []
+  nfr: []
+- id: TC_FR95_AUTH
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR95
+  brule: []
+  nfr: []
+- id: TC_FR95_AUDIT
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR95
+  brule: []
+  nfr: []
+- id: TC_LOG_UNEXPECTED
+  uc: UC29
+  method: POST
+  path: /incidents
+  fr:
+  - FR95
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR88_POS
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr:
+  - FR88
+  brule: []
+  nfr: []
+- id: TC_FR88_SEARCH
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr:
+  - FR88
+  brule: []
+  nfr: []
+- id: TC_FR88_FILTER
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr:
+  - FR88
+  brule: []
+  nfr: []
+- id: TC_FR88_DETAIL
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr:
+  - FR88
+  brule: []
+  nfr: []
+- id: TC_FR88_DENY
+  uc: UC30
+  method: GET
+  path: /operations/customers
+  fr:
+  - FR88
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR89_POS
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr:
+  - FR89
+  brule: []
+  nfr: []
+- id: TC_FR89_SEARCH
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr:
+  - FR89
+  brule: []
+  nfr: []
+- id: TC_FR89_FILTER
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr:
+  - FR89
+  brule: []
+  nfr: []
+- id: TC_FR89_DETAIL
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr:
+  - FR89
+  brule: []
+  nfr: []
+- id: TC_FR89_DENY
+  uc: UC31
+  method: GET
+  path: /operations/drivers
+  fr:
+  - FR89
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR90_POS
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr:
+  - FR90
+  brule: []
+  nfr: []
+- id: TC_FR90_SEARCH
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr:
+  - FR90
+  brule: []
+  nfr: []
+- id: TC_FR90_FILTER
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr:
+  - FR90
+  brule: []
+  nfr: []
+- id: TC_FR90_STATUS
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr:
+  - FR90
+  brule: []
+  nfr: []
+- id: TC_FR90_DENY
+  uc: UC32
+  method: GET
+  path: /operations/vehicles
+  fr:
+  - FR90
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR91_POS
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR91
+  brule: []
+  nfr: []
+- id: TC_FR92_POS
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR92
+  brule: []
+  nfr: []
+- id: TC_FR93_POS
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR93
+  brule: []
+  nfr: []
+- id: TC_FR91_PAG
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR91
+  brule: []
+  nfr: []
+- id: TC_FR91_DENY
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR91
+  brule: []
+  nfr: []
+- id: TC_FR55_POS
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR55
+  brule: []
+  nfr: []
+- id: TC_FR56_POS
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR56
+  brule: []
+  nfr: []
+- id: TC_NFR08_RESPONSE
+  uc: UC33
+  method: GET
+  path: /operations/trips
+  fr:
+  - FR91
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR96_POS
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: TC_FR96_LOCK
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: TC_FR96_UNLOCK
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: TC_FR96_DISABLE
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: TC_FR96_ENABLE
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: TC_FR98_ASSIGN
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR98
+  brule: []
+  nfr: []
+- id: TC_FR96_DENY
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: TC_FR104_AUDIT
+  uc: UC34
+  method: GET
+  path: /admin/accounts
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR96_ROLE_CREATE
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: TC_FR96_ROLE_READ
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: TC_FR96_ROLE_UPDATE
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: TC_FR96_ROLE_ASSIGN
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr:
+  - FR98
+  brule: []
+  nfr: []
+- id: TC_FR96_ROLE_PROTECT
+  uc: UC35
+  method: POST
+  path: /admin/roles
+  fr:
+  - FR96
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR97_POS
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR97
+  brule: []
+  nfr: []
+- id: TC_FR97_CREATE
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR97
+  brule: []
+  nfr: []
+- id: TC_FR97_UPDATE
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR97
+  brule: []
+  nfr: []
+- id: TC_FR97_ASSIGN
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR97
+  brule: []
+  nfr: []
+- id: TC_FR99_CHECK
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR99
+  brule: []
+  nfr: []
+- id: TC_FR100_DENY
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR100
+  brule: []
+  nfr: []
+- id: TC_LOG_AUTHZ_FAIL
+  uc: UC36
+  method: POST
+  path: /admin/permissions
+  fr:
+  - FR100
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR101_POS
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR101
+  brule: []
+  nfr: []
+- id: TC_FR102_POS
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR102
+  brule: []
+  nfr: []
+- id: TC_FR103_POS
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR103
+  brule: []
+  nfr: []
+- id: TC_FR104_POS
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR104
+  brule: []
+  nfr: []
+- id: TC_FR105_POS
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR105
+  brule: []
+  nfr: []
+- id: TC_FR105_NOEDIT
+  uc: UC37
+  method: GET
+  path: /admin/audit-logs
+  fr:
+  - FR105
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC38
+  method: GET
+  path: /reports/dashboard
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR106_107_108_109_110_POS
+  uc: UC38
+  method: GET
+  path: /reports/dashboard
+  fr:
+  - FR106
+  brule: []
+  nfr: []
+- id: TC_FR106_EMPTY
+  uc: UC38
+  method: GET
+  path: /reports/dashboard
+  fr:
+  - FR106
+  brule: []
+  nfr: []
+- id: TC_FR110_INCOMPLETE
+  uc: UC38
+  method: GET
+  path: /reports/dashboard
+  fr:
+  - FR110
+  brule: []
+  nfr: []
+- id: TC_FR106_DENY
+  uc: UC38
+  method: GET
+  path: /reports/dashboard
+  fr:
+  - FR106
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR106_111_POS
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR106
+  brule: []
+  nfr: []
+- id: TC_FR111_STATUS
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR111
+  brule: []
+  nfr: []
+- id: TC_FR111_INVALID
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR111
+  brule: []
+  nfr: []
+- id: TC_FR112_DETAIL
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR112
+  brule: []
+  nfr: []
+- id: TC_FR106_AGG
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR106
+  brule: []
+  nfr: []
+- id: TC_FR111_DENY
+  uc: UC39
+  method: GET
+  path: /reports/trips
+  fr:
+  - FR111
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC40
+  method: GET
+  path: /reports/revenue
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR107_POS
+  uc: UC40
+  method: GET
+  path: /reports/revenue
+  fr:
+  - FR107
+  brule: []
+  nfr: []
+- id: TC_FR107_FILTER
+  uc: UC40
+  method: GET
+  path: /reports/revenue
+  fr:
+  - FR107
+  brule: []
+  nfr: []
+- id: TC_FR107_NO_SUCCESS
+  uc: UC40
+  method: GET
+  path: /reports/revenue
+  fr:
+  - FR107
+  brule: []
+  nfr: []
+- id: TC_FR107_DENY
+  uc: UC40
+  method: GET
+  path: /reports/revenue
+  fr:
+  - FR107
+  brule: []
+  nfr: []
+- id: Test Case ID
+  uc: UC41
+  method: GET
+  path: /reports/drivers
+  fr: []
+  brule: []
+  nfr: []
+- id: TC_FR110_POS
+  uc: UC41
+  method: GET
+  path: /reports/drivers
+  fr:
+  - FR110
+  brule: []
+  nfr: []
+- id: TC_FR110_INCOMPLETE_U41
+  uc: UC41
+  method: GET
+  path: /reports/drivers
+  fr:
+  - FR110
+  brule: []
+  nfr: []
+- id: TC_FR110_TIME
+  uc: UC41
+  method: GET
+  path: /reports/drivers
+  fr:
+  - FR110
+  brule: []
+  nfr: []
+- id: TC_FR110_DENY
+  uc: UC41
+  method: GET
+  path: /reports/drivers
+  fr:
+  - FR110
+  brule: []
+  nfr: []
