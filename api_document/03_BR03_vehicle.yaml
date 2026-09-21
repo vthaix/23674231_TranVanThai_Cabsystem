@@ -1,392 +1,462 @@
-name: BR03 - Vehicle
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR03 - Vehicle
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR03 - Vehicle. Converted from the CAB System API test pack while preserving its test-case traceability.
+    Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR03
+  description: Business Requirement BR03
+paths:
+  /vehicles:
+    get:
+      summary: Get /vehicles
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /vehicles. The SRS/test workbook defines business behavior
+        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay vehicle.routes.js trong backend hien tai.'
+      operationId: get_vehicles
+      tags: &id001
+      - BR03
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR12
+      x-business-rules:
+      - BRULE22
+      x-non-functional-requirements:
+      - NFR05
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR12_ISO
+        scenario: '[Negative] Khong xem Vehicle cua Driver khac (FR12)'
+        priority: High
+        testData:
+        - Vehicle B
+        preconditions:
+        - Driver A dang nhap
+        - Vehicle cua Driver B ton tai.
+        steps:
+        - step: 1
+          action: Yeu cau xem Vehicle B
+        expectedResult: He thong tu choi truy cap.
+        assertions:
+        - He thong tu choi truy cap.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR12
+          brule: []
+          nfr:
+          - NFR05
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR12_POS
+        scenario: '[Positive] Xem Vehicle cua chinh Driver (FR12)'
+        priority: High
+        testData:
+        - Driver hien tai
+        preconditions:
+        - Driver dang nhap va co Vehicle.
+        steps:
+        - step: 1
+          action: Mo danh sach Vehicle
+        expectedResult: He thong chi hien thi Vehicle thuoc quyen quan ly cua Driver.
+        assertions:
+        - He thong chi hien thi Vehicle thuoc quyen quan ly cua Driver.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR12
+          brule:
+          - BRULE22
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+    post:
+      summary: Post /vehicles
+      description: 'API operation mapped from the existing CAB test-pack entries for POST /vehicles. The SRS/test workbook defines business behavior
+        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay vehicle.routes.js trong backend hien tai.'
+      operationId: post_vehicles
+      tags: &id002
+      - BR03
+      x-business-requirements: *id002
+      x-functional-requirements:
+      - FR13
+      - FR16
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR13_DUP
+        scenario: '[Negative] Them Vehicle voi licensePlate da ton tai (FR13)'
+        priority: High
+        testData:
+        - licensePlate trung
+        preconditions:
+        - Vehicle co licensePlate trung da ton tai.
+        steps:
+        - step: 1
+          action: Nhap licensePlate trung
+        - step: 2
+          action: Luu
+        expectedResult: He thong reject va khong tao Vehicle trung.
+        assertions:
+        - He thong reject va khong tao Vehicle trung.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR13
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR13_INVALID
+        scenario: '[Negative] Them Vehicle khong phu hop loai xe (FR13,16)'
+        priority: High
+        testData:
+        - vehicleType/Vehicle khong phu hop
+        preconditions:
+        - Driver dang nhap.
+        steps:
+        - step: 1
+          action: Nhap Vehicle khong phu hop
+        - step: 2
+          action: Luu
+        expectedResult: He thong reject Vehicle khong phu hop.
+        assertions:
+        - He thong reject Vehicle khong phu hop.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR13
+          - FR16
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR13_MISSING
+        scenario: '[Missing Data] Them Vehicle thieu du lieu (FR13)'
+        priority: High
+        testData:
+        - Thieu thong tin Vehicle
+        preconditions:
+        - Driver dang nhap.
+        steps:
+        - step: 1
+          action: Bo trong truong can thiet
+        - step: 2
+          action: Luu
+        expectedResult: He thong reject va khong tao Vehicle.
+        assertions:
+        - He thong reject va khong tao Vehicle.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR13
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR13_POS
+        scenario: '[Positive] Them Vehicle hop le (FR13,16)'
+        priority: High
+        testData:
+        - Vehicle hop le
+        - licensePlate chua ton tai
+        preconditions:
+        - Driver dang nhap.
+        steps:
+        - step: 1
+          action: Nhap thong tin Vehicle
+        - step: 2
+          action: Gui them
+        expectedResult: He thong validate, kiem tra phu hop va CREATE Vehicle thanh cong.
+        assertions:
+        - He thong validate, kiem tra phu hop va CREATE Vehicle thanh cong.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR13
+          - FR16
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+  /vehicles/{vehicleId}:
+    patch:
+      summary: Patch /vehicles/{vehicleId}
+      description: 'API operation mapped from the existing CAB test-pack entries for PATCH /vehicles/{vehicleId}. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay vehicle.routes.js trong backend hien tai.'
+      operationId: patch_vehicles_vehicleId
+      tags: &id003
+      - BR03
+      x-business-requirements: *id003
+      x-functional-requirements:
+      - FR14
+      - FR16
+      x-business-rules: []
+      x-non-functional-requirements:
+      - NFR07
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR14_INVALID
+        scenario: '[Negative] Cap nhat Vehicle voi du lieu khong hop le (FR14,16)'
+        priority: High
+        testData:
+        - Du lieu Vehicle sai
+        preconditions:
+        - Driver so huu Vehicle.
+        steps:
+        - step: 1
+          action: Sua du lieu khong hop le
+        - step: 2
+          action: Luu
+        expectedResult: He thong reject va khong luu thay doi.
+        assertions:
+        - He thong reject va khong luu thay doi.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR14
+          - FR16
+          brule: []
+          nfr:
+          - NFR07
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR14_NEG
+        scenario: '[Negative] Cap nhat Vehicle khong thuoc quyen so huu (FR14)'
+        priority: High
+        testData:
+        - Vehicle B
+        preconditions:
+        - Driver A dang nhap
+        - Vehicle B thuoc Driver B.
+        steps:
+        - step: 1
+          action: Driver A gui update Vehicle B
+        expectedResult: He thong reject thao tac.
+        assertions:
+        - He thong reject thao tac.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR14
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR14_POS
+        scenario: '[Positive] Cap nhat Vehicle thuoc Driver (FR14,16)'
+        priority: High
+        testData:
+        - Vehicle thuoc Driver
+        - du lieu hop le
+        preconditions:
+        - Driver dang nhap va so huu Vehicle.
+        steps:
+        - step: 1
+          action: Chon Vehicle
+        - step: 2
+          action: Sua thong tin hop le
+        - step: 3
+          action: Luu
+        expectedResult: He thong kiem tra quyen, validate va luu thay doi.
+        assertions:
+        - He thong kiem tra quyen, validate va luu thay doi.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR14
+          - FR16
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      parameters:
+      - name: vehicleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        description: 'Path parameter: vehicleId.'
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+  /vehicles/{vehicleId}/deactivate:
+    patch:
+      summary: Patch /vehicles/{vehicleId}/deactivate
+      description: 'API operation mapped from the existing CAB test-pack entries for PATCH /vehicles/{vehicleId}/deactivate. The SRS/test workbook
+        defines business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source
+        note: NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      operationId: patch_vehicles_vehicleId_deactivate
+      tags: &id004
+      - BR03
+      x-business-requirements: *id004
+      x-functional-requirements:
+      - FR15
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR15_HISTORY
+        scenario: '[Exception] Vo hieu hoa Vehicle da tung duoc dung trong Trip (FR15)'
+        priority: High
+        testData:
+        - Vehicle da co lich su Trip
+        preconditions:
+        - Vehicle da tung su dung trong Trip.
+        steps:
+        - step: 1
+          action: Vo hieu hoa Vehicle
+        expectedResult: He thong khong xoa vat ly; Vehicle duoc chuyen INACTIVE.
+        assertions:
+        - He thong khong xoa vat ly
+        - Vehicle duoc chuyen INACTIVE.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR15
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR15_POS
+        scenario: '[Positive] Vo hieu hoa Vehicle (FR15)'
+        priority: High
+        testData:
+        - status ACTIVE
+        preconditions:
+        - Vehicle ACTIVE
+        - Driver co quyen.
+        steps:
+        - step: 1
+          action: Chon Vehicle ACTIVE
+        - step: 2
+          action: Vo hieu hoa
+        expectedResult: Vehicle chuyen ACTIVE -> INACTIVE.
+        assertions:
+        - Vehicle chuyen ACTIVE -> INACTIVE.
+        traceability:
+          br:
+          - BR03
+          fr:
+          - FR15
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      parameters:
+      - name: vehicleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        description: 'Path parameter: vehicleId.'
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 11
+x-test-case-ids:
+- TC_FR12_ISO
+- TC_FR12_POS
+- TC_FR13_DUP
+- TC_FR13_INVALID
+- TC_FR13_MISSING
+- TC_FR13_POS
+- TC_FR14_INVALID
+- TC_FR14_NEG
+- TC_FR14_POS
+- TC_FR15_HISTORY
+- TC_FR15_POS
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR12_ISO
-  uc: UC07
-  scenario: '[Negative] Khong xem Vehicle cua Driver khac (FR12)'
-  case: '[Negative] Khong xem Vehicle cua Driver khac'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR12
-    brule: []
-    nfr:
-    - NFR05
-  api:
-    method: GET
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver A dang nhap
-  - Vehicle cua Driver B ton tai.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Vehicle B
-  assertions:
-  - He thong tu choi truy cap.
-  expected_result: He thong tu choi truy cap.
-  test_data:
-  - Vehicle B
-- id: TC_FR12_POS
-  uc: UC07
-  scenario: '[Positive] Xem Vehicle cua chinh Driver (FR12)'
-  case: '[Positive] Xem Vehicle cua chinh Driver'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR12
-    brule:
-    - BRULE22
-    nfr: []
-  api:
-    method: GET
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver dang nhap va co Vehicle.
-  test_steps:
-  - step: 1
-    action: Mo danh sach Vehicle
-  assertions:
-  - He thong chi hien thi Vehicle thuoc quyen quan ly cua Driver.
-  expected_result: He thong chi hien thi Vehicle thuoc quyen quan ly cua Driver.
-  test_data:
-  - Driver hien tai
-- id: TC_FR13_DUP
-  uc: UC08
-  scenario: '[Negative] Them Vehicle voi licensePlate da ton tai (FR13)'
-  case: '[Negative] Them Vehicle voi licensePlate da ton tai'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR13
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Vehicle co licensePlate trung da ton tai.
-  test_steps:
-  - step: 1
-    action: Nhap licensePlate trung
-  - step: 2
-    action: Luu
-  assertions:
-  - He thong reject va khong tao Vehicle trung.
-  expected_result: He thong reject va khong tao Vehicle trung.
-  test_data:
-  - licensePlate trung
-- id: TC_FR13_INVALID
-  uc: UC08
-  scenario: '[Negative] Them Vehicle khong phu hop loai xe (FR13,16)'
-  case: '[Negative] Them Vehicle khong phu hop loai xe'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR13
-    - FR16
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver dang nhap.
-  test_steps:
-  - step: 1
-    action: Nhap Vehicle khong phu hop
-  - step: 2
-    action: Luu
-  assertions:
-  - He thong reject Vehicle khong phu hop.
-  expected_result: He thong reject Vehicle khong phu hop.
-  test_data:
-  - vehicleType/Vehicle khong phu hop
-- id: TC_FR13_MISSING
-  uc: UC08
-  scenario: '[Missing Data] Them Vehicle thieu du lieu (FR13)'
-  case: '[Missing Data] Them Vehicle thieu du lieu'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR13
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver dang nhap.
-  test_steps:
-  - step: 1
-    action: Bo trong truong can thiet
-  - step: 2
-    action: Luu
-  assertions:
-  - He thong reject va khong tao Vehicle.
-  expected_result: He thong reject va khong tao Vehicle.
-  test_data:
-  - Thieu thong tin Vehicle
-- id: TC_FR13_POS
-  uc: UC08
-  scenario: '[Positive] Them Vehicle hop le (FR13,16)'
-  case: '[Positive] Them Vehicle hop le'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR13
-    - FR16
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver dang nhap.
-  test_steps:
-  - step: 1
-    action: Nhap thong tin Vehicle
-  - step: 2
-    action: Gui them
-  assertions:
-  - He thong validate, kiem tra phu hop va CREATE Vehicle thanh cong.
-  expected_result: He thong validate, kiem tra phu hop va CREATE Vehicle thanh cong.
-  test_data:
-  - Vehicle hop le
-  - licensePlate chua ton tai
-- id: TC_FR14_INVALID
-  uc: UC09
-  scenario: '[Negative] Cap nhat Vehicle voi du lieu khong hop le (FR14,16)'
-  case: '[Negative] Cap nhat Vehicle voi du lieu khong hop le'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR14
-    - FR16
-    brule: []
-    nfr:
-    - NFR07
-  api:
-    method: PATCH
-    path: /vehicles/{vehicleId}
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver so huu Vehicle.
-  test_steps:
-  - step: 1
-    action: Sua du lieu khong hop le
-  - step: 2
-    action: Luu
-  assertions:
-  - He thong reject va khong luu thay doi.
-  expected_result: He thong reject va khong luu thay doi.
-  test_data:
-  - Du lieu Vehicle sai
-- id: TC_FR14_NEG
-  uc: UC09
-  scenario: '[Negative] Cap nhat Vehicle khong thuoc quyen so huu (FR14)'
-  case: '[Negative] Cap nhat Vehicle khong thuoc quyen so huu'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR14
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /vehicles/{vehicleId}
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver A dang nhap
-  - Vehicle B thuoc Driver B.
-  test_steps:
-  - step: 1
-    action: Driver A gui update Vehicle B
-  assertions:
-  - He thong reject thao tac.
-  expected_result: He thong reject thao tac.
-  test_data:
-  - Vehicle B
-- id: TC_FR14_POS
-  uc: UC09
-  scenario: '[Positive] Cap nhat Vehicle thuoc Driver (FR14,16)'
-  case: '[Positive] Cap nhat Vehicle thuoc Driver'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR14
-    - FR16
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /vehicles/{vehicleId}
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Driver dang nhap va so huu Vehicle.
-  test_steps:
-  - step: 1
-    action: Chon Vehicle
-  - step: 2
-    action: Sua thong tin hop le
-  - step: 3
-    action: Luu
-  assertions:
-  - He thong kiem tra quyen, validate va luu thay doi.
-  expected_result: He thong kiem tra quyen, validate va luu thay doi.
-  test_data:
-  - Vehicle thuoc Driver
-  - du lieu hop le
-- id: TC_FR15_HISTORY
-  uc: UC10
-  scenario: '[Exception] Vo hieu hoa Vehicle da tung duoc dung trong Trip (FR15)'
-  case: '[Exception] Vo hieu hoa Vehicle da tung duoc dung trong Trip'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR15
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /vehicles/{vehicleId}/deactivate
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Vehicle da tung su dung trong Trip.
-  test_steps:
-  - step: 1
-    action: Vo hieu hoa Vehicle
-  assertions:
-  - He thong khong xoa vat ly
-  - Vehicle duoc chuyen INACTIVE.
-  expected_result: He thong khong xoa vat ly; Vehicle duoc chuyen INACTIVE.
-  test_data:
-  - Vehicle da co lich su Trip
-- id: TC_FR15_POS
-  uc: UC10
-  scenario: '[Positive] Vo hieu hoa Vehicle (FR15)'
-  case: '[Positive] Vo hieu hoa Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR03
-    fr:
-    - FR15
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /vehicles/{vehicleId}/deactivate
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay vehicle.routes.js trong backend hien tai.'
-  preconditions:
-  - Vehicle ACTIVE
-  - Driver co quyen.
-  test_steps:
-  - step: 1
-    action: Chon Vehicle ACTIVE
-  - step: 2
-    action: Vo hieu hoa
-  assertions:
-  - Vehicle chuyen ACTIVE -> INACTIVE.
-  expected_result: Vehicle chuyen ACTIVE -> INACTIVE.
-  test_data:
-  - status ACTIVE
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

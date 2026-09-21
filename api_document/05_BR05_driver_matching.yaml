@@ -1,506 +1,464 @@
-name: BR05 - Driver Matching
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR05 - Driver Matching
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR05 - Driver Matching. Converted from the CAB System API test pack while preserving its test-case
+    traceability. Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR05
+  description: Business Requirement BR05
+- name: BR06
+  description: Business Requirement BR06
+paths:
+  /dispatch/drivers/search:
+    get:
+      summary: Get /dispatch/drivers/search
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /dispatch/drivers/search. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: Kem
+        POST /dispatch/trips/{tripId}/assign va /retry.'
+      operationId: get_dispatch_drivers_search
+      tags: &id001
+      - BR05
+      - BR06
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR25
+      - FR26
+      - FR27
+      - FR28
+      - FR29
+      - FR30
+      - FR31
+      - FR32
+      - FR33
+      - FR34
+      - FR35
+      - FR36
+      - FR37
+      - FR38
+      - FR39
+      - FR40
+      - FR41
+      x-business-rules:
+      - BRULE03
+      - BRULE04
+      - BRULE05
+      - BRULE09
+      - BRULE10
+      x-non-functional-requirements:
+      - NFR09
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_EX_ASSIGN_BUSY
+        scenario: '[Exception] Driver da nhan Trip khac bi loai khoi Assignment (FR25,31)'
+        priority: High
+        testData:
+        - Driver BUSY/co Trip dang thuc hien
+        preconditions:
+        - Driver duoc de xuat nhung dang co Trip khac.
+        steps:
+        - step: 1
+          action: He thong matching/accept
+        - step: 2
+          action: Kiem tra Driver
+        expectedResult: He thong khong cho Assignment/Accept cho Driver nay va tiep tuc xu ly Driver phu hop khac.
+        assertions:
+        - He thong khong cho Assignment/Accept cho Driver nay va tiep tuc xu ly Driver phu hop khac.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR25
+          - FR31
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR25_26_27_28_POS
+        scenario: '[Positive] Tim va uu tien Driver phu hop (FR25,26,27,28)'
+        priority: High
+        testData:
+        - Driver AVAILABLE
+        - Vehicle phu hop
+        - khoang cach khac nhau
+        preconditions:
+        - Booking SEARCHING
+        - co nhieu Driver.
+        steps:
+        - step: 1
+          action: Lay pickup
+        - step: 2
+          action: Loc AVAILABLE
+        - step: 3
+          action: Loc Vehicle phu hop
+        - step: 4
+          action: Tinh khoang cach
+        - step: 5
+          action: Sap xep
+        expectedResult: He thong chi chon Driver AVAILABLE, dung Vehicle va uu tien Driver gan pickup.
+        assertions:
+        - He thong chi chon Driver AVAILABLE, dung Vehicle va uu tien Driver gan pickup.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR25
+          - FR26
+          - FR27
+          - FR28
+          brule:
+          - BRULE03
+          - BRULE04
+          - BRULE05
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR25_UNAVAILABLE_CONDITIONS
+        scenario: '[Negative] Driver khong du 4 dieu kien AVAILABLE bi loai khoi matching (FR25)'
+        priority: High
+        testData:
+        - Driver X thieu 1 dieu kien AVAILABLE (vd dang co Trip khac)
+        preconditions:
+        - 'Driver thieu 1 trong 4 dieu kien: chua dang nhap / account khong active / dang co Trip / Vehicle khong hop le.'
+        steps:
+        - step: 1
+          action: Thuc hien matching cho Booking SEARCHING
+        - step: 2
+          action: Kiem tra danh sach Driver duoc xem xet
+        expectedResult: Driver X khong duoc dua vao trang thai AVAILABLE va khong xuat hien trong danh sach matching.
+        assertions:
+        - Driver X khong duoc dua vao trang thai AVAILABLE va khong xuat hien trong danh sach matching.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR25
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR29_ASSIGN
+        scenario: '[Positive] Tao Assignment va gui request (FR29,36,38)'
+        priority: High
+        testData:
+        - bookingId
+        - driverId
+        - status SENT
+        preconditions:
+        - Da chon Driver phu hop.
+        steps:
+        - step: 1
+          action: Tao BookingAssignment
+        - step: 2
+          action: Gui request
+        expectedResult: Assignment duoc CREATE voi status SENT va luu sentAt; request duoc gui.
+        assertions:
+        - Assignment duoc CREATE voi status SENT va luu sentAt
+        - request duoc gui.
+        traceability:
+          br:
+          - BR05
+          - BR06
+          fr:
+          - FR29
+          - FR36
+          - FR38
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR30_WAIT
+        scenario: '[Positive] Cho phan hoi Assignment (FR30)'
+        priority: High
+        testData:
+        - Assignment SENT
+        preconditions:
+        - Assignment status SENT.
+        steps:
+        - step: 1
+          action: Gui request
+        - step: 2
+          action: Cho phan hoi
+        expectedResult: He thong giu Assignment dang cho phan hoi theo flow.
+        assertions:
+        - He thong giu Assignment dang cho phan hoi theo flow.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR30
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR31_ACCEPT
+        scenario: '[Positive] Xu ly ACCEPT tu Driver (FR31)'
+        priority: High
+        testData:
+        - Assignment ACCEPTED
+        preconditions:
+        - Driver nhan request va chap nhan
+        - Booking con SEARCHING
+        - Driver AVAILABLE.
+        steps:
+        - step: 1
+          action: Driver Accept
+        expectedResult: He thong xu ly Accept theo UC15, khong retry Driver do.
+        assertions:
+        - He thong xu ly Accept theo UC15, khong retry Driver do.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR31
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR32_REJECT
+        scenario: '[Exception] Driver REJECT va retry Driver khac (FR32,34,37,39,40)'
+        priority: High
+        testData:
+        - rejectReason
+        - respondedAt
+        preconditions:
+        - Assignment SENT
+        - Driver tu choi.
+        steps:
+        - step: 1
+          action: Driver Reject
+        - step: 2
+          action: Luu respondedAt/reason
+        - step: 3
+          action: Tim Driver tiep theo
+        expectedResult: Assignment=REJECTED, luu respondedAt/rejectReason, loai Driver va retry Driver khac.
+        assertions:
+        - Assignment=REJECTED, luu respondedAt/rejectReason, loai Driver va retry Driver khac.
+        traceability:
+          br:
+          - BR05
+          - BR06
+          fr:
+          - FR32
+          - FR34
+          - FR37
+          - FR39
+          - FR40
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR33_TIMEOUT
+        scenario: '[Exception] Driver TIMEOUT va retry (FR30,33,34,37,39)'
+        priority: High
+        testData:
+        - Assignment TIMEOUT
+        preconditions:
+        - Assignment SENT
+        - Driver khong phan hoi.
+        steps:
+        - step: 1
+          action: Het thoi gian cho
+        - step: 2
+          action: Danh dau TIMEOUT
+        - step: 3
+          action: Retry
+        expectedResult: Assignment=TIMEOUT, luu thoi gian phan hoi theo nghia timeout va retry Driver tiep theo.
+        assertions:
+        - Assignment=TIMEOUT, luu thoi gian phan hoi theo nghia timeout va retry Driver tiep theo.
+        traceability:
+          br:
+          - BR05
+          - BR06
+          fr:
+          - FR30
+          - FR33
+          - FR34
+          - FR37
+          - FR39
+          brule:
+          - BRULE09
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR35_NODRIVER
+        scenario: '[Exception] Khong con Driver phu hop (FR35)'
+        priority: High
+        testData:
+        - Khong con Driver
+        preconditions:
+        - Booking SEARCHING
+        - khong con Driver phu hop.
+        steps:
+        - step: 1
+          action: Thuc hien matching den khi het ung vien
+        expectedResult: Booking chuyen NO_DRIVER_FOUND va thong bao cho Customer.
+        assertions:
+        - Booking chuyen NO_DRIVER_FOUND va thong bao cho Customer.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR35
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR36_MULTI
+        scenario: '[Boundary] Mot Booking co nhieu Assignment (FR36,37)'
+        priority: High
+        testData:
+        - Nhieu Assignment
+        preconditions:
+        - Booking SEARCHING
+        - Driver A reject, Driver B timeout, Driver C duoc chon.
+        steps:
+        - step: 1
+          action: Thuc hien cac lan matching
+        expectedResult: Moi lan gui duoc luu thanh Assignment rieng; lich su duoc giu tren BookingAssignment.
+        assertions:
+        - Moi lan gui duoc luu thanh Assignment rieng
+        - lich su duoc giu tren BookingAssignment.
+        traceability:
+          br:
+          - BR05
+          - BR06
+          fr:
+          - FR36
+          - FR37
+          brule:
+          - BRULE10
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_FR41_NOREPEAT
+        scenario: '[Negative] Khong gui lai cung Driver da bi loai (FR41)'
+        priority: High
+        testData:
+        - Driver A da bi loai trong Booking
+        preconditions:
+        - Booking co Assignment REJECTED/TIMEOUT cho Driver A.
+        steps:
+        - step: 1
+          action: Retry matching
+        expectedResult: He thong khong gui lai request cho Driver A trong Booking hien tai.
+        assertions:
+        - He thong khong gui lai request cho Driver A trong Booking hien tai.
+        traceability:
+          br:
+          - BR05
+          - BR06
+          fr:
+          - FR41
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_LOG_MATCH_FAIL
+        scenario: '[Exception] Ghi log khi Driver matching that bai (FR25,35)'
+        priority: High
+        testData:
+        - Matching failure
+        preconditions:
+        - Matching gap loi.
+        steps:
+        - step: 1
+          action: Kich hoat matching
+        - step: 2
+          action: Phat sinh loi
+        - step: 3
+          action: Kiem tra log
+        expectedResult: Booking duoc giu o trang thai phu hop; Operations co the kiem tra; loi matching duoc log.
+        assertions:
+        - Booking duoc giu o trang thai phu hop
+        - Operations co the kiem tra
+        - loi matching duoc log.
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR25
+          - FR35
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      - testCaseId: TC_NFR09_QUERY
+        scenario: '[Positive] Driver matching khong tao query khong can thiet (FR25,26,27,28)'
+        priority: Medium
+        testData:
+        - Matching dataset
+        preconditions:
+        - Co tap Driver/Vehicle du lieu.
+        steps:
+        - step: 1
+          action: Chay matching
+        - step: 2
+          action: Kiem tra query/thao tac DB
+        expectedResult: Matching su dung cac query can thiet theo thiet ke va khong truy van du thua (NFR09).
+        assertions:
+        - Matching su dung cac query can thiet theo thiet ke va khong truy van du thua (NFR09).
+        traceability:
+          br:
+          - BR05
+          fr:
+          - FR25
+          - FR26
+          - FR27
+          - FR28
+          brule: []
+          nfr:
+          - NFR09
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem POST /dispatch/trips/{tripId}/assign va /retry.
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 13
+x-test-case-ids:
+- TC_EX_ASSIGN_BUSY
+- TC_FR25_26_27_28_POS
+- TC_FR25_UNAVAILABLE_CONDITIONS
+- TC_FR29_ASSIGN
+- TC_FR30_WAIT
+- TC_FR31_ACCEPT
+- TC_FR32_REJECT
+- TC_FR33_TIMEOUT
+- TC_FR35_NODRIVER
+- TC_FR36_MULTI
+- TC_FR41_NOREPEAT
+- TC_LOG_MATCH_FAIL
+- TC_NFR09_QUERY
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_EX_ASSIGN_BUSY
-  uc: UC14
-  scenario: '[Exception] Driver da nhan Trip khac bi loai khoi Assignment (FR25,31)'
-  case: '[Exception] Driver da nhan Trip khac bi loai khoi Assignment'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR25
-    - FR31
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Driver duoc de xuat nhung dang co Trip khac.
-  test_steps:
-  - step: 1
-    action: He thong matching/accept
-  - step: 2
-    action: Kiem tra Driver
-  assertions:
-  - He thong khong cho Assignment/Accept cho Driver nay va tiep tuc xu ly Driver phu hop khac.
-  expected_result: He thong khong cho Assignment/Accept cho Driver nay va tiep tuc xu ly Driver phu hop
-    khac.
-  test_data:
-  - Driver BUSY/co Trip dang thuc hien
-- id: TC_FR25_26_27_28_POS
-  uc: UC14
-  scenario: '[Positive] Tim va uu tien Driver phu hop (FR25,26,27,28)'
-  case: '[Positive] Tim va uu tien Driver phu hop'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR25
-    - FR26
-    - FR27
-    - FR28
-    brule:
-    - BRULE03
-    - BRULE04
-    - BRULE05
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Booking SEARCHING
-  - co nhieu Driver.
-  test_steps:
-  - step: 1
-    action: Lay pickup
-  - step: 2
-    action: Loc AVAILABLE
-  - step: 3
-    action: Loc Vehicle phu hop
-  - step: 4
-    action: Tinh khoang cach
-  - step: 5
-    action: Sap xep
-  assertions:
-  - He thong chi chon Driver AVAILABLE, dung Vehicle va uu tien Driver gan pickup.
-  expected_result: He thong chi chon Driver AVAILABLE, dung Vehicle va uu tien Driver gan pickup.
-  test_data:
-  - Driver AVAILABLE
-  - Vehicle phu hop
-  - khoang cach khac nhau
-- id: TC_FR25_UNAVAILABLE_CONDITIONS
-  uc: UC14
-  scenario: '[Negative] Driver khong du 4 dieu kien AVAILABLE bi loai khoi matching (FR25)'
-  case: '[Negative] Driver khong du 4 dieu kien AVAILABLE bi loai khoi matching'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR25
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - 'Driver thieu 1 trong 4 dieu kien: chua dang nhap / account khong active / dang co Trip / Vehicle
-    khong hop le.'
-  test_steps:
-  - step: 1
-    action: Thuc hien matching cho Booking SEARCHING
-  - step: 2
-    action: Kiem tra danh sach Driver duoc xem xet
-  assertions:
-  - Driver X khong duoc dua vao trang thai AVAILABLE va khong xuat hien trong danh sach matching.
-  expected_result: Driver X khong duoc dua vao trang thai AVAILABLE va khong xuat hien trong danh sach
-    matching.
-  test_data:
-  - Driver X thieu 1 dieu kien AVAILABLE (vd dang co Trip khac)
-- id: TC_FR29_ASSIGN
-  uc: UC14
-  scenario: '[Positive] Tao Assignment va gui request (FR29,36,38)'
-  case: '[Positive] Tao Assignment va gui request'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    - BR06
-    fr:
-    - FR29
-    - FR36
-    - FR38
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Da chon Driver phu hop.
-  test_steps:
-  - step: 1
-    action: Tao BookingAssignment
-  - step: 2
-    action: Gui request
-  assertions:
-  - Assignment duoc CREATE voi status SENT va luu sentAt
-  - request duoc gui.
-  expected_result: Assignment duoc CREATE voi status SENT va luu sentAt; request duoc gui.
-  test_data:
-  - bookingId
-  - driverId
-  - status SENT
-- id: TC_FR30_WAIT
-  uc: UC14
-  scenario: '[Positive] Cho phan hoi Assignment (FR30)'
-  case: '[Positive] Cho phan hoi Assignment'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR30
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Assignment status SENT.
-  test_steps:
-  - step: 1
-    action: Gui request
-  - step: 2
-    action: Cho phan hoi
-  assertions:
-  - He thong giu Assignment dang cho phan hoi theo flow.
-  expected_result: He thong giu Assignment dang cho phan hoi theo flow.
-  test_data:
-  - Assignment SENT
-- id: TC_FR31_ACCEPT
-  uc: UC14
-  scenario: '[Positive] Xu ly ACCEPT tu Driver (FR31)'
-  case: '[Positive] Xu ly ACCEPT tu Driver'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR31
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Driver nhan request va chap nhan
-  - Booking con SEARCHING
-  - Driver AVAILABLE.
-  test_steps:
-  - step: 1
-    action: Driver Accept
-  assertions:
-  - He thong xu ly Accept theo UC15, khong retry Driver do.
-  expected_result: He thong xu ly Accept theo UC15, khong retry Driver do.
-  test_data:
-  - Assignment ACCEPTED
-- id: TC_FR32_REJECT
-  uc: UC14
-  scenario: '[Exception] Driver REJECT va retry Driver khac (FR32,34,37,39,40)'
-  case: '[Exception] Driver REJECT va retry Driver khac'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    - BR06
-    fr:
-    - FR32
-    - FR34
-    - FR37
-    - FR39
-    - FR40
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Assignment SENT
-  - Driver tu choi.
-  test_steps:
-  - step: 1
-    action: Driver Reject
-  - step: 2
-    action: Luu respondedAt/reason
-  - step: 3
-    action: Tim Driver tiep theo
-  assertions:
-  - Assignment=REJECTED, luu respondedAt/rejectReason, loai Driver va retry Driver khac.
-  expected_result: Assignment=REJECTED, luu respondedAt/rejectReason, loai Driver va retry Driver khac.
-  test_data:
-  - rejectReason
-  - respondedAt
-- id: TC_FR33_TIMEOUT
-  uc: UC14
-  scenario: '[Exception] Driver TIMEOUT va retry (FR30,33,34,37,39)'
-  case: '[Exception] Driver TIMEOUT va retry'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    - BR06
-    fr:
-    - FR30
-    - FR33
-    - FR34
-    - FR37
-    - FR39
-    brule:
-    - BRULE09
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Assignment SENT
-  - Driver khong phan hoi.
-  test_steps:
-  - step: 1
-    action: Het thoi gian cho
-  - step: 2
-    action: Danh dau TIMEOUT
-  - step: 3
-    action: Retry
-  assertions:
-  - Assignment=TIMEOUT, luu thoi gian phan hoi theo nghia timeout va retry Driver tiep theo.
-  expected_result: Assignment=TIMEOUT, luu thoi gian phan hoi theo nghia timeout va retry Driver tiep
-    theo.
-  test_data:
-  - Assignment TIMEOUT
-- id: TC_FR35_NODRIVER
-  uc: UC14
-  scenario: '[Exception] Khong con Driver phu hop (FR35)'
-  case: '[Exception] Khong con Driver phu hop'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR35
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Booking SEARCHING
-  - khong con Driver phu hop.
-  test_steps:
-  - step: 1
-    action: Thuc hien matching den khi het ung vien
-  assertions:
-  - Booking chuyen NO_DRIVER_FOUND va thong bao cho Customer.
-  expected_result: Booking chuyen NO_DRIVER_FOUND va thong bao cho Customer.
-  test_data:
-  - Khong con Driver
-- id: TC_FR36_MULTI
-  uc: UC14
-  scenario: '[Boundary] Mot Booking co nhieu Assignment (FR36,37)'
-  case: '[Boundary] Mot Booking co nhieu Assignment'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    - BR06
-    fr:
-    - FR36
-    - FR37
-    brule:
-    - BRULE10
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Booking SEARCHING
-  - Driver A reject, Driver B timeout, Driver C duoc chon.
-  test_steps:
-  - step: 1
-    action: Thuc hien cac lan matching
-  assertions:
-  - Moi lan gui duoc luu thanh Assignment rieng
-  - lich su duoc giu tren BookingAssignment.
-  expected_result: Moi lan gui duoc luu thanh Assignment rieng; lich su duoc giu tren BookingAssignment.
-  test_data:
-  - Nhieu Assignment
-- id: TC_FR41_NOREPEAT
-  uc: UC14
-  scenario: '[Negative] Khong gui lai cung Driver da bi loai (FR41)'
-  case: '[Negative] Khong gui lai cung Driver da bi loai'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    - BR06
-    fr:
-    - FR41
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Booking co Assignment REJECTED/TIMEOUT cho Driver A.
-  test_steps:
-  - step: 1
-    action: Retry matching
-  assertions:
-  - He thong khong gui lai request cho Driver A trong Booking hien tai.
-  expected_result: He thong khong gui lai request cho Driver A trong Booking hien tai.
-  test_data:
-  - Driver A da bi loai trong Booking
-- id: TC_LOG_MATCH_FAIL
-  uc: UC14
-  scenario: '[Exception] Ghi log khi Driver matching that bai (FR25,35)'
-  case: '[Exception] Ghi log khi Driver matching that bai'
-  priority: High
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR25
-    - FR35
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Matching gap loi.
-  test_steps:
-  - step: 1
-    action: Kich hoat matching
-  - step: 2
-    action: Phat sinh loi
-  - step: 3
-    action: Kiem tra log
-  assertions:
-  - Booking duoc giu o trang thai phu hop
-  - Operations co the kiem tra
-  - loi matching duoc log.
-  expected_result: Booking duoc giu o trang thai phu hop; Operations co the kiem tra; loi matching duoc
-    log.
-  test_data:
-  - Matching failure
-- id: TC_NFR09_QUERY
-  uc: UC14
-  scenario: '[Positive] Driver matching khong tao query khong can thiet (FR25,26,27,28)'
-  case: '[Positive] Driver matching khong tao query khong can thiet'
-  priority: Medium
-  traceability:
-    br:
-    - BR05
-    fr:
-    - FR25
-    - FR26
-    - FR27
-    - FR28
-    brule: []
-    nfr:
-    - NFR09
-  api:
-    method: GET
-    path: /dispatch/drivers/search
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem POST /dispatch/trips/{tripId}/assign va /retry.
-  preconditions:
-  - Co tap Driver/Vehicle du lieu.
-  test_steps:
-  - step: 1
-    action: Chay matching
-  - step: 2
-    action: Kiem tra query/thao tac DB
-  assertions:
-  - Matching su dung cac query can thiet theo thiet ke va khong truy van du thua (NFR09).
-  expected_result: Matching su dung cac query can thiet theo thiet ke va khong truy van du thua (NFR09).
-  test_data:
-  - Matching dataset
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

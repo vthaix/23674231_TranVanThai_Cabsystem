@@ -1,235 +1,250 @@
-name: BR13 - Incident
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR13 - Incident
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR13 - Incident. Converted from the CAB System API test pack while preserving its test-case traceability.
+    Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR13
+  description: Business Requirement BR13
+- name: BR14
+  description: Business Requirement BR14
+paths:
+  /incidents:
+    post:
+      summary: Post /incidents
+      description: 'API operation mapped from the existing CAB test-pack entries for POST /incidents. The SRS/test workbook defines business behavior
+        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay incident.routes.js trong backend hien tai.'
+      operationId: post_incidents
+      tags: &id001
+      - BR13
+      - BR14
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR81
+      - FR82
+      - FR83
+      - FR84
+      - FR85
+      - FR86
+      - FR87
+      - FR95
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR81_82_POS
+        scenario: '[Positive] Tao va xem Incident (FR81,82)'
+        priority: High
+        testData:
+        - Incident hop le
+        - trip co the null
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Tao Incident
+        - step: 2
+          action: Mo danh sach/chi tiet
+        expectedResult: Incident duoc CREATE va xem duoc; Incident co the khong gan Trip.
+        assertions:
+        - Incident duoc CREATE va xem duoc
+        - Incident co the khong gan Trip.
+        traceability:
+          br:
+          - BR13
+          fr:
+          - FR81
+          - FR82
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR83_84_85_POS
+        scenario: '[Positive] Cap nhat Incident va ghi resolution (FR83,84,85)'
+        priority: High
+        testData:
+        - Incident status
+        - resolution
+        preconditions:
+        - Incident ton tai
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Sua type/description
+        - step: 2
+          action: Doi status
+        - step: 3
+          action: Nhap resolution
+        expectedResult: Incident duoc UPDATE dung thong tin va resolution.
+        assertions:
+        - Incident duoc UPDATE dung thong tin va resolution.
+        traceability:
+          br:
+          - BR13
+          fr:
+          - FR83
+          - FR84
+          - FR85
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR86_87_POS
+        scenario: '[Positive] Dong Incident va luu thoi gian xu ly (FR86,87)'
+        priority: High
+        testData:
+        - Status CLOSED
+        preconditions:
+        - Incident da resolved theo flow.
+        steps:
+        - step: 1
+          action: Dong Incident
+        - step: 2
+          action: Kiem tra
+        expectedResult: Incident=CLOSED va thoi gian xu ly/resolvedAt duoc luu theo flow.
+        assertions:
+        - Incident=CLOSED va thoi gian xu ly/resolvedAt duoc luu theo flow.
+        traceability:
+          br:
+          - BR13
+          fr:
+          - FR86
+          - FR87
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR95_AUDIT
+        scenario: '[Positive] Xu ly Incident ghi AuditLog (FR95)'
+        priority: High
+        testData:
+        - Thao tac xu ly Incident
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Cap nhat Incident
+        - step: 2
+          action: Kiem tra AuditLog
+        expectedResult: AuditLog duoc ghi cho thao tac quan tri/xu ly quan trong.
+        assertions:
+        - AuditLog duoc ghi cho thao tac quan tri/xu ly quan trong.
+        traceability:
+          br:
+          - BR13
+          - BR14
+          fr:
+          - FR95
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      - testCaseId: TC_FR95_AUTH
+        scenario: '[Negative] Staff khong co permission khong duoc xu ly Incident (FR95)'
+        priority: High
+        testData:
+        - Khong co permission
+        preconditions:
+        - Staff khong co permission.
+        steps:
+        - step: 1
+          action: Gui create/update Incident
+        expectedResult: He thong tra 403 va khong thay doi du lieu.
+        assertions:
+        - He thong tra 403 va khong thay doi du lieu.
+        traceability:
+          br:
+          - BR13
+          - BR14
+          fr:
+          - FR95
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      - testCaseId: TC_LOG_UNEXPECTED
+        scenario: '[Exception] Ghi log unexpected exception (FR95)'
+        priority: High
+        testData:
+        - Unexpected exception
+        preconditions:
+        - Staff xu ly Incident
+        - phat sinh loi ngoai du kien.
+        steps:
+        - step: 1
+          action: Thuc hien thao tac
+        - step: 2
+          action: Phat sinh exception
+        - step: 3
+          action: Kiem tra log
+        expectedResult: Unexpected exception duoc log; thong tin nhay cam khong bi ghi vao log.
+        assertions:
+        - Unexpected exception duoc log
+        - thong tin nhay cam khong bi ghi vao log.
+        traceability:
+          br:
+          - BR13
+          - BR14
+          fr:
+          - FR95
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        '403':
+          description: HTTP 403 is explicitly mentioned by at least one source test case.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 6
+x-test-case-ids:
+- TC_FR81_82_POS
+- TC_FR83_84_85_POS
+- TC_FR86_87_POS
+- TC_FR95_AUDIT
+- TC_FR95_AUTH
+- TC_LOG_UNEXPECTED
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR81_82_POS
-  uc: UC29
-  scenario: '[Positive] Tao va xem Incident (FR81,82)'
-  case: '[Positive] Tao va xem Incident'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    fr:
-    - FR81
-    - FR82
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Tao Incident
-  - step: 2
-    action: Mo danh sach/chi tiet
-  assertions:
-  - Incident duoc CREATE va xem duoc
-  - Incident co the khong gan Trip.
-  expected_result: Incident duoc CREATE va xem duoc; Incident co the khong gan Trip.
-  test_data:
-  - Incident hop le
-  - trip co the null
-- id: TC_FR83_84_85_POS
-  uc: UC29
-  scenario: '[Positive] Cap nhat Incident va ghi resolution (FR83,84,85)'
-  case: '[Positive] Cap nhat Incident va ghi resolution'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    fr:
-    - FR83
-    - FR84
-    - FR85
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Incident ton tai
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Sua type/description
-  - step: 2
-    action: Doi status
-  - step: 3
-    action: Nhap resolution
-  assertions:
-  - Incident duoc UPDATE dung thong tin va resolution.
-  expected_result: Incident duoc UPDATE dung thong tin va resolution.
-  test_data:
-  - Incident status
-  - resolution
-- id: TC_FR86_87_POS
-  uc: UC29
-  scenario: '[Positive] Dong Incident va luu thoi gian xu ly (FR86,87)'
-  case: '[Positive] Dong Incident va luu thoi gian xu ly'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    fr:
-    - FR86
-    - FR87
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Incident da resolved theo flow.
-  test_steps:
-  - step: 1
-    action: Dong Incident
-  - step: 2
-    action: Kiem tra
-  assertions:
-  - Incident=CLOSED va thoi gian xu ly/resolvedAt duoc luu theo flow.
-  expected_result: Incident=CLOSED va thoi gian xu ly/resolvedAt duoc luu theo flow.
-  test_data:
-  - Status CLOSED
-- id: TC_FR95_AUDIT
-  uc: UC29
-  scenario: '[Positive] Xu ly Incident ghi AuditLog (FR95)'
-  case: '[Positive] Xu ly Incident ghi AuditLog'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    - BR14
-    fr:
-    - FR95
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Cap nhat Incident
-  - step: 2
-    action: Kiem tra AuditLog
-  assertions:
-  - AuditLog duoc ghi cho thao tac quan tri/xu ly quan trong.
-  expected_result: AuditLog duoc ghi cho thao tac quan tri/xu ly quan trong.
-  test_data:
-  - Thao tac xu ly Incident
-- id: TC_FR95_AUTH
-  uc: UC29
-  scenario: '[Negative] Staff khong co permission khong duoc xu ly Incident (FR95)'
-  case: '[Negative] Staff khong co permission khong duoc xu ly Incident'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    - BR14
-    fr:
-    - FR95
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Staff khong co permission.
-  test_steps:
-  - step: 1
-    action: Gui create/update Incident
-  assertions:
-  - He thong tra 403 va khong thay doi du lieu.
-  expected_result: He thong tra 403 va khong thay doi du lieu.
-  test_data:
-  - Khong co permission
-- id: TC_LOG_UNEXPECTED
-  uc: UC29
-  scenario: '[Exception] Ghi log unexpected exception (FR95)'
-  case: '[Exception] Ghi log unexpected exception'
-  priority: High
-  traceability:
-    br:
-    - BR13
-    - BR14
-    fr:
-    - FR95
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /incidents
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay incident.routes.js trong backend hien tai.'
-  preconditions:
-  - Staff xu ly Incident
-  - phat sinh loi ngoai du kien.
-  test_steps:
-  - step: 1
-    action: Thuc hien thao tac
-  - step: 2
-    action: Phat sinh exception
-  - step: 3
-    action: Kiem tra log
-  assertions:
-  - Unexpected exception duoc log
-  - thong tin nhay cam khong bi ghi vao log.
-  expected_result: Unexpected exception duoc log; thong tin nhay cam khong bi ghi vao log.
-  test_data:
-  - Unexpected exception
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

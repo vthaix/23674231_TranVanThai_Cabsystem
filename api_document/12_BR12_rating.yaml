@@ -1,285 +1,321 @@
-name: BR12 - Rating
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR12 - Rating
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR12 - Rating. Converted from the CAB System API test pack while preserving its test-case traceability.
+    Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR12
+  description: Business Requirement BR12
+paths:
+  /trips/{tripId}/rating:
+    post:
+      summary: Post /trips/{tripId}/rating
+      description: API operation mapped from the existing CAB test-pack entries for POST /trips/{tripId}/rating. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
+      operationId: post_trips_tripId_rating
+      tags: &id001
+      - BR12
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR75
+      - FR76
+      - FR77
+      - FR78
+      - FR79
+      x-business-rules:
+      - BRULE19
+      - BRULE20
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR75_76_77_POS
+        scenario: '[Positive] Tao Rating cho Trip COMPLETED (FR75,76,77,78,79)'
+        priority: High
+        testData:
+        - Score hop le
+        - comment
+        preconditions:
+        - Customer la owner
+        - Trip COMPLETED
+        - chua co Rating.
+        steps:
+        - step: 1
+          action: Mo Trip
+        - step: 2
+          action: Chon score
+        - step: 3
+          action: Nhap comment
+        - step: 4
+          action: Gui
+        expectedResult: Rating duoc CREATE va luu comment.
+        assertions:
+        - Rating duoc CREATE va luu comment.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR75
+          - FR76
+          - FR77
+          - FR78
+          - FR79
+          brule:
+          - BRULE19
+          - BRULE20
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR75_OWNER
+        scenario: '[Negative] Customer khong so huu Trip khong duoc Rating (FR75)'
+        priority: High
+        testData:
+        - Trip cua B
+        preconditions:
+        - Trip cua Customer B.
+        steps:
+        - step: 1
+          action: Customer A gui Rating
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR75
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR76_INVALID
+        scenario: '[Negative] Tao Rating voi score khong hop le (FR76)'
+        priority: High
+        testData:
+        - Score invalid
+        preconditions:
+        - Trip COMPLETED
+        - chua co Rating.
+        steps:
+        - step: 1
+          action: Nhap score khong hop le
+        - step: 2
+          action: Gui
+        expectedResult: He thong reject va khong tao Rating.
+        assertions:
+        - He thong reject va khong tao Rating.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR76
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR78_NOT_COMPLETED
+        scenario: '[Negative] Danh gia khi Trip chua completed (FR78)'
+        priority: High
+        testData:
+        - Trip IN_PROGRESS
+        preconditions:
+        - Trip chua COMPLETED.
+        steps:
+        - step: 1
+          action: Gui Rating
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR78
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR79_DUP
+        scenario: '[Negative] Danh gia trung cho cung Trip (FR79)'
+        priority: High
+        testData:
+        - Rating da ton tai
+        preconditions:
+        - Trip da co Rating.
+        steps:
+        - step: 1
+          action: Gui Rating lan 2
+        expectedResult: He thong reject Rating thu hai.
+        assertions:
+        - He thong reject Rating thu hai.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR79
+          brule:
+          - BRULE20
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        description: 'Path parameter: tripId.'
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+  /drivers/{driverId}/ratings:
+    get:
+      summary: Get /drivers/{driverId}/ratings
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /drivers/{driverId}/ratings. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: Kem
+        GET /ratings/{ratingId}.'
+      operationId: get_drivers_driverId_ratings
+      tags: &id002
+      - BR12
+      x-business-requirements: *id002
+      x-functional-requirements:
+      - FR80
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR80_DENY
+        scenario: '[Negative] Nguoi khong co permission xem Rating (FR80)'
+        priority: High
+        testData:
+        - Khong co permission
+        preconditions:
+        - User khong co permission.
+        steps:
+        - step: 1
+          action: Yeu cau xem Rating
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR80
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /ratings/{ratingId}.
+      - testCaseId: TC_FR80_DRIVER
+        scenario: '[Positive] Driver xem Rating nhan duoc (FR80)'
+        priority: High
+        testData:
+        - Rating cua Driver
+        preconditions:
+        - Driver dang nhap
+        - co Rating.
+        steps:
+        - step: 1
+          action: Mo Rating
+        expectedResult: He thong hien thi Rating cua Driver.
+        assertions:
+        - He thong hien thi Rating cua Driver.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR80
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /ratings/{ratingId}.
+      - testCaseId: TC_FR80_STAFF
+        scenario: '[Positive] Operations Staff xem Rating theo permission (FR80)'
+        priority: High
+        testData:
+        - Permission hop le
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo Rating Driver
+        expectedResult: He thong cho xem Rating trong pham vi.
+        assertions:
+        - He thong cho xem Rating trong pham vi.
+        traceability:
+          br:
+          - BR12
+          fr:
+          - FR80
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /ratings/{ratingId}.
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      parameters:
+      - name: driverId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        description: 'Path parameter: driverId.'
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 8
+x-test-case-ids:
+- TC_FR75_76_77_POS
+- TC_FR75_OWNER
+- TC_FR76_INVALID
+- TC_FR78_NOT_COMPLETED
+- TC_FR79_DUP
+- TC_FR80_DENY
+- TC_FR80_DRIVER
+- TC_FR80_STAFF
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR75_76_77_POS
-  uc: UC25
-  scenario: '[Positive] Tao Rating cho Trip COMPLETED (FR75,76,77,78,79)'
-  case: '[Positive] Tao Rating cho Trip COMPLETED'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR75
-    - FR76
-    - FR77
-    - FR78
-    - FR79
-    brule:
-    - BRULE19
-    - BRULE20
-    nfr: []
-  api:
-    method: POST
-    path: /trips/{tripId}/rating
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${CUSTOMER_TOKEN}
-    body: {}
-  preconditions:
-  - Customer la owner
-  - Trip COMPLETED
-  - chua co Rating.
-  test_steps:
-  - step: 1
-    action: Mo Trip
-  - step: 2
-    action: Chon score
-  - step: 3
-    action: Nhap comment
-  - step: 4
-    action: Gui
-  assertions:
-  - Rating duoc CREATE va luu comment.
-  expected_result: Rating duoc CREATE va luu comment.
-  test_data:
-  - Score hop le
-  - comment
-- id: TC_FR75_OWNER
-  uc: UC25
-  scenario: '[Negative] Customer khong so huu Trip khong duoc Rating (FR75)'
-  case: '[Negative] Customer khong so huu Trip khong duoc Rating'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR75
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /trips/{tripId}/rating
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${CUSTOMER_TOKEN}
-    body: {}
-  preconditions:
-  - Trip cua Customer B.
-  test_steps:
-  - step: 1
-    action: Customer A gui Rating
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Trip cua B
-- id: TC_FR76_INVALID
-  uc: UC25
-  scenario: '[Negative] Tao Rating voi score khong hop le (FR76)'
-  case: '[Negative] Tao Rating voi score khong hop le'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR76
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /trips/{tripId}/rating
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-  preconditions:
-  - Trip COMPLETED
-  - chua co Rating.
-  test_steps:
-  - step: 1
-    action: Nhap score khong hop le
-  - step: 2
-    action: Gui
-  assertions:
-  - He thong reject va khong tao Rating.
-  expected_result: He thong reject va khong tao Rating.
-  test_data:
-  - Score invalid
-- id: TC_FR78_NOT_COMPLETED
-  uc: UC25
-  scenario: '[Negative] Danh gia khi Trip chua completed (FR78)'
-  case: '[Negative] Danh gia khi Trip chua completed'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR78
-    brule: []
-    nfr: []
-  api:
-    method: POST
-    path: /trips/{tripId}/rating
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-  preconditions:
-  - Trip chua COMPLETED.
-  test_steps:
-  - step: 1
-    action: Gui Rating
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Trip IN_PROGRESS
-- id: TC_FR79_DUP
-  uc: UC25
-  scenario: '[Negative] Danh gia trung cho cung Trip (FR79)'
-  case: '[Negative] Danh gia trung cho cung Trip'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR79
-    brule:
-    - BRULE20
-    nfr: []
-  api:
-    method: POST
-    path: /trips/{tripId}/rating
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-  preconditions:
-  - Trip da co Rating.
-  test_steps:
-  - step: 1
-    action: Gui Rating lan 2
-  assertions:
-  - He thong reject Rating thu hai.
-  expected_result: He thong reject Rating thu hai.
-  test_data:
-  - Rating da ton tai
-- id: TC_FR80_DENY
-  uc: UC26
-  scenario: '[Negative] Nguoi khong co permission xem Rating (FR80)'
-  case: '[Negative] Nguoi khong co permission xem Rating'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR80
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /drivers/{driverId}/ratings
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: Kem GET /ratings/{ratingId}.
-  preconditions:
-  - User khong co permission.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Rating
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Khong co permission
-- id: TC_FR80_DRIVER
-  uc: UC26
-  scenario: '[Positive] Driver xem Rating nhan duoc (FR80)'
-  case: '[Positive] Driver xem Rating nhan duoc'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR80
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /drivers/{driverId}/ratings
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem GET /ratings/{ratingId}.
-  preconditions:
-  - Driver dang nhap
-  - co Rating.
-  test_steps:
-  - step: 1
-    action: Mo Rating
-  assertions:
-  - He thong hien thi Rating cua Driver.
-  expected_result: He thong hien thi Rating cua Driver.
-  test_data:
-  - Rating cua Driver
-- id: TC_FR80_STAFF
-  uc: UC26
-  scenario: '[Positive] Operations Staff xem Rating theo permission (FR80)'
-  case: '[Positive] Operations Staff xem Rating theo permission'
-  priority: High
-  traceability:
-    br:
-    - BR12
-    fr:
-    - FR80
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /drivers/{driverId}/ratings
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /ratings/{ratingId}.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo Rating Driver
-  assertions:
-  - He thong cho xem Rating trong pham vi.
-  expected_result: He thong cho xem Rating trong pham vi.
-  test_data:
-  - Permission hop le
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

@@ -1,163 +1,180 @@
-name: BR08 - Tracking
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR08 - Tracking
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR08 - Tracking. Converted from the CAB System API test pack while preserving its test-case traceability.
+    Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR08
+  description: Business Requirement BR08
+paths:
+  /drivers/me/location:
+    patch:
+      summary: Patch /drivers/me/location
+      description: 'API operation mapped from the existing CAB test-pack entries for PATCH /drivers/me/location. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi tri.'
+      operationId: patch_drivers_me_location
+      tags: &id001
+      - BR08
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR52
+      - FR53
+      - FR54
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR52_53_POS
+        scenario: '[Positive] Cap nhat latitude longitude hop le (FR52,53,54)'
+        priority: High
+        testData:
+        - Toa do hop le
+        preconditions:
+        - Driver dang nhap.
+        steps:
+        - step: 1
+          action: Gui latitude/longitude
+        - step: 2
+          action: Luu
+        expectedResult: Driver.currentLatitude/currentLongitude va locationUpdatedAt duoc UPDATE.
+        assertions:
+        - Driver.currentLatitude/currentLongitude va locationUpdatedAt duoc UPDATE.
+        traceability:
+          br:
+          - BR08
+          fr:
+          - FR52
+          - FR53
+          - FR54
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi tri.'
+      - testCaseId: TC_FR52_INVALID
+        scenario: '[Negative] Cap nhat toa do ngoai range (FR52,53)'
+        priority: High
+        testData:
+        - Latitude/longitude ngoai range
+        preconditions:
+        - Driver dang nhap.
+        steps:
+        - step: 1
+          action: Gui toa do khong hop le
+        expectedResult: Backend reject; khong cap nhat location.
+        assertions:
+        - Backend reject
+        - khong cap nhat location.
+        traceability:
+          br:
+          - BR08
+          fr:
+          - FR52
+          - FR53
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi tri.'
+      - testCaseId: TC_FR54_NOGPSHISTORY
+        scenario: '[Negative] Khong tao lich su GPS chi tiet (FR52,53,54)'
+        priority: High
+        testData:
+        - Nhieu lan update
+        preconditions:
+        - Driver cap nhat location nhieu lan.
+        steps:
+        - step: 1
+          action: Cap nhat location nhieu lan
+        - step: 2
+          action: Kiem tra du lieu
+        expectedResult: Chi luu vi tri hien tai va locationUpdatedAt; khong tao GPS history.
+        assertions:
+        - Chi luu vi tri hien tai va locationUpdatedAt
+        - khong tao GPS history.
+        traceability:
+          br:
+          - BR08
+          fr:
+          - FR52
+          - FR53
+          - FR54
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi tri.'
+      - testCaseId: TC_FR54_TIME
+        scenario: '[Positive] Luu thoi gian cap nhat location (FR54)'
+        priority: High
+        testData:
+        - Location moi
+        preconditions:
+        - Cap nhat location thanh cong.
+        steps:
+        - step: 1
+          action: Update location
+        - step: 2
+          action: Kiem tra Driver
+        expectedResult: locationUpdatedAt duoc luu.
+        assertions:
+        - locationUpdatedAt duoc luu.
+        traceability:
+          br:
+          - BR08
+          fr:
+          - FR54
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi tri.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+            example: {}
+        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
+          Use the Test Case's testData and backend route contract to populate the payload.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 4
+x-test-case-ids:
+- TC_FR52_53_POS
+- TC_FR52_INVALID
+- TC_FR54_NOGPSHISTORY
+- TC_FR54_TIME
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR52_53_POS
-  uc: UC19
-  scenario: '[Positive] Cap nhat latitude longitude hop le (FR52,53,54)'
-  case: '[Positive] Cap nhat latitude longitude hop le'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    fr:
-    - FR52
-    - FR53
-    - FR54
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /drivers/me/location
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi
-      tri.'
-  preconditions:
-  - Driver dang nhap.
-  test_steps:
-  - step: 1
-    action: Gui latitude/longitude
-  - step: 2
-    action: Luu
-  assertions:
-  - Driver.currentLatitude/currentLongitude va locationUpdatedAt duoc UPDATE.
-  expected_result: Driver.currentLatitude/currentLongitude va locationUpdatedAt duoc UPDATE.
-  test_data:
-  - Toa do hop le
-- id: TC_FR52_INVALID
-  uc: UC19
-  scenario: '[Negative] Cap nhat toa do ngoai range (FR52,53)'
-  case: '[Negative] Cap nhat toa do ngoai range'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    fr:
-    - FR52
-    - FR53
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /drivers/me/location
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi
-      tri.'
-  preconditions:
-  - Driver dang nhap.
-  test_steps:
-  - step: 1
-    action: Gui toa do khong hop le
-  assertions:
-  - Backend reject
-  - khong cap nhat location.
-  expected_result: Backend reject; khong cap nhat location.
-  test_data:
-  - Latitude/longitude ngoai range
-- id: TC_FR54_NOGPSHISTORY
-  uc: UC19
-  scenario: '[Negative] Khong tao lich su GPS chi tiet (FR52,53,54)'
-  case: '[Negative] Khong tao lich su GPS chi tiet'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    fr:
-    - FR52
-    - FR53
-    - FR54
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /drivers/me/location
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi
-      tri.'
-  preconditions:
-  - Driver cap nhat location nhieu lan.
-  test_steps:
-  - step: 1
-    action: Cap nhat location nhieu lan
-  - step: 2
-    action: Kiem tra du lieu
-  assertions:
-  - Chi luu vi tri hien tai va locationUpdatedAt
-  - khong tao GPS history.
-  expected_result: Chi luu vi tri hien tai va locationUpdatedAt; khong tao GPS history.
-  test_data:
-  - Nhieu lan update
-- id: TC_FR54_TIME
-  uc: UC19
-  scenario: '[Positive] Luu thoi gian cap nhat location (FR54)'
-  case: '[Positive] Luu thoi gian cap nhat location'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    fr:
-    - FR54
-    brule: []
-    nfr: []
-  api:
-    method: PATCH
-    path: /drivers/me/location
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: tracking.routes.js chi co GET, chua thay POST/PATCH cap nhat vi
-      tri.'
-  preconditions:
-  - Cap nhat location thanh cong.
-  test_steps:
-  - step: 1
-    action: Update location
-  - step: 2
-    action: Kiem tra Driver
-  assertions:
-  - locationUpdatedAt duoc luu.
-  expected_result: locationUpdatedAt duoc luu.
-  test_data:
-  - Location moi
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

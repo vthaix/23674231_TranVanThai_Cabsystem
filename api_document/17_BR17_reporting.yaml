@@ -1,623 +1,613 @@
-name: BR17 - Reporting
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR17 - Reporting
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR17 - Reporting. Converted from the CAB System API test pack while preserving its test-case
+    traceability. Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR17
+  description: Business Requirement BR17
+paths:
+  /reports/dashboard:
+    get:
+      summary: Get /reports/dashboard
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /reports/dashboard. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay report/dashboard route trong backend hien tai.'
+      operationId: get_reports_dashboard
+      tags: &id001
+      - BR17
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR106
+      - FR107
+      - FR108
+      - FR109
+      - FR110
+      x-business-rules:
+      - BRULE23
+      x-non-functional-requirements:
+      - NFR02
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR106_107_108_109_110_POS
+        scenario: '[Positive] Xem Dashboard voi cac chi so tong hop (FR106,107,108,109,110)'
+        priority: High
+        testData:
+        - Trip, Payment, Driver, Rating data
+        preconditions:
+        - Management User co quyen
+        - co domain data.
+        steps:
+        - step: 1
+          action: Mo Dashboard
+        expectedResult: Hien thi Total Trips, Completed, Cancelled, Revenue, Completion Rate, Cancellation Rate, Driver Metrics.
+        assertions:
+        - Hien thi Total Trips, Completed, Cancelled, Revenue, Completion Rate, Cancellation Rate, Driver Metrics.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR106
+          - FR107
+          - FR108
+          - FR109
+          - FR110
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
+      - testCaseId: TC_FR106_DENY
+        scenario: '[Negative] User khong phai Management xem Dashboard bi tu choi (FR106)'
+        priority: High
+        testData:
+        - User khong co permission Management
+        preconditions:
+        - User dang nhap khong co role Management.
+        steps:
+        - step: 1
+          action: Yeu cau xem Dashboard
+        expectedResult: He thong reject/403; khong tra ve du lieu Dashboard.
+        assertions:
+        - He thong reject/403
+        - khong tra ve du lieu Dashboard.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR106
+          brule:
+          - BRULE23
+          nfr:
+          - NFR02
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
+      - testCaseId: TC_FR106_EMPTY
+        scenario: '[Exception] Dashboard khi khong co Trip trong pham vi (FR106,108,109)'
+        priority: High
+        testData:
+        - Khong co Trip
+        preconditions:
+        - Khong co Trip trong time range.
+        steps:
+        - step: 1
+          action: Mo Dashboard
+        expectedResult: Khong hien thi so lieu gia; cac chi so phu hop voi tap du lieu rong.
+        assertions:
+        - Khong hien thi so lieu gia
+        - cac chi so phu hop voi tap du lieu rong.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR106
+          - FR108
+          - FR109
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
+      - testCaseId: TC_FR110_INCOMPLETE
+        scenario: '[Exception] Driver Metrics thieu du lieu (FR110)'
+        priority: High
+        testData:
+        - Du lieu Driver khong day du
+        preconditions:
+        - Mot Driver thieu du lieu rating/trip.
+        steps:
+        - step: 1
+          action: Mo Dashboard
+        expectedResult: Chi so khong tinh duoc hien thi N/A/khong du du lieu.
+        assertions:
+        - Chi so khong tinh duoc hien thi N/A/khong du du lieu.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR110
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        '403':
+          description: HTTP 403 is explicitly mentioned by at least one source test case.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /reports/trips:
+    get:
+      summary: Get /reports/trips
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /reports/trips. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay report route trong backend hien tai.'
+      operationId: get_reports_trips
+      tags: &id002
+      - BR17
+      x-business-requirements: *id002
+      x-functional-requirements:
+      - FR106
+      - FR111
+      - FR112
+      x-business-rules:
+      - BRULE23
+      - BRULE27
+      x-non-functional-requirements:
+      - NFR02
+      - NFR11
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR106_111_POS
+        scenario: '[Positive] Bao cao Trip theo khoang thoi gian (FR106,111)'
+        priority: High
+        testData:
+        - Khoang thoi gian hop le
+        preconditions:
+        - Management User co quyen.
+        steps:
+        - step: 1
+          action: Chon From Date
+        - step: 2
+          action: Chon To Date
+        - step: 3
+          action: Xem report
+        expectedResult: Bao cao COUNT(Trip) dung trong khoang thoi gian.
+        assertions:
+        - Bao cao COUNT(Trip) dung trong khoang thoi gian.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR106
+          - FR111
+          brule:
+          - BRULE27
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR106_AGG
+        scenario: '[Positive] Bao cao dung aggregation thay vi load toan bo record (FR106,111)'
+        priority: High
+        testData:
+        - Tap du lieu lon
+        preconditions:
+        - Co tap du lieu lon.
+        steps:
+        - step: 1
+          action: Thuc hien report
+        - step: 2
+          action: Kiem tra query implementation
+        expectedResult: Report su dung aggregation query phu hop, khong load toan bo record vao application (NFR11).
+        assertions:
+        - Report su dung aggregation query phu hop, khong load toan bo record vao application (NFR11).
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR106
+          - FR111
+          brule: []
+          nfr:
+          - NFR11
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR111_DENY
+        scenario: '[Negative] User khong phai Management xem Bao cao Trip bi tu choi (FR111)'
+        priority: High
+        testData:
+        - User khong co permission Management
+        preconditions:
+        - User dang nhap khong co role Management.
+        steps:
+        - step: 1
+          action: Yeu cau xem Bao cao Trip
+        expectedResult: He thong reject/403; khong tra ve du lieu bao cao.
+        assertions:
+        - He thong reject/403
+        - khong tra ve du lieu bao cao.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR111
+          brule:
+          - BRULE23
+          nfr:
+          - NFR02
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR111_INVALID
+        scenario: '[Negative] Khoang thoi gian khong hop le (FR111)'
+        priority: High
+        testData:
+        - From/To khong hop le
+        preconditions:
+        - Management User co quyen.
+        steps:
+        - step: 1
+          action: Chon khoang thoi gian khong hop le
+        expectedResult: He thong yeu cau dieu chinh filter va khong tra so lieu sai.
+        assertions:
+        - He thong yeu cau dieu chinh filter va khong tra so lieu sai.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR111
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR111_STATUS
+        scenario: '[Positive] Loc bao cao Trip theo status (FR111)'
+        priority: High
+        testData:
+        - Status COMPLETED/CANCELLED
+        preconditions:
+        - Co Trip nhieu status.
+        steps:
+        - step: 1
+          action: Chon status filter
+        expectedResult: Bao cao chi tinh Trip khop filter.
+        assertions:
+        - Bao cao chi tinh Trip khop filter.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR111
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR112_DETAIL
+        scenario: '[Positive] Xem du lieu chi tiet cua bao cao (FR112)'
+        priority: High
+        testData:
+        - Trip data
+        preconditions:
+        - Bao cao co du lieu.
+        steps:
+        - step: 1
+          action: Chon chi so/ban ghi chi tiet
+        expectedResult: He thong hien thi du lieu nguon trong pham vi quyen.
+        assertions:
+        - He thong hien thi du lieu nguon trong pham vi quyen.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR112
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        '403':
+          description: HTTP 403 is explicitly mentioned by at least one source test case.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /reports/revenue:
+    get:
+      summary: Get /reports/revenue
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /reports/revenue. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay report route trong backend hien tai.'
+      operationId: get_reports_revenue
+      tags: &id003
+      - BR17
+      x-business-requirements: *id003
+      x-functional-requirements:
+      - FR107
+      - FR111
+      x-business-rules:
+      - BRULE23
+      - BRULE26
+      x-non-functional-requirements:
+      - NFR02
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR107_DENY
+        scenario: '[Negative] User khong phai Management xem Bao cao doanh thu bi tu choi (FR107)'
+        priority: High
+        testData:
+        - User khong co permission Management
+        preconditions:
+        - User dang nhap khong co role Management.
+        steps:
+        - step: 1
+          action: Yeu cau xem Bao cao doanh thu
+        expectedResult: He thong reject/403; khong tra ve du lieu doanh thu.
+        assertions:
+        - He thong reject/403
+        - khong tra ve du lieu doanh thu.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR107
+          brule:
+          - BRULE23
+          nfr:
+          - NFR02
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR107_FILTER
+        scenario: '[Positive] Bao cao doanh thu theo khoang thoi gian (FR107,111)'
+        priority: High
+        testData:
+        - Khoang thoi gian
+        preconditions:
+        - Co Payment trong nhieu khoang thoi gian.
+        steps:
+        - step: 1
+          action: Chon From/To
+        - step: 2
+          action: Xem report
+        expectedResult: Chi tinh Payment SUCCESS trong time range.
+        assertions:
+        - Chi tinh Payment SUCCESS trong time range.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR107
+          - FR111
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR107_NO_SUCCESS
+        scenario: '[Exception] Khong co Payment SUCCESS (FR107)'
+        priority: High
+        testData:
+        - Khong co SUCCESS
+        preconditions:
+        - Khong co Payment SUCCESS.
+        steps:
+        - step: 1
+          action: Mo Revenue Report
+        expectedResult: Revenue = 0 hoac khong co du lieu theo tap du lieu, khong tinh FAILED/PENDING.
+        assertions:
+        - Revenue = 0 hoac khong co du lieu theo tap du lieu, khong tinh FAILED/PENDING.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR107
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR107_POS
+        scenario: '[Positive] Bao cao doanh thu (FR107)'
+        priority: High
+        testData:
+        - Payment SUCCESS/FAILED/PENDING
+        preconditions:
+        - Management User co quyen
+        - co Payment.
+        steps:
+        - step: 1
+          action: Mo Revenue Report
+        expectedResult: Revenue = SUM(Payment.amount) chi voi Payment.status=SUCCESS.
+        assertions:
+        - Revenue = SUM(Payment.amount) chi voi Payment.status=SUCCESS.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR107
+          brule:
+          - BRULE26
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        '403':
+          description: HTTP 403 is explicitly mentioned by at least one source test case.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /reports/drivers:
+    get:
+      summary: Get /reports/drivers
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /reports/drivers. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
+        Khong tim thay report route trong backend hien tai.'
+      operationId: get_reports_drivers
+      tags: &id004
+      - BR17
+      x-business-requirements: *id004
+      x-functional-requirements:
+      - FR110
+      - FR111
+      x-business-rules:
+      - BRULE23
+      x-non-functional-requirements:
+      - NFR02
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR110_DENY
+        scenario: '[Negative] User khong phai Management xem Bao cao Driver bi tu choi (FR110)'
+        priority: High
+        testData:
+        - User khong co permission Management
+        preconditions:
+        - User dang nhap khong co role Management.
+        steps:
+        - step: 1
+          action: Yeu cau xem Bao cao Driver
+        expectedResult: He thong reject/403; khong tra ve du lieu.
+        assertions:
+        - He thong reject/403
+        - khong tra ve du lieu.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR110
+          brule:
+          - BRULE23
+          nfr:
+          - NFR02
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR110_INCOMPLETE_U41
+        scenario: '[Exception] Driver report thieu du lieu (FR110)'
+        priority: High
+        testData:
+        - Thieu rating/trip
+        preconditions:
+        - Mot Driver khong du du lieu.
+        steps:
+        - step: 1
+          action: Mo report
+        expectedResult: Chi so khong du du lieu hien thi N/A/chu thuc du lieu.
+        assertions:
+        - Chi so khong du du lieu hien thi N/A/chu thuc du lieu.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR110
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR110_POS
+        scenario: '[Positive] Bao cao hieu qua Driver (FR110)'
+        priority: High
+        testData:
+        - Assigned, Accepted, Completed, Cancelled, Rating data
+        preconditions:
+        - Management User co quyen
+        - co Driver data.
+        steps:
+        - step: 1
+          action: Mo Driver Report
+        expectedResult: Hien thi assignedTrips, acceptedTrips, completedTrips, cancelledTrips, acceptanceRate, averageRating.
+        assertions:
+        - Hien thi assignedTrips, acceptedTrips, completedTrips, cancelledTrips, acceptanceRate, averageRating.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR110
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      - testCaseId: TC_FR110_TIME
+        scenario: '[Positive] Driver report theo time range (FR110,111)'
+        priority: High
+        testData:
+        - From/To
+        preconditions:
+        - Management User co quyen.
+        steps:
+        - step: 1
+          action: Chon time range
+        - step: 2
+          action: Mo report
+        expectedResult: Chi so Driver duoc tinh tren du lieu trong pham vi thoi gian.
+        assertions:
+        - Chi so Driver duoc tinh tren du lieu trong pham vi thoi gian.
+        traceability:
+          br:
+          - BR17
+          fr:
+          - FR110
+          - FR111
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        '403':
+          description: HTTP 403 is explicitly mentioned by at least one source test case.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-  management_token: ${MANAGEMENT_TOKEN}
-notes:
+x-test-case-count: 18
+x-test-case-ids:
+- TC_FR106_107_108_109_110_POS
+- TC_FR106_111_POS
+- TC_FR106_AGG
+- TC_FR106_DENY
+- TC_FR106_EMPTY
+- TC_FR107_DENY
+- TC_FR107_FILTER
+- TC_FR107_NO_SUCCESS
+- TC_FR107_POS
+- TC_FR110_DENY
+- TC_FR110_INCOMPLETE
+- TC_FR110_INCOMPLETE_U41
+- TC_FR110_POS
+- TC_FR110_TIME
+- TC_FR111_DENY
+- TC_FR111_INVALID
+- TC_FR111_STATUS
+- TC_FR112_DETAIL
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR106_107_108_109_110_POS
-  uc: UC38
-  scenario: '[Positive] Xem Dashboard voi cac chi so tong hop (FR106,107,108,109,110)'
-  case: '[Positive] Xem Dashboard voi cac chi so tong hop'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR106
-    - FR107
-    - FR108
-    - FR109
-    - FR110
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/dashboard
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen
-  - co domain data.
-  test_steps:
-  - step: 1
-    action: Mo Dashboard
-  assertions:
-  - Hien thi Total Trips, Completed, Cancelled, Revenue, Completion Rate, Cancellation Rate, Driver Metrics.
-  expected_result: Hien thi Total Trips, Completed, Cancelled, Revenue, Completion Rate, Cancellation
-    Rate, Driver Metrics.
-  test_data:
-  - Trip, Payment, Driver, Rating data
-- id: TC_FR106_111_POS
-  uc: UC39
-  scenario: '[Positive] Bao cao Trip theo khoang thoi gian (FR106,111)'
-  case: '[Positive] Bao cao Trip theo khoang thoi gian'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR106
-    - FR111
-    brule:
-    - BRULE27
-    nfr: []
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen.
-  test_steps:
-  - step: 1
-    action: Chon From Date
-  - step: 2
-    action: Chon To Date
-  - step: 3
-    action: Xem report
-  assertions:
-  - Bao cao COUNT(Trip) dung trong khoang thoi gian.
-  expected_result: Bao cao COUNT(Trip) dung trong khoang thoi gian.
-  test_data:
-  - Khoang thoi gian hop le
-- id: TC_FR106_AGG
-  uc: UC39
-  scenario: '[Positive] Bao cao dung aggregation thay vi load toan bo record (FR106,111)'
-  case: '[Positive] Bao cao dung aggregation thay vi load toan bo record'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR106
-    - FR111
-    brule: []
-    nfr:
-    - NFR11
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Co tap du lieu lon.
-  test_steps:
-  - step: 1
-    action: Thuc hien report
-  - step: 2
-    action: Kiem tra query implementation
-  assertions:
-  - Report su dung aggregation query phu hop, khong load toan bo record vao application (NFR11).
-  expected_result: Report su dung aggregation query phu hop, khong load toan bo record vao application
-    (NFR11).
-  test_data:
-  - Tap du lieu lon
-- id: TC_FR106_DENY
-  uc: UC38
-  scenario: '[Negative] User khong phai Management xem Dashboard bi tu choi (FR106)'
-  case: '[Negative] User khong phai Management xem Dashboard bi tu choi'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR106
-    brule:
-    - BRULE23
-    nfr:
-    - NFR02
-  api:
-    method: GET
-    path: /reports/dashboard
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
-  preconditions:
-  - User dang nhap khong co role Management.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Dashboard
-  assertions:
-  - He thong reject/403
-  - khong tra ve du lieu Dashboard.
-  expected_result: He thong reject/403; khong tra ve du lieu Dashboard.
-  test_data:
-  - User khong co permission Management
-- id: TC_FR106_EMPTY
-  uc: UC38
-  scenario: '[Exception] Dashboard khi khong co Trip trong pham vi (FR106,108,109)'
-  case: '[Exception] Dashboard khi khong co Trip trong pham vi'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR106
-    - FR108
-    - FR109
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/dashboard
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
-  preconditions:
-  - Khong co Trip trong time range.
-  test_steps:
-  - step: 1
-    action: Mo Dashboard
-  assertions:
-  - Khong hien thi so lieu gia
-  - cac chi so phu hop voi tap du lieu rong.
-  expected_result: Khong hien thi so lieu gia; cac chi so phu hop voi tap du lieu rong.
-  test_data:
-  - Khong co Trip
-- id: TC_FR107_DENY
-  uc: UC40
-  scenario: '[Negative] User khong phai Management xem Bao cao doanh thu bi tu choi (FR107)'
-  case: '[Negative] User khong phai Management xem Bao cao doanh thu bi tu choi'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR107
-    brule:
-    - BRULE23
-    nfr:
-    - NFR02
-  api:
-    method: GET
-    path: /reports/revenue
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - User dang nhap khong co role Management.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Bao cao doanh thu
-  assertions:
-  - He thong reject/403
-  - khong tra ve du lieu doanh thu.
-  expected_result: He thong reject/403; khong tra ve du lieu doanh thu.
-  test_data:
-  - User khong co permission Management
-- id: TC_FR107_FILTER
-  uc: UC40
-  scenario: '[Positive] Bao cao doanh thu theo khoang thoi gian (FR107,111)'
-  case: '[Positive] Bao cao doanh thu theo khoang thoi gian'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR107
-    - FR111
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/revenue
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Co Payment trong nhieu khoang thoi gian.
-  test_steps:
-  - step: 1
-    action: Chon From/To
-  - step: 2
-    action: Xem report
-  assertions:
-  - Chi tinh Payment SUCCESS trong time range.
-  expected_result: Chi tinh Payment SUCCESS trong time range.
-  test_data:
-  - Khoang thoi gian
-- id: TC_FR107_NO_SUCCESS
-  uc: UC40
-  scenario: '[Exception] Khong co Payment SUCCESS (FR107)'
-  case: '[Exception] Khong co Payment SUCCESS'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR107
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/revenue
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Khong co Payment SUCCESS.
-  test_steps:
-  - step: 1
-    action: Mo Revenue Report
-  assertions:
-  - Revenue = 0 hoac khong co du lieu theo tap du lieu, khong tinh FAILED/PENDING.
-  expected_result: Revenue = 0 hoac khong co du lieu theo tap du lieu, khong tinh FAILED/PENDING.
-  test_data:
-  - Khong co SUCCESS
-- id: TC_FR107_POS
-  uc: UC40
-  scenario: '[Positive] Bao cao doanh thu (FR107)'
-  case: '[Positive] Bao cao doanh thu'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR107
-    brule:
-    - BRULE26
-    nfr: []
-  api:
-    method: GET
-    path: /reports/revenue
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen
-  - co Payment.
-  test_steps:
-  - step: 1
-    action: Mo Revenue Report
-  assertions:
-  - Revenue = SUM(Payment.amount) chi voi Payment.status=SUCCESS.
-  expected_result: Revenue = SUM(Payment.amount) chi voi Payment.status=SUCCESS.
-  test_data:
-  - Payment SUCCESS/FAILED/PENDING
-- id: TC_FR110_DENY
-  uc: UC41
-  scenario: '[Negative] User khong phai Management xem Bao cao Driver bi tu choi (FR110)'
-  case: '[Negative] User khong phai Management xem Bao cao Driver bi tu choi'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR110
-    brule:
-    - BRULE23
-    nfr:
-    - NFR02
-  api:
-    method: GET
-    path: /reports/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - User dang nhap khong co role Management.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Bao cao Driver
-  assertions:
-  - He thong reject/403
-  - khong tra ve du lieu.
-  expected_result: He thong reject/403; khong tra ve du lieu.
-  test_data:
-  - User khong co permission Management
-- id: TC_FR110_INCOMPLETE
-  uc: UC38
-  scenario: '[Exception] Driver Metrics thieu du lieu (FR110)'
-  case: '[Exception] Driver Metrics thieu du lieu'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR110
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/dashboard
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report/dashboard route trong backend hien tai.'
-  preconditions:
-  - Mot Driver thieu du lieu rating/trip.
-  test_steps:
-  - step: 1
-    action: Mo Dashboard
-  assertions:
-  - Chi so khong tinh duoc hien thi N/A/khong du du lieu.
-  expected_result: Chi so khong tinh duoc hien thi N/A/khong du du lieu.
-  test_data:
-  - Du lieu Driver khong day du
-- id: TC_FR110_INCOMPLETE_U41
-  uc: UC41
-  scenario: '[Exception] Driver report thieu du lieu (FR110)'
-  case: '[Exception] Driver report thieu du lieu'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR110
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Mot Driver khong du du lieu.
-  test_steps:
-  - step: 1
-    action: Mo report
-  assertions:
-  - Chi so khong du du lieu hien thi N/A/chu thuc du lieu.
-  expected_result: Chi so khong du du lieu hien thi N/A/chu thuc du lieu.
-  test_data:
-  - Thieu rating/trip
-- id: TC_FR110_POS
-  uc: UC41
-  scenario: '[Positive] Bao cao hieu qua Driver (FR110)'
-  case: '[Positive] Bao cao hieu qua Driver'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR110
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen
-  - co Driver data.
-  test_steps:
-  - step: 1
-    action: Mo Driver Report
-  assertions:
-  - Hien thi assignedTrips, acceptedTrips, completedTrips, cancelledTrips, acceptanceRate, averageRating.
-  expected_result: Hien thi assignedTrips, acceptedTrips, completedTrips, cancelledTrips, acceptanceRate,
-    averageRating.
-  test_data:
-  - Assigned, Accepted, Completed, Cancelled, Rating data
-- id: TC_FR110_TIME
-  uc: UC41
-  scenario: '[Positive] Driver report theo time range (FR110,111)'
-  case: '[Positive] Driver report theo time range'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR110
-    - FR111
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen.
-  test_steps:
-  - step: 1
-    action: Chon time range
-  - step: 2
-    action: Mo report
-  assertions:
-  - Chi so Driver duoc tinh tren du lieu trong pham vi thoi gian.
-  expected_result: Chi so Driver duoc tinh tren du lieu trong pham vi thoi gian.
-  test_data:
-  - From/To
-- id: TC_FR111_DENY
-  uc: UC39
-  scenario: '[Negative] User khong phai Management xem Bao cao Trip bi tu choi (FR111)'
-  case: '[Negative] User khong phai Management xem Bao cao Trip bi tu choi'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR111
-    brule:
-    - BRULE23
-    nfr:
-    - NFR02
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - User dang nhap khong co role Management.
-  test_steps:
-  - step: 1
-    action: Yeu cau xem Bao cao Trip
-  assertions:
-  - He thong reject/403
-  - khong tra ve du lieu bao cao.
-  expected_result: He thong reject/403; khong tra ve du lieu bao cao.
-  test_data:
-  - User khong co permission Management
-- id: TC_FR111_INVALID
-  uc: UC39
-  scenario: '[Negative] Khoang thoi gian khong hop le (FR111)'
-  case: '[Negative] Khoang thoi gian khong hop le'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR111
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${MANAGEMENT_TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Management User co quyen.
-  test_steps:
-  - step: 1
-    action: Chon khoang thoi gian khong hop le
-  assertions:
-  - He thong yeu cau dieu chinh filter va khong tra so lieu sai.
-  expected_result: He thong yeu cau dieu chinh filter va khong tra so lieu sai.
-  test_data:
-  - From/To khong hop le
-- id: TC_FR111_STATUS
-  uc: UC39
-  scenario: '[Positive] Loc bao cao Trip theo status (FR111)'
-  case: '[Positive] Loc bao cao Trip theo status'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR111
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Co Trip nhieu status.
-  test_steps:
-  - step: 1
-    action: Chon status filter
-  assertions:
-  - Bao cao chi tinh Trip khop filter.
-  expected_result: Bao cao chi tinh Trip khop filter.
-  test_data:
-  - Status COMPLETED/CANCELLED
-- id: TC_FR112_DETAIL
-  uc: UC39
-  scenario: '[Positive] Xem du lieu chi tiet cua bao cao (FR112)'
-  case: '[Positive] Xem du lieu chi tiet cua bao cao'
-  priority: High
-  traceability:
-    br:
-    - BR17
-    fr:
-    - FR112
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /reports/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay report route trong backend hien tai.'
-  preconditions:
-  - Bao cao co du lieu.
-  test_steps:
-  - step: 1
-    action: Chon chi so/ban ghi chi tiet
-  assertions:
-  - He thong hien thi du lieu nguon trong pham vi quyen.
-  expected_result: He thong hien thi du lieu nguon trong pham vi quyen.
-  test_data:
-  - Trip data
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.

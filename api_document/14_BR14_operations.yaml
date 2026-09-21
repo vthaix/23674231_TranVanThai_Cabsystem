@@ -1,749 +1,692 @@
-name: BR14 - Operations
-version: '1.0'
-source_of_truth:
+openapi: 3.0.3
+info:
+  title: CAB System API - BR14 - Operations
+  version: '1.0'
+  description: Swagger/OpenAPI specification for BR14 - Operations. Converted from the CAB System API test pack while preserving its test-case
+    traceability. Business requirements and expected behavior remain source-derived.
+servers:
+- url: http://localhost:3000
+  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
+tags:
+- name: BR08
+  description: Business Requirement BR08
+- name: BR14
+  description: Business Requirement BR14
+paths:
+  /operations/trips:
+    get:
+      summary: Get /operations/trips
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /operations/trips. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: Kem GET /operations/trips/{tripId}
+        va GET /operations/drivers/status.'
+      operationId: get_operations_trips
+      tags: &id001
+      - BR08
+      - BR14
+      x-business-requirements: *id001
+      x-functional-requirements:
+      - FR55
+      - FR56
+      - FR91
+      - FR92
+      - FR93
+      x-business-rules: []
+      x-non-functional-requirements:
+      - NFR08
+      - NFR10
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR55_POS
+        scenario: '[Positive] Customer xem vi tri Driver (FR55)'
+        priority: High
+        testData:
+        - Driver.currentLatitude/currentLongitude
+        preconditions:
+        - Customer dang co Trip va Driver co current location.
+        steps:
+        - step: 1
+          action: Mo tracking Trip
+        expectedResult: He thong hien thi vi tri hien tai cua Driver cho Customer theo quyen.
+        assertions:
+        - He thong hien thi vi tri hien tai cua Driver cho Customer theo quyen.
+        traceability:
+          br:
+          - BR08
+          - BR14
+          fr:
+          - FR55
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR56_POS
+        scenario: '[Positive] Operations Staff xem vi tri Driver (FR56)'
+        priority: High
+        testData:
+        - Driver location
+        preconditions:
+        - Staff co permission
+        - Driver co current location.
+        steps:
+        - step: 1
+          action: Mo tracking Driver
+        expectedResult: He thong hien thi vi tri hien tai cua Driver cho Staff.
+        assertions:
+        - He thong hien thi vi tri hien tai cua Driver cho Staff.
+        traceability:
+          br:
+          - BR08
+          - BR14
+          fr:
+          - FR56
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR91_DENY
+        scenario: '[Negative] Thieu permission khi theo doi Trip (FR91,92,93)'
+        priority: High
+        testData:
+        - Khong permission
+        preconditions:
+        - Staff khong co permission.
+        steps:
+        - step: 1
+          action: Mo Trips
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR91
+          - FR92
+          - FR93
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR91_PAG
+        scenario: '[Positive] Danh sach lon co pagination (FR91)'
+        priority: High
+        testData:
+        - Nhieu ban ghi
+        preconditions:
+        - Danh sach Trip lon.
+        steps:
+        - step: 1
+          action: Mo danh sach
+        - step: 2
+          action: Chuyen trang
+        expectedResult: He thong phan trang va khong can load tat ca record vao mot trang (NFR10).
+        assertions:
+        - He thong phan trang va khong can load tat ca record vao mot trang (NFR10).
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR91
+          brule: []
+          nfr:
+          - NFR10
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR91_POS
+        scenario: '[Positive] Xem danh sach Trip (FR91)'
+        priority: High
+        testData:
+        - Trip data
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo Trips
+        expectedResult: He thong hien thi danh sach Trip trong pham vi.
+        assertions:
+        - He thong hien thi danh sach Trip trong pham vi.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR91
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR92_POS
+        scenario: '[Positive] Xem chi tiet Trip (FR92)'
+        priority: High
+        testData:
+        - tripId
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Chon Trip
+        expectedResult: He thong hien thi Trip ID, Customer, Driver, Vehicle, pickup, destination, status, fare, createdAt.
+        assertions:
+        - He thong hien thi Trip ID, Customer, Driver, Vehicle, pickup, destination, status, fare, createdAt.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR92
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_FR93_POS
+        scenario: '[Positive] Theo doi Driver (FR93)'
+        priority: High
+        testData:
+        - Driver current status/location
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo theo doi Driver
+        expectedResult: He thong hien thi thong tin theo doi Driver trong pham vi.
+        assertions:
+        - He thong hien thi thong tin theo doi Driver trong pham vi.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR93
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      - testCaseId: TC_NFR08_RESPONSE
+        scenario: '[Positive] Chuc nang thong thuong phan hoi phu hop moi truong MVP (FR91,92,93)'
+        priority: Medium
+        testData:
+        - Request thong thuong
+        preconditions:
+        - He thong o moi truong MVP.
+        steps:
+        - step: 1
+          action: Thuc hien thao tac thong thuong
+        - step: 2
+          action: Do thoi gian phan hoi
+        expectedResult: Thoi gian phan hoi dap ung benchmark phu hop moi truong MVP; khong co timeout bat thuong (NFR08).
+        assertions:
+        - Thoi gian phan hoi dap ung benchmark phu hop moi truong MVP
+        - khong co timeout bat thuong (NFR08).
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR91
+          - FR92
+          - FR93
+          brule: []
+          nfr:
+          - NFR08
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /operations/customers:
+    get:
+      summary: Get /operations/customers
+      description: 'API operation mapped from the existing CAB test-pack entries for GET /operations/customers. The SRS/test workbook defines
+        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: Kem
+        GET /operations/customers/{id} va PATCH /operations/customers/{id}.'
+      operationId: get_operations_customers
+      tags: &id002
+      - BR14
+      x-business-requirements: *id002
+      x-functional-requirements:
+      - FR88
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR88_DENY
+        scenario: '[Negative] Khong truy cap Customer khi thieu permission (FR88)'
+        priority: High
+        testData:
+        - Khong co permission
+        preconditions:
+        - Staff khong co permission.
+        steps:
+        - step: 1
+          action: Mo Customers
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR88
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
+      - testCaseId: TC_FR88_DETAIL
+        scenario: '[Positive] Xem chi tiet Customer (FR88)'
+        priority: High
+        testData:
+        - customerId hop le
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Chon Customer
+        expectedResult: He thong hien thi chi tiet Customer.
+        assertions:
+        - He thong hien thi chi tiet Customer.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR88
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
+      - testCaseId: TC_FR88_FILTER
+        scenario: '[Positive] Loc Customer (FR88)'
+        priority: High
+        testData:
+        - Bo loc hop le
+        preconditions:
+        - Co du lieu Customer.
+        steps:
+        - step: 1
+          action: Chon bo loc
+        expectedResult: He thong tra dung tap Customer phu hop.
+        assertions:
+        - He thong tra dung tap Customer phu hop.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR88
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
+      - testCaseId: TC_FR88_POS
+        scenario: '[Positive] Operations xem Customer (FR88)'
+        priority: High
+        testData:
+        - Customer data
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo Customers
+        expectedResult: He thong hien thi Customer trong pham vi quyen.
+        assertions:
+        - He thong hien thi Customer trong pham vi quyen.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR88
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
+      - testCaseId: TC_FR88_SEARCH
+        scenario: '[Positive] Tim kiem Customer (FR88)'
+        priority: High
+        testData:
+        - Tu khoa hop le
+        preconditions:
+        - Co nhieu Customer.
+        steps:
+        - step: 1
+          action: Nhap dieu kien tim kiem
+        expectedResult: He thong tra dung Customer phu hop.
+        assertions:
+        - He thong tra dung Customer phu hop.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR88
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /operations/drivers:
+    get:
+      summary: Get /operations/drivers
+      description: API operation mapped from the existing CAB test-pack entries for GET /operations/drivers. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
+      operationId: get_operations_drivers
+      tags: &id003
+      - BR14
+      x-business-requirements: *id003
+      x-functional-requirements:
+      - FR89
+      - FR93
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR89_DENY
+        scenario: '[Negative] Thieu permission khi xem Driver (FR89)'
+        priority: High
+        testData:
+        - Khong permission
+        preconditions:
+        - Staff khong co permission.
+        steps:
+        - step: 1
+          action: Mo Drivers
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR89
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR89_DETAIL
+        scenario: '[Positive] Xem chi tiet Driver (FR89)'
+        priority: High
+        testData:
+        - driverId
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Chon Driver
+        expectedResult: He thong hien thi chi tiet Driver.
+        assertions:
+        - He thong hien thi chi tiet Driver.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR89
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR89_FILTER
+        scenario: '[Positive] Loc Driver (FR89)'
+        priority: High
+        testData:
+        - Bo loc hop le
+        preconditions:
+        - Co du lieu Driver.
+        steps:
+        - step: 1
+          action: Chon bo loc
+        expectedResult: He thong tra dung Driver.
+        assertions:
+        - He thong tra dung Driver.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR89
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR89_POS
+        scenario: '[Positive] Operations xem Driver va trang thai (FR89,93)'
+        priority: High
+        testData:
+        - Driver data
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo Drivers
+        - step: 2
+          action: Xem status
+        expectedResult: He thong hien thi Driver va status dung.
+        assertions:
+        - He thong hien thi Driver va status dung.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR89
+          - FR93
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR89_SEARCH
+        scenario: '[Positive] Tim kiem Driver (FR89)'
+        priority: High
+        testData:
+        - Tu khoa hop le
+        preconditions:
+        - Co nhieu Driver.
+        steps:
+        - step: 1
+          action: Nhap tu khoa
+        expectedResult: He thong tra dung Driver.
+        assertions:
+        - He thong tra dung Driver.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR89
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+  /operations/vehicles:
+    get:
+      summary: Get /operations/vehicles
+      description: API operation mapped from the existing CAB test-pack entries for GET /operations/vehicles. The SRS/test workbook defines business
+        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
+      operationId: get_operations_vehicles
+      tags: &id004
+      - BR14
+      x-business-requirements: *id004
+      x-functional-requirements:
+      - FR90
+      x-business-rules: []
+      x-non-functional-requirements: []
+      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
+      x-test-cases:
+      - testCaseId: TC_FR90_DENY
+        scenario: '[Negative] Thieu permission khi quan ly Vehicle (FR90)'
+        priority: High
+        testData:
+        - Khong permission
+        preconditions:
+        - Staff khong co permission.
+        steps:
+        - step: 1
+          action: Update Vehicle
+        expectedResult: He thong reject.
+        assertions:
+        - He thong reject.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR90
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR90_FILTER
+        scenario: '[Positive] Loc Vehicle (FR90)'
+        priority: High
+        testData:
+        - Filter hop le
+        preconditions:
+        - Co Vehicle.
+        steps:
+        - step: 1
+          action: Chon filter
+        expectedResult: He thong tra dung Vehicle.
+        assertions:
+        - He thong tra dung Vehicle.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR90
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR90_POS
+        scenario: '[Positive] Operations xem va quan ly Vehicle (FR90)'
+        priority: High
+        testData:
+        - Vehicle data
+        preconditions:
+        - Staff co permission.
+        steps:
+        - step: 1
+          action: Mo Vehicles
+        - step: 2
+          action: Xem detail
+        expectedResult: He thong cho xem Vehicle trong pham vi.
+        assertions:
+        - He thong cho xem Vehicle trong pham vi.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR90
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR90_SEARCH
+        scenario: '[Positive] Tim kiem Vehicle (FR90)'
+        priority: High
+        testData:
+        - Tu khoa
+        preconditions:
+        - Co nhieu Vehicle.
+        steps:
+        - step: 1
+          action: Nhap tu khoa
+        expectedResult: He thong tra dung Vehicle.
+        assertions:
+        - He thong tra dung Vehicle.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR90
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      - testCaseId: TC_FR90_STATUS
+        scenario: '[Positive] Cap nhat trang thai Vehicle (FR90)'
+        priority: High
+        testData:
+        - ACTIVE/INACTIVE
+        preconditions:
+        - Staff co permission
+        - Vehicle ton tai.
+        steps:
+        - step: 1
+          action: Chon Vehicle
+        - step: 2
+          action: Update status
+        expectedResult: Trang thai Vehicle duoc UPDATE theo quyen.
+        assertions:
+        - Trang thai Vehicle duoc UPDATE theo quyen.
+        traceability:
+          br:
+          - BR14
+          fr:
+          - FR90
+          brule: []
+          nfr: []
+        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
+        mappingNote: null
+      responses:
+        '200':
+          description: Successful response / business outcome according to the source test cases.
+        default:
+          description: Other validation, authorization, business-rule, or server error according to backend implementation.
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use the JWT obtained from the login endpoint.
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
+externalDocs:
+  description: CAB System SRS (source of truth for requirements)
+  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
+x-source-of-truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-base_url: ${BASE_URL}
-variables:
-  token: ${TOKEN}
-  admin_token: ${ADMIN_TOKEN}
-  driver_token: ${DRIVER_TOKEN}
-  customer_token: ${CUSTOMER_TOKEN}
-  operations_token: ${OPERATIONS_TOKEN}
-notes:
+x-test-case-count: 23
+x-test-case-ids:
+- TC_FR55_POS
+- TC_FR56_POS
+- TC_FR88_DENY
+- TC_FR88_DETAIL
+- TC_FR88_FILTER
+- TC_FR88_POS
+- TC_FR88_SEARCH
+- TC_FR89_DENY
+- TC_FR89_DETAIL
+- TC_FR89_FILTER
+- TC_FR89_POS
+- TC_FR89_SEARCH
+- TC_FR90_DENY
+- TC_FR90_FILTER
+- TC_FR90_POS
+- TC_FR90_SEARCH
+- TC_FR90_STATUS
+- TC_FR91_DENY
+- TC_FR91_PAG
+- TC_FR91_POS
+- TC_FR92_POS
+- TC_FR93_POS
+- TC_NFR08_RESPONSE
+x-notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
-  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
-  any change of business meaning through translation.
-tests:
-- id: TC_FR55_POS
-  uc: UC33
-  scenario: '[Positive] Customer xem vi tri Driver (FR55)'
-  case: '[Positive] Customer xem vi tri Driver'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    - BR14
-    fr:
-    - FR55
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Customer dang co Trip va Driver co current location.
-  test_steps:
-  - step: 1
-    action: Mo tracking Trip
-  assertions:
-  - He thong hien thi vi tri hien tai cua Driver cho Customer theo quyen.
-  expected_result: He thong hien thi vi tri hien tai cua Driver cho Customer theo quyen.
-  test_data:
-  - Driver.currentLatitude/currentLongitude
-- id: TC_FR56_POS
-  uc: UC33
-  scenario: '[Positive] Operations Staff xem vi tri Driver (FR56)'
-  case: '[Positive] Operations Staff xem vi tri Driver'
-  priority: High
-  traceability:
-    br:
-    - BR08
-    - BR14
-    fr:
-    - FR56
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Staff co permission
-  - Driver co current location.
-  test_steps:
-  - step: 1
-    action: Mo tracking Driver
-  assertions:
-  - He thong hien thi vi tri hien tai cua Driver cho Staff.
-  expected_result: He thong hien thi vi tri hien tai cua Driver cho Staff.
-  test_data:
-  - Driver location
-- id: TC_FR88_DENY
-  uc: UC30
-  scenario: '[Negative] Khong truy cap Customer khi thieu permission (FR88)'
-  case: '[Negative] Khong truy cap Customer khi thieu permission'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR88
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/customers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
-  preconditions:
-  - Staff khong co permission.
-  test_steps:
-  - step: 1
-    action: Mo Customers
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Khong co permission
-- id: TC_FR88_DETAIL
-  uc: UC30
-  scenario: '[Positive] Xem chi tiet Customer (FR88)'
-  case: '[Positive] Xem chi tiet Customer'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR88
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/customers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Chon Customer
-  assertions:
-  - He thong hien thi chi tiet Customer.
-  expected_result: He thong hien thi chi tiet Customer.
-  test_data:
-  - customerId hop le
-- id: TC_FR88_FILTER
-  uc: UC30
-  scenario: '[Positive] Loc Customer (FR88)'
-  case: '[Positive] Loc Customer'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR88
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/customers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${CUSTOMER_TOKEN}
-    body: {}
-    note: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
-  preconditions:
-  - Co du lieu Customer.
-  test_steps:
-  - step: 1
-    action: Chon bo loc
-  assertions:
-  - He thong tra dung tap Customer phu hop.
-  expected_result: He thong tra dung tap Customer phu hop.
-  test_data:
-  - Bo loc hop le
-- id: TC_FR88_POS
-  uc: UC30
-  scenario: '[Positive] Operations xem Customer (FR88)'
-  case: '[Positive] Operations xem Customer'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR88
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/customers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo Customers
-  assertions:
-  - He thong hien thi Customer trong pham vi quyen.
-  expected_result: He thong hien thi Customer trong pham vi quyen.
-  test_data:
-  - Customer data
-- id: TC_FR88_SEARCH
-  uc: UC30
-  scenario: '[Positive] Tim kiem Customer (FR88)'
-  case: '[Positive] Tim kiem Customer'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR88
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/customers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${CUSTOMER_TOKEN}
-    body: {}
-    note: Kem GET /operations/customers/{id} va PATCH /operations/customers/{id}.
-  preconditions:
-  - Co nhieu Customer.
-  test_steps:
-  - step: 1
-    action: Nhap dieu kien tim kiem
-  assertions:
-  - He thong tra dung Customer phu hop.
-  expected_result: He thong tra dung Customer phu hop.
-  test_data:
-  - Tu khoa hop le
-- id: TC_FR89_DENY
-  uc: UC31
-  scenario: '[Negative] Thieu permission khi xem Driver (FR89)'
-  case: '[Negative] Thieu permission khi xem Driver'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR89
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff khong co permission.
-  test_steps:
-  - step: 1
-    action: Mo Drivers
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Khong permission
-- id: TC_FR89_DETAIL
-  uc: UC31
-  scenario: '[Positive] Xem chi tiet Driver (FR89)'
-  case: '[Positive] Xem chi tiet Driver'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR89
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Chon Driver
-  assertions:
-  - He thong hien thi chi tiet Driver.
-  expected_result: He thong hien thi chi tiet Driver.
-  test_data:
-  - driverId
-- id: TC_FR89_FILTER
-  uc: UC31
-  scenario: '[Positive] Loc Driver (FR89)'
-  case: '[Positive] Loc Driver'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR89
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-  preconditions:
-  - Co du lieu Driver.
-  test_steps:
-  - step: 1
-    action: Chon bo loc
-  assertions:
-  - He thong tra dung Driver.
-  expected_result: He thong tra dung Driver.
-  test_data:
-  - Bo loc hop le
-- id: TC_FR89_POS
-  uc: UC31
-  scenario: '[Positive] Operations xem Driver va trang thai (FR89,93)'
-  case: '[Positive] Operations xem Driver va trang thai'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR89
-    - FR93
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo Drivers
-  - step: 2
-    action: Xem status
-  assertions:
-  - He thong hien thi Driver va status dung.
-  expected_result: He thong hien thi Driver va status dung.
-  test_data:
-  - Driver data
-- id: TC_FR89_SEARCH
-  uc: UC31
-  scenario: '[Positive] Tim kiem Driver (FR89)'
-  case: '[Positive] Tim kiem Driver'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR89
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/drivers
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${DRIVER_TOKEN}
-    body: {}
-  preconditions:
-  - Co nhieu Driver.
-  test_steps:
-  - step: 1
-    action: Nhap tu khoa
-  assertions:
-  - He thong tra dung Driver.
-  expected_result: He thong tra dung Driver.
-  test_data:
-  - Tu khoa hop le
-- id: TC_FR90_DENY
-  uc: UC32
-  scenario: '[Negative] Thieu permission khi quan ly Vehicle (FR90)'
-  case: '[Negative] Thieu permission khi quan ly Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR90
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff khong co permission.
-  test_steps:
-  - step: 1
-    action: Update Vehicle
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Khong permission
-- id: TC_FR90_FILTER
-  uc: UC32
-  scenario: '[Positive] Loc Vehicle (FR90)'
-  case: '[Positive] Loc Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR90
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-  preconditions:
-  - Co Vehicle.
-  test_steps:
-  - step: 1
-    action: Chon filter
-  assertions:
-  - He thong tra dung Vehicle.
-  expected_result: He thong tra dung Vehicle.
-  test_data:
-  - Filter hop le
-- id: TC_FR90_POS
-  uc: UC32
-  scenario: '[Positive] Operations xem va quan ly Vehicle (FR90)'
-  case: '[Positive] Operations xem va quan ly Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR90
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo Vehicles
-  - step: 2
-    action: Xem detail
-  assertions:
-  - He thong cho xem Vehicle trong pham vi.
-  expected_result: He thong cho xem Vehicle trong pham vi.
-  test_data:
-  - Vehicle data
-- id: TC_FR90_SEARCH
-  uc: UC32
-  scenario: '[Positive] Tim kiem Vehicle (FR90)'
-  case: '[Positive] Tim kiem Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR90
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-  preconditions:
-  - Co nhieu Vehicle.
-  test_steps:
-  - step: 1
-    action: Nhap tu khoa
-  assertions:
-  - He thong tra dung Vehicle.
-  expected_result: He thong tra dung Vehicle.
-  test_data:
-  - Tu khoa
-- id: TC_FR90_STATUS
-  uc: UC32
-  scenario: '[Positive] Cap nhat trang thai Vehicle (FR90)'
-  case: '[Positive] Cap nhat trang thai Vehicle'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR90
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/vehicles
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-  preconditions:
-  - Staff co permission
-  - Vehicle ton tai.
-  test_steps:
-  - step: 1
-    action: Chon Vehicle
-  - step: 2
-    action: Update status
-  assertions:
-  - Trang thai Vehicle duoc UPDATE theo quyen.
-  expected_result: Trang thai Vehicle duoc UPDATE theo quyen.
-  test_data:
-  - ACTIVE/INACTIVE
-- id: TC_FR91_DENY
-  uc: UC33
-  scenario: '[Negative] Thieu permission khi theo doi Trip (FR91,92,93)'
-  case: '[Negative] Thieu permission khi theo doi Trip'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR91
-    - FR92
-    - FR93
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Staff khong co permission.
-  test_steps:
-  - step: 1
-    action: Mo Trips
-  assertions:
-  - He thong reject.
-  expected_result: He thong reject.
-  test_data:
-  - Khong permission
-- id: TC_FR91_PAG
-  uc: UC33
-  scenario: '[Positive] Danh sach lon co pagination (FR91)'
-  case: '[Positive] Danh sach lon co pagination'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR91
-    brule: []
-    nfr:
-    - NFR10
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Danh sach Trip lon.
-  test_steps:
-  - step: 1
-    action: Mo danh sach
-  - step: 2
-    action: Chuyen trang
-  assertions:
-  - He thong phan trang va khong can load tat ca record vao mot trang (NFR10).
-  expected_result: He thong phan trang va khong can load tat ca record vao mot trang (NFR10).
-  test_data:
-  - Nhieu ban ghi
-- id: TC_FR91_POS
-  uc: UC33
-  scenario: '[Positive] Xem danh sach Trip (FR91)'
-  case: '[Positive] Xem danh sach Trip'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR91
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo Trips
-  assertions:
-  - He thong hien thi danh sach Trip trong pham vi.
-  expected_result: He thong hien thi danh sach Trip trong pham vi.
-  test_data:
-  - Trip data
-- id: TC_FR92_POS
-  uc: UC33
-  scenario: '[Positive] Xem chi tiet Trip (FR92)'
-  case: '[Positive] Xem chi tiet Trip'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR92
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Chon Trip
-  assertions:
-  - He thong hien thi Trip ID, Customer, Driver, Vehicle, pickup, destination, status, fare, createdAt.
-  expected_result: He thong hien thi Trip ID, Customer, Driver, Vehicle, pickup, destination, status,
-    fare, createdAt.
-  test_data:
-  - tripId
-- id: TC_FR93_POS
-  uc: UC33
-  scenario: '[Positive] Theo doi Driver (FR93)'
-  case: '[Positive] Theo doi Driver'
-  priority: High
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR93
-    brule: []
-    nfr: []
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${OPERATIONS_TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - Staff co permission.
-  test_steps:
-  - step: 1
-    action: Mo theo doi Driver
-  assertions:
-  - He thong hien thi thong tin theo doi Driver trong pham vi.
-  expected_result: He thong hien thi thong tin theo doi Driver trong pham vi.
-  test_data:
-  - Driver current status/location
-- id: TC_NFR08_RESPONSE
-  uc: UC33
-  scenario: '[Positive] Chuc nang thong thuong phan hoi phu hop moi truong MVP (FR91,92,93)'
-  case: '[Positive] Chuc nang thong thuong phan hoi phu hop moi truong MVP'
-  priority: Medium
-  traceability:
-    br:
-    - BR14
-    fr:
-    - FR91
-    - FR92
-    - FR93
-    brule: []
-    nfr:
-    - NFR08
-  api:
-    method: GET
-    path: /operations/trips
-    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
-    headers:
-      Content-Type: application/json
-      Authorization: Bearer ${TOKEN}
-    body: {}
-    note: Kem GET /operations/trips/{tripId} va GET /operations/drivers/status.
-  preconditions:
-  - He thong o moi truong MVP.
-  test_steps:
-  - step: 1
-    action: Thuc hien thao tac thong thuong
-  - step: 2
-    action: Do thoi gian phan hoi
-  assertions:
-  - Thoi gian phan hoi dap ung benchmark phu hop moi truong MVP
-  - khong co timeout bat thuong (NFR08).
-  expected_result: Thoi gian phan hoi dap ung benchmark phu hop moi truong MVP; khong co timeout bat thuong
-    (NFR08).
-  test_data:
-  - Request thong thuong
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
+  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
