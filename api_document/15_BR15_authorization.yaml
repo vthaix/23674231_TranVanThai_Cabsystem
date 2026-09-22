@@ -1,657 +1,692 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR15 - Authorization
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR15 - Authorization. Converted from the CAB System API test pack while preserving its test-case
-    traceability. Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR15
-  description: Business Requirement BR15
-- name: BR16
-  description: Business Requirement BR16
-paths:
-  /permissions:
-    get:
-      summary: Get /permissions
-      description: 'API operation mapped from the existing CAB test-pack entries for GET /permissions. The SRS/test workbook defines business
-        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
-        Khong tim thay permission.routes.js trong backend hien tai.'
-      operationId: get_permissions
-      tags: &id001
-      - BR15
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR97
-      - FR99
-      - FR100
-      x-business-rules:
-      - BRULE23
-      - BRULE24
-      x-non-functional-requirements:
-      - NFR02
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR100_DENY
-        scenario: '[Negative] Chan truy cap trai quyen (FR100)'
-        priority: High
-        testData:
-        - Permission thieu
-        preconditions:
-        - User khong co permission.
-        steps:
-        - step: 1
-          action: Gui request admin
-        expectedResult: Backend reject/403, khong tin permission tu frontend.
-        assertions:
-        - Backend reject/403, khong tin permission tu frontend.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR100
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR97_ASSIGN
-        scenario: '[Positive] Gan Permission cho Role (FR97)'
-        priority: High
-        testData:
-        - Role + Permission
-        preconditions:
-        - Role va Permission ton tai.
-        steps:
-        - step: 1
-          action: Chon Role
-        - step: 2
-          action: Assign Permission
-        expectedResult: Permission duoc gan cho Role.
-        assertions:
-        - Permission duoc gan cho Role.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR97
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR97_CREATE
-        scenario: '[Positive] Tao Permission (FR97)'
-        priority: High
-        testData:
-        - Permission hop le
-        preconditions:
-        - Admin co permission.
-        steps:
-        - step: 1
-          action: Tao Permission
-        - step: 2
-          action: Luu
-        expectedResult: Permission duoc CREATE.
-        assertions:
-        - Permission duoc CREATE.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR97
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR97_POS
-        scenario: '[Positive] Quan ly Permission (FR97)'
-        priority: High
-        testData:
-        - Permission data
-        preconditions:
-        - Admin co permission.
-        steps:
-        - step: 1
-          action: View Permission
-        expectedResult: He thong hien thi Permission.
-        assertions:
-        - He thong hien thi Permission.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR97
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR97_UPDATE
-        scenario: '[Positive] Cap nhat Permission (FR97)'
-        priority: High
-        testData:
-        - Du lieu moi
-        preconditions:
-        - Permission ton tai.
-        steps:
-        - step: 1
-          action: Sua Permission
-        - step: 2
-          action: Luu
-        expectedResult: Permission duoc UPDATE.
-        assertions:
-        - Permission duoc UPDATE.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR97
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR99_CHECK
-        scenario: '[Positive] Backend kiem tra Permission (FR99)'
-        priority: High
-        testData:
-        - Permission hop le
-        preconditions:
-        - User co permission hop le.
-        steps:
-        - step: 1
-          action: Gui request can permission
-        expectedResult: Backend cho phep request.
-        assertions:
-        - Backend cho phep request.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR99
-          brule:
-          - BRULE23
-          - BRULE24
-          nfr:
-          - NFR02
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      - testCaseId: TC_LOG_AUTHZ_FAIL
-        scenario: '[Negative] Ghi log authorization failure khi bi tu choi (FR100)'
-        priority: High
-        testData:
-        - Khong co permission
-        preconditions:
-        - User thieu permission.
-        steps:
-        - step: 1
-          action: Gui request trai quyen
-        - step: 2
-          action: Kiem tra log
-        expectedResult: He thong reject/403 va ghi log authorization failure.
-        assertions:
-        - He thong reject/403 va ghi log authorization failure.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR100
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        '403':
-          description: HTTP 403 is explicitly mentioned by at least one source test case.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-  /operations/users/{userId}/role:
-    patch:
-      summary: Patch /operations/users/{userId}/role
-      description: 'API operation mapped from the existing CAB test-pack entries for PATCH /operations/users/{userId}/role. The SRS/test workbook
-        defines business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source
-        note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.'
-      operationId: patch_operations_users_userId_role
-      tags: &id002
-      - BR15
-      - BR16
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR96
-      - FR98
-      - FR100
-      - FR104
-      - FR105
-      x-business-rules:
-      - BRULE25
-      x-non-functional-requirements:
-      - NFR02
-      - NFR06
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR104_AUDIT
-        scenario: '[Positive] Ghi AuditLog cho thao tac Account nhay cam (FR104,105)'
-        priority: High
-        testData:
-        - Action nhay cam
-        preconditions:
-        - Admin thuc hien lock/unlock/disable/enable/assign role.
-        steps:
-        - step: 1
-          action: Thuc hien thao tac
-        - step: 2
-          action: Mo AuditLog
-        expectedResult: AuditLog luu actor, action, target, timestamp, details.
-        assertions:
-        - AuditLog luu actor, action, target, timestamp, details.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR104
-          - FR105
-          brule:
-          - BRULE25
-          nfr:
-          - NFR06
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_DENY
-        scenario: '[Negative] Khong cho user khong co quyen quan ly Account (FR96,100)'
-        priority: High
-        testData:
-        - Khong permission
-        preconditions:
-        - User khong co permission admin.
-        steps:
-        - step: 1
-          action: Gui request quan ly Account
-        expectedResult: He thong reject/403.
-        assertions:
-        - He thong reject/403.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          - FR100
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_DISABLE
-        scenario: '[Positive] Disable Account va ghi AuditLog (FR104)'
-        priority: High
-        testData:
-        - Account ACTIVE
-        preconditions:
-        - Account ACTIVE.
-        steps:
-        - step: 1
-          action: Disable Account
-        expectedResult: Account chuyen trang thai vo hieu; AuditLog ghi nhan.
-        assertions:
-        - Account chuyen trang thai vo hieu
-        - AuditLog ghi nhan.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR104
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_ENABLE
-        scenario: '[Positive] Enable Account va ghi AuditLog (FR104)'
-        priority: High
-        testData:
-        - Account disabled
-        preconditions:
-        - Account disabled.
-        steps:
-        - step: 1
-          action: Enable Account
-        expectedResult: Account duoc enable; AuditLog ghi nhan.
-        assertions:
-        - Account duoc enable
-        - AuditLog ghi nhan.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR104
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_LOCK
-        scenario: '[Positive] Lock Account va ghi AuditLog (FR104)'
-        priority: High
-        testData:
-        - Account ACTIVE
-        preconditions:
-        - Admin co permission
-        - Account ACTIVE.
-        steps:
-        - step: 1
-          action: Lock Account
-        - step: 2
-          action: Kiem tra
-        expectedResult: Account bi lock/disable theo thao tac; AuditLog ghi nhan.
-        assertions:
-        - Account bi lock/disable theo thao tac
-        - AuditLog ghi nhan.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR104
-          brule: []
-          nfr:
-          - NFR06
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_POS
-        scenario: '[Positive] Quan ly Account (FR96)'
-        priority: High
-        testData:
-        - Account data
-        preconditions:
-        - Administrator co permission.
-        steps:
-        - step: 1
-          action: Mo danh sach Account
-        - step: 2
-          action: View/Search
-        expectedResult: He thong hien thi va tim kiem Account trong pham vi.
-        assertions:
-        - He thong hien thi va tim kiem Account trong pham vi.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          brule: []
-          nfr:
-          - NFR02
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR96_UNLOCK
-        scenario: '[Positive] Unlock Account va ghi AuditLog (FR104)'
-        priority: High
-        testData:
-        - Account locked
-        preconditions:
-        - Account dang bi lock.
-        steps:
-        - step: 1
-          action: Unlock Account
-        - step: 2
-          action: Kiem tra
-        expectedResult: Account duoc mo khoa; AuditLog ghi nhan.
-        assertions:
-        - Account duoc mo khoa
-        - AuditLog ghi nhan.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR104
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      - testCaseId: TC_FR98_ASSIGN
-        scenario: '[Positive] Gán Role cho Account (FR98,105)'
-        priority: High
-        testData:
-        - Role hop le
-        preconditions:
-        - Admin co permission
-        - Role ton tai.
-        steps:
-        - step: 1
-          action: Chon Account
-        - step: 2
-          action: Gan Role
-        - step: 3
-          action: Luu
-        expectedResult: Role duoc gan; thao tac nhay cam duoc AuditLog.
-        assertions:
-        - Role duoc gan
-        - thao tac nhay cam duoc AuditLog.
-        traceability:
-          br:
-          - BR15
-          - BR16
-          fr:
-          - FR98
-          - FR105
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        '403':
-          description: HTTP 403 is explicitly mentioned by at least one source test case.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: userId.'
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /roles:
-    get:
-      summary: Get /roles
-      description: 'API operation mapped from the existing CAB test-pack entries for GET /roles. The SRS/test workbook defines business behavior
-        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
-        Khong tim thay role.routes.js trong backend hien tai.'
-      operationId: get_roles
-      tags: &id003
-      - BR15
-      x-business-requirements: *id003
-      x-functional-requirements:
-      - FR96
-      - FR98
-      x-business-rules: []
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR96_ROLE_ASSIGN
-        scenario: '[Positive] Gan Role theo chuc nang Role (FR98)'
-        priority: High
-        testData:
-        - Role hop le
-        preconditions:
-        - Admin co permission.
-        steps:
-        - step: 1
-          action: Chon user
-        - step: 2
-          action: Gan Role
-        expectedResult: Role duoc gan cho user.
-        assertions:
-        - Role duoc gan cho user.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR98
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR96_ROLE_CREATE
-        scenario: '[Positive] Tao Role (FR96)'
-        priority: High
-        testData:
-        - Role moi hop le
-        preconditions:
-        - Admin co permission.
-        steps:
-        - step: 1
-          action: Nhap Role
-        - step: 2
-          action: Luu
-        expectedResult: Role duoc CREATE.
-        assertions:
-        - Role duoc CREATE.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR96_ROLE_PROTECT
-        scenario: '[Negative] Khong xoa Role he thong neu gay mat toan ven quyen (FR96)'
-        priority: High
-        testData:
-        - System Role dang duoc su dung
-        preconditions:
-        - Role he thong dang duoc su dung.
-        steps:
-        - step: 1
-          action: Yeu cau xoa Role
-        expectedResult: He thong khong cho phep xoa neu gay mat tinh toan ven quyen.
-        assertions:
-        - He thong khong cho phep xoa neu gay mat tinh toan ven quyen.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR96_ROLE_READ
-        scenario: '[Positive] Xem Role (FR96)'
-        priority: High
-        testData:
-        - Role data
-        preconditions:
-        - Admin co permission.
-        steps:
-        - step: 1
-          action: Mo danh sach Role
-        expectedResult: Role duoc hien thi.
-        assertions:
-        - Role duoc hien thi.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
-      - testCaseId: TC_FR96_ROLE_UPDATE
-        scenario: '[Positive] Cap nhat Role (FR96)'
-        priority: High
-        testData:
-        - Role data moi
-        preconditions:
-        - Role ton tai
-        - admin co permission.
-        steps:
-        - step: 1
-          action: Sua Role
-        - step: 2
-          action: Luu
-        expectedResult: Role duoc UPDATE.
-        assertions:
-        - Role duoc UPDATE.
-        traceability:
-          br:
-          - BR15
-          fr:
-          - FR96
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR15 - Authorization
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 20
-x-test-case-ids:
-- TC_FR100_DENY
-- TC_FR104_AUDIT
-- TC_FR96_DENY
-- TC_FR96_DISABLE
-- TC_FR96_ENABLE
-- TC_FR96_LOCK
-- TC_FR96_POS
-- TC_FR96_ROLE_ASSIGN
-- TC_FR96_ROLE_CREATE
-- TC_FR96_ROLE_PROTECT
-- TC_FR96_ROLE_READ
-- TC_FR96_ROLE_UPDATE
-- TC_FR96_UNLOCK
-- TC_FR97_ASSIGN
-- TC_FR97_CREATE
-- TC_FR97_POS
-- TC_FR97_UPDATE
-- TC_FR98_ASSIGN
-- TC_FR99_CHECK
-- TC_LOG_AUTHZ_FAIL
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR100_DENY
+  uc: UC36
+  scenario: '[Negative] Chan truy cap trai quyen (FR100)'
+  case: '[Negative] Chan truy cap trai quyen'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR100
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - User khong co permission.
+  test_steps:
+  - step: 1
+    action: Gui request admin
+  assertions:
+  - Backend reject/403, khong tin permission tu frontend.
+  expected_result: Backend reject/403, khong tin permission tu frontend.
+  test_data:
+  - Permission thieu
+- id: TC_FR104_AUDIT
+  uc: UC34
+  scenario: '[Positive] Ghi AuditLog cho thao tac Account nhay cam (FR104,105)'
+  case: '[Positive] Ghi AuditLog cho thao tac Account nhay cam'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR104
+    - FR105
+    brule:
+    - BRULE25
+    nfr:
+    - NFR06
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Admin thuc hien lock/unlock/disable/enable/assign role.
+  test_steps:
+  - step: 1
+    action: Thuc hien thao tac
+  - step: 2
+    action: Mo AuditLog
+  assertions:
+  - AuditLog luu actor, action, target, timestamp, details.
+  expected_result: AuditLog luu actor, action, target, timestamp, details.
+  test_data:
+  - Action nhay cam
+- id: TC_FR96_DENY
+  uc: UC34
+  scenario: '[Negative] Khong cho user khong co quyen quan ly Account (FR96,100)'
+  case: '[Negative] Khong cho user khong co quyen quan ly Account'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    - FR100
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - User khong co permission admin.
+  test_steps:
+  - step: 1
+    action: Gui request quan ly Account
+  assertions:
+  - He thong reject/403.
+  expected_result: He thong reject/403.
+  test_data:
+  - Khong permission
+- id: TC_FR96_DISABLE
+  uc: UC34
+  scenario: '[Positive] Disable Account va ghi AuditLog (FR104)'
+  case: '[Positive] Disable Account va ghi AuditLog'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR104
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Account ACTIVE.
+  test_steps:
+  - step: 1
+    action: Disable Account
+  assertions:
+  - Account chuyen trang thai vo hieu
+  - AuditLog ghi nhan.
+  expected_result: Account chuyen trang thai vo hieu; AuditLog ghi nhan.
+  test_data:
+  - Account ACTIVE
+- id: TC_FR96_ENABLE
+  uc: UC34
+  scenario: '[Positive] Enable Account va ghi AuditLog (FR104)'
+  case: '[Positive] Enable Account va ghi AuditLog'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR104
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Account disabled.
+  test_steps:
+  - step: 1
+    action: Enable Account
+  assertions:
+  - Account duoc enable
+  - AuditLog ghi nhan.
+  expected_result: Account duoc enable; AuditLog ghi nhan.
+  test_data:
+  - Account disabled
+- id: TC_FR96_LOCK
+  uc: UC34
+  scenario: '[Positive] Lock Account va ghi AuditLog (FR104)'
+  case: '[Positive] Lock Account va ghi AuditLog'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR104
+    brule: []
+    nfr:
+    - NFR06
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Admin co permission
+  - Account ACTIVE.
+  test_steps:
+  - step: 1
+    action: Lock Account
+  - step: 2
+    action: Kiem tra
+  assertions:
+  - Account bi lock/disable theo thao tac
+  - AuditLog ghi nhan.
+  expected_result: Account bi lock/disable theo thao tac; AuditLog ghi nhan.
+  test_data:
+  - Account ACTIVE
+- id: TC_FR96_POS
+  uc: UC34
+  scenario: '[Positive] Quan ly Account (FR96)'
+  case: '[Positive] Quan ly Account'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    brule: []
+    nfr:
+    - NFR02
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Administrator co permission.
+  test_steps:
+  - step: 1
+    action: Mo danh sach Account
+  - step: 2
+    action: View/Search
+  assertions:
+  - He thong hien thi va tim kiem Account trong pham vi.
+  expected_result: He thong hien thi va tim kiem Account trong pham vi.
+  test_data:
+  - Account data
+- id: TC_FR96_ROLE_ASSIGN
+  uc: UC35
+  scenario: '[Positive] Gan Role theo chuc nang Role (FR98)'
+  case: '[Positive] Gan Role theo chuc nang Role'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR98
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /roles
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
+  preconditions:
+  - Admin co permission.
+  test_steps:
+  - step: 1
+    action: Chon user
+  - step: 2
+    action: Gan Role
+  assertions:
+  - Role duoc gan cho user.
+  expected_result: Role duoc gan cho user.
+  test_data:
+  - Role hop le
+- id: TC_FR96_ROLE_CREATE
+  uc: UC35
+  scenario: '[Positive] Tao Role (FR96)'
+  case: '[Positive] Tao Role'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /roles
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
+  preconditions:
+  - Admin co permission.
+  test_steps:
+  - step: 1
+    action: Nhap Role
+  - step: 2
+    action: Luu
+  assertions:
+  - Role duoc CREATE.
+  expected_result: Role duoc CREATE.
+  test_data:
+  - Role moi hop le
+- id: TC_FR96_ROLE_PROTECT
+  uc: UC35
+  scenario: '[Negative] Khong xoa Role he thong neu gay mat toan ven quyen (FR96)'
+  case: '[Negative] Khong xoa Role he thong neu gay mat toan ven quyen'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /roles
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
+  preconditions:
+  - Role he thong dang duoc su dung.
+  test_steps:
+  - step: 1
+    action: Yeu cau xoa Role
+  assertions:
+  - He thong khong cho phep xoa neu gay mat tinh toan ven quyen.
+  expected_result: He thong khong cho phep xoa neu gay mat tinh toan ven quyen.
+  test_data:
+  - System Role dang duoc su dung
+- id: TC_FR96_ROLE_READ
+  uc: UC35
+  scenario: '[Positive] Xem Role (FR96)'
+  case: '[Positive] Xem Role'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /roles
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
+  preconditions:
+  - Admin co permission.
+  test_steps:
+  - step: 1
+    action: Mo danh sach Role
+  assertions:
+  - Role duoc hien thi.
+  expected_result: Role duoc hien thi.
+  test_data:
+  - Role data
+- id: TC_FR96_ROLE_UPDATE
+  uc: UC35
+  scenario: '[Positive] Cap nhat Role (FR96)'
+  case: '[Positive] Cap nhat Role'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR96
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /roles
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay role.routes.js trong backend hien tai.'
+  preconditions:
+  - Role ton tai
+  - admin co permission.
+  test_steps:
+  - step: 1
+    action: Sua Role
+  - step: 2
+    action: Luu
+  assertions:
+  - Role duoc UPDATE.
+  expected_result: Role duoc UPDATE.
+  test_data:
+  - Role data moi
+- id: TC_FR96_UNLOCK
+  uc: UC34
+  scenario: '[Positive] Unlock Account va ghi AuditLog (FR104)'
+  case: '[Positive] Unlock Account va ghi AuditLog'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR104
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Account dang bi lock.
+  test_steps:
+  - step: 1
+    action: Unlock Account
+  - step: 2
+    action: Kiem tra
+  assertions:
+  - Account duoc mo khoa
+  - AuditLog ghi nhan.
+  expected_result: Account duoc mo khoa; AuditLog ghi nhan.
+  test_data:
+  - Account locked
+- id: TC_FR97_ASSIGN
+  uc: UC36
+  scenario: '[Positive] Gan Permission cho Role (FR97)'
+  case: '[Positive] Gan Permission cho Role'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR97
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - Role va Permission ton tai.
+  test_steps:
+  - step: 1
+    action: Chon Role
+  - step: 2
+    action: Assign Permission
+  assertions:
+  - Permission duoc gan cho Role.
+  expected_result: Permission duoc gan cho Role.
+  test_data:
+  - Role + Permission
+- id: TC_FR97_CREATE
+  uc: UC36
+  scenario: '[Positive] Tao Permission (FR97)'
+  case: '[Positive] Tao Permission'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR97
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - Admin co permission.
+  test_steps:
+  - step: 1
+    action: Tao Permission
+  - step: 2
+    action: Luu
+  assertions:
+  - Permission duoc CREATE.
+  expected_result: Permission duoc CREATE.
+  test_data:
+  - Permission hop le
+- id: TC_FR97_POS
+  uc: UC36
+  scenario: '[Positive] Quan ly Permission (FR97)'
+  case: '[Positive] Quan ly Permission'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR97
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - Admin co permission.
+  test_steps:
+  - step: 1
+    action: View Permission
+  assertions:
+  - He thong hien thi Permission.
+  expected_result: He thong hien thi Permission.
+  test_data:
+  - Permission data
+- id: TC_FR97_UPDATE
+  uc: UC36
+  scenario: '[Positive] Cap nhat Permission (FR97)'
+  case: '[Positive] Cap nhat Permission'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR97
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - Permission ton tai.
+  test_steps:
+  - step: 1
+    action: Sua Permission
+  - step: 2
+    action: Luu
+  assertions:
+  - Permission duoc UPDATE.
+  expected_result: Permission duoc UPDATE.
+  test_data:
+  - Du lieu moi
+- id: TC_FR98_ASSIGN
+  uc: UC34
+  scenario: '[Positive] Gán Role cho Account (FR98,105)'
+  case: '[Positive] Gán Role cho Account'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    - BR16
+    fr:
+    - FR98
+    - FR105
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /operations/users/{userId}/role
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${ADMIN_TOKEN}
+    body: {}
+    note: Backend chi co doi role; chua thay endpoint lock/unlock/disable/enable rieng.
+  preconditions:
+  - Admin co permission
+  - Role ton tai.
+  test_steps:
+  - step: 1
+    action: Chon Account
+  - step: 2
+    action: Gan Role
+  - step: 3
+    action: Luu
+  assertions:
+  - Role duoc gan
+  - thao tac nhay cam duoc AuditLog.
+  expected_result: Role duoc gan; thao tac nhay cam duoc AuditLog.
+  test_data:
+  - Role hop le
+- id: TC_FR99_CHECK
+  uc: UC36
+  scenario: '[Positive] Backend kiem tra Permission (FR99)'
+  case: '[Positive] Backend kiem tra Permission'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR99
+    brule:
+    - BRULE23
+    - BRULE24
+    nfr:
+    - NFR02
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - User co permission hop le.
+  test_steps:
+  - step: 1
+    action: Gui request can permission
+  assertions:
+  - Backend cho phep request.
+  expected_result: Backend cho phep request.
+  test_data:
+  - Permission hop le
+- id: TC_LOG_AUTHZ_FAIL
+  uc: UC36
+  scenario: '[Negative] Ghi log authorization failure khi bi tu choi (FR100)'
+  case: '[Negative] Ghi log authorization failure khi bi tu choi'
+  priority: High
+  traceability:
+    br:
+    - BR15
+    fr:
+    - FR100
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /permissions
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay permission.routes.js trong backend hien tai.'
+  preconditions:
+  - User thieu permission.
+  test_steps:
+  - step: 1
+    action: Gui request trai quyen
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - He thong reject/403 va ghi log authorization failure.
+  expected_result: He thong reject/403 va ghi log authorization failure.
+  test_data:
+  - Khong co permission

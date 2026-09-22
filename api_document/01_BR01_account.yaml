@@ -1,505 +1,590 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR01 - Account
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR01 - Account. Converted from the CAB System API test pack while preserving its test-case traceability.
-    Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR01
-  description: Business Requirement BR01
-paths:
-  /register:
-    post:
-      summary: Post /register
-      description: API operation mapped from the existing CAB test-pack entries for POST /register. The SRS/test workbook defines business behavior
-        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: post_register
-      tags: &id001
-      - BR01
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR01
-      - FR05
-      x-business-rules: []
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR01_EMAIL_DUP
-        scenario: '[Negative] Dang ky voi email da ton tai (FR1)'
-        priority: High
-        testData:
-        - Email da ton tai
-        preconditions:
-        - Da co Account dung email.
-        steps:
-        - step: 1
-          action: Nhap email da ton tai
-        - step: 2
-          action: Gui dang ky
-        expectedResult: He thong reject, khong tao Account moi.
-        assertions:
-        - He thong reject, khong tao Account moi.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR01
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR01_MISSING
-        scenario: '[Missing Data] Dang ky thieu du lieu bat buoc (FR1)'
-        priority: High
-        testData:
-        - Thieu du lieu bat buoc
-        preconditions:
-        - Nguoi dung chua co Account.
-        steps:
-        - step: 1
-          action: Bo trong truong bat buoc
-        - step: 2
-          action: Gui dang ky
-        expectedResult: He thong reject va yeu cau bo sung du lieu.
-        assertions:
-        - He thong reject va yeu cau bo sung du lieu.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR01
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR01_PHONE_DUP
-        scenario: '[Negative] Dang ky voi phone da ton tai (FR1)'
-        priority: High
-        testData:
-        - Phone da ton tai
-        preconditions:
-        - Da co Account dung phone.
-        steps:
-        - step: 1
-          action: Nhap phone da ton tai
-        - step: 2
-          action: Gui dang ky
-        expectedResult: He thong reject, khong tao Account moi.
-        assertions:
-        - He thong reject, khong tao Account moi.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR01
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR01_POS
-        scenario: '[Positive] Dang ky thanh cong voi du lieu hop le (FR1,5)'
-        priority: High
-        testData:
-        - Customer/Driver
-        - email hoac phone chua ton tai
-        - password hop le
-        preconditions:
-        - Nguoi dung chua co Account.
-        steps:
-        - step: 1
-          action: Mo dang ky
-        - step: 2
-          action: Nhap thong tin hop le
-        - step: 3
-          action: Gui dang ky
-        expectedResult: Account duoc tao; password duoc hash, khong luu plaintext; role duoc gan dung.
-        assertions:
-        - Account duoc tao
-        - password duoc hash, khong luu plaintext
-        - role duoc gan dung.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR01
-          - FR05
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR01_PWD_INVALID
-        scenario: '[Negative] Dang ky voi password khong hop le (FR1)'
-        priority: High
-        testData:
-        - Password invalid
-        preconditions:
-        - Nguoi dung chua co Account.
-        steps:
-        - step: 1
-          action: Nhap password khong hop le
-        - step: 2
-          action: Gui dang ky
-        expectedResult: He thong reject, khong tao Account.
-        assertions:
-        - He thong reject, khong tao Account.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR01
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR05_HASH
-        scenario: '[Positive] Xac minh password duoc hash (FR5)'
-        priority: High
-        testData:
-        - Password nguoi dung
-        preconditions:
-        - Dang ky thanh cong.
-        steps:
-        - step: 1
-          action: Tao Account
-        - step: 2
-          action: Kiem tra du lieu luu
-        expectedResult: Database chi luu passwordHash, khong luu plaintext password.
-        assertions:
-        - Database chi luu passwordHash, khong luu plaintext password.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR05
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /login:
-    post:
-      summary: Post /login
-      description: API operation mapped from the existing CAB test-pack entries for POST /login. The SRS/test workbook defines business behavior
-        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: post_login
-      tags: &id002
-      - BR01
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR02
-      - FR04
-      - FR06
-      - FR07
-      x-business-rules: []
-      x-non-functional-requirements:
-      - NFR01
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR02_DISABLED
-        scenario: '[Exception] Dang nhap voi Account disabled/bi khoa (FR2,4,7)'
-        priority: High
-        testData:
-        - Account disabled
-        preconditions:
-        - Account bi disabled/locked.
-        steps:
-        - step: 1
-          action: Nhap thong tin
-        - step: 2
-          action: Dang nhap
-        expectedResult: He thong reject va khong cap session/token; ghi authentication failure.
-        assertions:
-        - He thong reject va khong cap session/token
-        - ghi authentication failure.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR02
-          - FR04
-          - FR07
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR02_MISSING
-        scenario: '[Missing Data] Dang nhap thieu email/phone hoac password (FR2)'
-        priority: High
-        testData:
-        - Email/phone hoac password trong
-        preconditions:
-        - Tai man hinh dang nhap.
-        steps:
-        - step: 1
-          action: Bo trong truong bat buoc
-        - step: 2
-          action: Gui dang nhap
-        expectedResult: He thong reject yeu cau dang nhap.
-        assertions:
-        - He thong reject yeu cau dang nhap.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR02
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR02_NEG
-        scenario: '[Negative] Dang nhap sai password (FR2)'
-        priority: High
-        testData:
-        - Password sai
-        preconditions:
-        - Account ton tai va dang hoat dong.
-        steps:
-        - step: 1
-          action: Nhap thong tin
-        - step: 2
-          action: Nhap password sai
-        expectedResult: He thong reject; ghi authentication failure theo chinh sach logging.
-        assertions:
-        - He thong reject
-        - ghi authentication failure theo chinh sach logging.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR02
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR02_POS
-        scenario: '[Positive] Dang nhap thanh cong (FR2,4,6)'
-        priority: High
-        testData:
-        - Account active
-        - password dung
-        preconditions:
-        - Account ACTIVE ton tai.
-        steps:
-        - step: 1
-          action: Nhap email/phone
-        - step: 2
-          action: Nhap password dung
-        - step: 3
-          action: Dang nhap
-        expectedResult: He thong xac thuc thanh cong, cap session/token va load dung role.
-        assertions:
-        - He thong xac thuc thanh cong, cap session/token va load dung role.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR02
-          - FR04
-          - FR06
-          brule: []
-          nfr:
-          - NFR01
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR06_TOKEN
-        scenario: '[Positive] Cap authentication session/token (FR6)'
-        priority: High
-        testData:
-        - Credentials hop le
-        preconditions:
-        - Credentials hop le.
-        steps:
-        - step: 1
-          action: Dang nhap thanh cong
-        - step: 2
-          action: Kiem tra session/token
-        expectedResult: Session/token duoc tao va su dung duoc cho request can xac thuc.
-        assertions:
-        - Session/token duoc tao va su dung duoc cho request can xac thuc.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR06
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_LOG_AUTH_FAIL
-        scenario: '[Negative] Ghi log authentication failure khi dang nhap that bai (FR2)'
-        priority: High
-        testData:
-        - Password sai
-        preconditions:
-        - Account ton tai
-        - password sai.
-        steps:
-        - step: 1
-          action: Dang nhap voi password sai
-        - step: 2
-          action: Kiem tra log
-        expectedResult: He thong reject va co log authentication failure; log khong chua password plaintext.
-        assertions:
-        - He thong reject va co log authentication failure
-        - log khong chua password plaintext.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR02
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /auth/logout:
-    post:
-      summary: Post /auth/logout
-      description: 'API operation mapped from the existing CAB test-pack entries for POST /auth/logout. The SRS/test workbook defines business
-        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
-        Khong tim thay route logout trong cab_backend_nodejs hien tai.'
-      operationId: post_auth_logout
-      tags: &id003
-      - BR01
-      x-business-requirements: *id003
-      x-functional-requirements:
-      - FR03
-      x-business-rules: []
-      x-non-functional-requirements:
-      - NFR01
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR03_POS
-        scenario: '[Positive] Dang xuat thanh cong (FR3)'
-        priority: High
-        testData:
-        - Session/token hop le
-        preconditions:
-        - Nguoi dung dang co session/token hop le.
-        steps:
-        - step: 1
-          action: Chon Logout
-        - step: 2
-          action: Gui yeu cau
-        expectedResult: Session/token bi invalidate va phien ket thuc.
-        assertions:
-        - Session/token bi invalidate va phien ket thuc.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR03
-          brule: []
-          nfr:
-          - NFR01
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay route logout trong cab_backend_nodejs hien tai.'
-      - testCaseId: TC_FR03_REUSE
-        scenario: '[Negative] Su dung lai session/token sau Logout (FR3)'
-        priority: High
-        testData:
-        - Token da invalidate
-        preconditions:
-        - Nguoi dung da Logout.
-        steps:
-        - step: 1
-          action: Gui request bang session/token cu
-        expectedResult: He thong tu choi request yeu cau xac thuc.
-        assertions:
-        - He thong tu choi request yeu cau xac thuc.
-        traceability:
-          br:
-          - BR01
-          fr:
-          - FR03
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay route logout trong cab_backend_nodejs hien tai.'
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR01 - Account
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 14
-x-test-case-ids:
-- TC_FR01_EMAIL_DUP
-- TC_FR01_MISSING
-- TC_FR01_PHONE_DUP
-- TC_FR01_POS
-- TC_FR01_PWD_INVALID
-- TC_FR02_DISABLED
-- TC_FR02_MISSING
-- TC_FR02_NEG
-- TC_FR02_POS
-- TC_FR03_POS
-- TC_FR03_REUSE
-- TC_FR05_HASH
-- TC_FR06_TOKEN
-- TC_LOG_AUTH_FAIL
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR01_EMAIL_DUP
+  uc: UC01
+  scenario: '[Negative] Dang ky voi email da ton tai (FR1)'
+  case: '[Negative] Dang ky voi email da ton tai'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Da co Account dung email.
+  test_steps:
+  - step: 1
+    action: Nhap email da ton tai
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong reject, khong tao Account moi.
+  expected_result: He thong reject, khong tao Account moi.
+  test_data:
+  - Email da ton tai
+- id: TC_FR01_MISSING
+  uc: UC01
+  scenario: '[Missing Data] Dang ky thieu du lieu bat buoc (FR1)'
+  case: '[Missing Data] Dang ky thieu du lieu bat buoc'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Bo trong truong bat buoc
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong reject va yeu cau bo sung du lieu.
+  expected_result: He thong reject va yeu cau bo sung du lieu.
+  test_data:
+  - Thieu du lieu bat buoc
+- id: TC_FR01_MISSING_CONTACT
+  uc: UC01
+  scenario: '[Missing Data] Dang ky thieu ca email lan phone (FR1)'
+  case: '[Missing Data] Dang ky thieu ca email lan phone'
+  priority: Medium
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Nhap fullName/password, bo trong ca email va phone
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong yeu cau nhap thong tin lien he
+  - khong tao Account.
+  expected_result: He thong yeu cau nhap thong tin lien he; khong tao Account.
+  test_data:
+  - email rong
+  - phone rong
+- id: TC_FR01_MISSING_NAME
+  uc: UC01
+  scenario: '[Missing Data] Dang ky thieu fullName (FR1)'
+  case: '[Missing Data] Dang ky thieu fullName'
+  priority: Medium
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Nhap day du email/phone/password, bo trong fullName
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong yeu cau nhap fullName
+  - khong tao Account.
+  expected_result: He thong yeu cau nhap fullName; khong tao Account.
+  test_data:
+  - fullName rong
+- id: TC_FR01_MISSING_PWD
+  uc: UC01
+  scenario: '[Missing Data] Dang ky thieu password (FR1)'
+  case: '[Missing Data] Dang ky thieu password'
+  priority: Medium
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Nhap day du fullName/email/phone, bo trong password
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong yeu cau nhap password
+  - khong tao Account.
+  expected_result: He thong yeu cau nhap password; khong tao Account.
+  test_data:
+  - password rong
+- id: TC_FR01_PHONE_DUP
+  uc: UC01
+  scenario: '[Negative] Dang ky voi phone da ton tai (FR1)'
+  case: '[Negative] Dang ky voi phone da ton tai'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Da co Account dung phone.
+  test_steps:
+  - step: 1
+    action: Nhap phone da ton tai
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong reject, khong tao Account moi.
+  expected_result: He thong reject, khong tao Account moi.
+  test_data:
+  - Phone da ton tai
+- id: TC_FR01_POS
+  uc: UC01
+  scenario: '[Positive] Dang ky thanh cong voi du lieu hop le (FR1,5)'
+  case: '[Positive] Dang ky thanh cong voi du lieu hop le'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    - FR05
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Mo dang ky
+  - step: 2
+    action: Nhap thong tin hop le
+  - step: 3
+    action: Gui dang ky
+  assertions:
+  - Account duoc tao
+  - password duoc hash, khong luu plaintext
+  - role duoc gan dung.
+  expected_result: Account duoc tao; password duoc hash, khong luu plaintext; role duoc gan dung.
+  test_data:
+  - Customer/Driver
+  - email hoac phone chua ton tai
+  - password hop le
+- id: TC_FR01_PWD_INVALID
+  uc: UC01
+  scenario: '[Negative] Dang ky voi password khong hop le (FR1)'
+  case: '[Negative] Dang ky voi password khong hop le'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR01
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung chua co Account.
+  test_steps:
+  - step: 1
+    action: Nhap password khong hop le
+  - step: 2
+    action: Gui dang ky
+  assertions:
+  - He thong reject, khong tao Account.
+  expected_result: He thong reject, khong tao Account.
+  test_data:
+  - Password invalid
+- id: TC_FR02_DISABLED
+  uc: UC02
+  scenario: '[Exception] Dang nhap voi Account disabled/bi khoa (FR2,4,7)'
+  case: '[Exception] Dang nhap voi Account disabled/bi khoa'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR02
+    - FR04
+    - FR07
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Account bi disabled/locked.
+  test_steps:
+  - step: 1
+    action: Nhap thong tin
+  - step: 2
+    action: Dang nhap
+  assertions:
+  - He thong reject va khong cap session/token
+  - ghi authentication failure.
+  expected_result: He thong reject va khong cap session/token; ghi authentication failure.
+  test_data:
+  - Account disabled
+- id: TC_FR02_MISSING
+  uc: UC02
+  scenario: '[Missing Data] Dang nhap thieu email/phone hoac password (FR2)'
+  case: '[Missing Data] Dang nhap thieu email/phone hoac password'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR02
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Tai man hinh dang nhap.
+  test_steps:
+  - step: 1
+    action: Bo trong truong bat buoc
+  - step: 2
+    action: Gui dang nhap
+  assertions:
+  - He thong reject yeu cau dang nhap.
+  expected_result: He thong reject yeu cau dang nhap.
+  test_data:
+  - Email/phone hoac password trong
+- id: TC_FR02_NEG
+  uc: UC02
+  scenario: '[Negative] Dang nhap sai password (FR2)'
+  case: '[Negative] Dang nhap sai password'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR02
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Account ton tai va dang hoat dong.
+  test_steps:
+  - step: 1
+    action: Nhap thong tin
+  - step: 2
+    action: Nhap password sai
+  assertions:
+  - He thong reject
+  - ghi authentication failure theo chinh sach logging.
+  expected_result: He thong reject; ghi authentication failure theo chinh sach logging.
+  test_data:
+  - Password sai
+- id: TC_FR02_POS
+  uc: UC02
+  scenario: '[Positive] Dang nhap thanh cong (FR2,4,6)'
+  case: '[Positive] Dang nhap thanh cong'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR02
+    - FR04
+    - FR06
+    brule: []
+    nfr:
+    - NFR01
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Account ACTIVE ton tai.
+  test_steps:
+  - step: 1
+    action: Nhap email/phone
+  - step: 2
+    action: Nhap password dung
+  - step: 3
+    action: Dang nhap
+  assertions:
+  - He thong xac thuc thanh cong, cap session/token va load dung role.
+  expected_result: He thong xac thuc thanh cong, cap session/token va load dung role.
+  test_data:
+  - Account active
+  - password dung
+- id: TC_FR03_POS
+  uc: UC03
+  scenario: '[Positive] Dang xuat thanh cong (FR3)'
+  case: '[Positive] Dang xuat thanh cong'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR03
+    brule: []
+    nfr:
+    - NFR01
+  api:
+    method: POST
+    path: /auth/logout
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay route logout trong cab_backend_nodejs hien tai.'
+  preconditions:
+  - Nguoi dung dang co session/token hop le.
+  test_steps:
+  - step: 1
+    action: Chon Logout
+  - step: 2
+    action: Gui yeu cau
+  assertions:
+  - Session/token bi invalidate va phien ket thuc.
+  expected_result: Session/token bi invalidate va phien ket thuc.
+  test_data:
+  - Session/token hop le
+- id: TC_FR03_REUSE
+  uc: UC03
+  scenario: '[Negative] Su dung lai session/token sau Logout (FR3)'
+  case: '[Negative] Su dung lai session/token sau Logout'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR03
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /auth/logout
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Khong tim thay route logout trong cab_backend_nodejs hien tai.'
+  preconditions:
+  - Nguoi dung da Logout.
+  test_steps:
+  - step: 1
+    action: Gui request bang session/token cu
+  assertions:
+  - He thong tu choi request yeu cau xac thuc.
+  expected_result: He thong tu choi request yeu cau xac thuc.
+  test_data:
+  - Token da invalidate
+- id: TC_FR05_HASH
+  uc: UC01
+  scenario: '[Positive] Xac minh password duoc hash (FR5)'
+  case: '[Positive] Xac minh password duoc hash'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR05
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /register
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Dang ky thanh cong.
+  test_steps:
+  - step: 1
+    action: Tao Account
+  - step: 2
+    action: Kiem tra du lieu luu
+  assertions:
+  - Database chi luu passwordHash, khong luu plaintext password.
+  expected_result: Database chi luu passwordHash, khong luu plaintext password.
+  test_data:
+  - Password nguoi dung
+- id: TC_FR06_TOKEN
+  uc: UC02
+  scenario: '[Positive] Cap authentication session/token (FR6)'
+  case: '[Positive] Cap authentication session/token'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR06
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Credentials hop le.
+  test_steps:
+  - step: 1
+    action: Dang nhap thanh cong
+  - step: 2
+    action: Kiem tra session/token
+  assertions:
+  - Session/token duoc tao va su dung duoc cho request can xac thuc.
+  expected_result: Session/token duoc tao va su dung duoc cho request can xac thuc.
+  test_data:
+  - Credentials hop le
+- id: TC_LOG_AUTH_FAIL
+  uc: UC02
+  scenario: '[Negative] Ghi log authentication failure khi dang nhap that bai (FR2)'
+  case: '[Negative] Ghi log authentication failure khi dang nhap that bai'
+  priority: High
+  traceability:
+    br:
+    - BR01
+    fr:
+    - FR02
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /login
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Account ton tai
+  - password sai.
+  test_steps:
+  - step: 1
+    action: Dang nhap voi password sai
+  - step: 2
+    action: Kiem tra log
+  assertions:
+  - He thong reject va co log authentication failure
+  - log khong chua password plaintext.
+  expected_result: He thong reject va co log authentication failure; log khong chua password plaintext.
+  test_data:
+  - Password sai

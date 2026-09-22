@@ -1,0 +1,50 @@
+name: CAB System API Test Pack
+version: '2.0'
+change_log:
+- 'v2.0: Bo UC28 (Danh dau Notification da doc), UC29 (Xu ly Incident), UC38 (Dashboard) theo quyet dinh
+  giam pham vi cua nguoi dung.'
+- 'v2.0: FR108 (ty le hoan thanh) va FR109 (ty le huy), truoc day chi duoc test gop trong UC38, da duoc
+  chuyen sang test rieng trong UC39 de khong mat coverage.'
+- 'v2.0: Dong bo lai 17 test case tung duoc them o Excel v3 (Nhom A/B/C) nhung truoc do chua duoc dua
+  vao YAML pack.'
+- 'v1.0: Ban dau, dua tren CAB_System_TestCases_Final_v2.xlsx (195 test case, 41 UC).'
+source_of_truth:
+  srs: srs.md
+  test_cases: CAB_System_TestCases_Final_v4.xlsx
+structure: 1 YAML file per Business Requirement (BR01-BR17), ke ca BR khong con test case (BR13).
+files:
+- 01_BR01_account.yaml
+- 02_BR02_profile.yaml
+- 03_BR03_vehicle.yaml
+- 04_BR04_booking.yaml
+- 05_BR05_driver_matching.yaml
+- 06_BR06_assignment.yaml
+- 07_BR07_trip.yaml
+- 08_BR08_tracking.yaml
+- 09_BR09_fare.yaml
+- 10_BR10_payment.yaml
+- 11_BR11_notification.yaml
+- 12_BR12_rating.yaml
+- 13_BR13_incident.yaml
+- 14_BR14_operations.yaml
+- 15_BR15_authorization.yaml
+- 16_BR16_audit.yaml
+- 17_BR17_reporting.yaml
+coverage:
+  use_cases: 38/38 UC con lai (UC28, UC29, UC38 da bo khoi pham vi)
+  business_requirements: 16/17 co test (BR13 = 0 test, xem note trong file 13_BR13_incident.yaml)
+  functional_requirements: '103/112 (thieu: FR74, FR81, FR82, FR83, FR84, FR85, FR86, FR87, FR95 - deu
+    thuoc UC28/UC29 da bo)'
+  non_functional_requirements: 11/11 (khong doi)
+  total_test_cases: 203
+validation:
+  duplicate_test_case_ids: false
+  missing_test_cases: false
+  extra_test_cases: false
+  unsupported_requirements: false
+  checked_on: '2026-09-22'
+  method: Programmatic diff between CAB_System_TestCases_Final_v4.xlsx Test Case IDs and all IDs found
+    across the 17 YAML files.
+backend_cross_reference:
+  repo: cab_backend_nodejs (in vthaix/23674231_TranVanThai_Cabsystem)
+  note: Xem README.md muc 6 - khong doi so voi ban truoc, tru cac UC da bi bo.

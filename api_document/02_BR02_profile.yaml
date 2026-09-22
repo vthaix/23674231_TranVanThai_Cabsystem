@@ -1,371 +1,329 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR02 - Profile
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR02 - Profile. Converted from the CAB System API test pack while preserving its test-case traceability.
-    Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR02
-  description: Business Requirement BR02
-paths:
-  /users/me:
-    get:
-      summary: Get /users/me
-      description: API operation mapped from the existing CAB test-pack entries for GET /users/me. The SRS/test workbook defines business behavior
-        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: get_users_me
-      tags: &id001
-      - BR02
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR08
-      x-business-rules: []
-      x-non-functional-requirements:
-      - NFR01
-      - NFR03
-      - NFR05
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR08_ISO
-        scenario: '[Negative] Khong duoc xem ho so nguoi dung khac (FR8)'
-        priority: High
-        testData:
-        - ID Profile B
-        preconditions:
-        - User A dang nhap
-        - User B co du lieu.
-        steps:
-        - step: 1
-          action: User A yeu cau Profile cua B
-        expectedResult: He thong tu choi truy cap; dam bao data isolation.
-        assertions:
-        - He thong tu choi truy cap
-        - dam bao data isolation.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR08
-          brule: []
-          nfr:
-          - NFR03
-          - NFR05
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR08_POS
-        scenario: '[Positive] Xem ho so cua chinh minh (FR8)'
-        priority: High
-        testData:
-        - User hien tai
-        preconditions:
-        - Nguoi dung da dang nhap.
-        steps:
-        - step: 1
-          action: Mo Profile
-        - step: 2
-          action: Xem thong tin
-        expectedResult: He thong tra dung thong tin Profile cua user.
-        assertions:
-        - He thong tra dung thong tin Profile cua user.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR08
-          brule: []
-          nfr:
-          - NFR01
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-    patch:
-      summary: Patch /users/me
-      description: API operation mapped from the existing CAB test-pack entries for PATCH /users/me. The SRS/test workbook defines business behavior
-        and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: patch_users_me
-      tags: &id002
-      - BR02
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR09
-      - FR11
-      x-business-rules: []
-      x-non-functional-requirements:
-      - NFR02
-      - NFR05
-      - NFR07
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR09_BACKEND
-        scenario: '[Negative] Bo qua validation o frontend nhung gui du lieu sai len backend (FR11)'
-        priority: High
-        testData:
-        - Payload khong hop le
-        preconditions:
-        - User dang nhap.
-        steps:
-        - step: 1
-          action: Gui request truc tiep voi du lieu sai
-        expectedResult: Backend van validate va reject du lieu sai (NFR07).
-        assertions:
-        - Backend van validate va reject du lieu sai (NFR07).
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR11
-          brule: []
-          nfr:
-          - NFR07
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR09_ISO
-        scenario: '[Negative] Khong cap nhat Profile nguoi dung khac (FR9)'
-        priority: High
-        testData:
-        - ID Profile B
-        preconditions:
-        - User A dang nhap
-        - User B co Profile.
-        steps:
-        - step: 1
-          action: User A gui request update Profile B
-        expectedResult: He thong tu choi thao tac ngoai pham vi quyen.
-        assertions:
-        - He thong tu choi thao tac ngoai pham vi quyen.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR09
-          brule: []
-          nfr:
-          - NFR05
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR09_NEG
-        scenario: '[Negative] Cap nhat ho so voi du lieu khong hop le (FR9,11)'
-        priority: High
-        testData:
-        - Du lieu sai dinh dang
-        preconditions:
-        - User dang nhap.
-        steps:
-        - step: 1
-          action: Nhap du lieu khong hop le
-        - step: 2
-          action: Luu
-        expectedResult: He thong reject va khong luu du lieu khong hop le.
-        assertions:
-        - He thong reject va khong luu du lieu khong hop le.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR09
-          - FR11
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR09_POS
-        scenario: '[Positive] Cap nhat ho so hop le (FR9,11)'
-        priority: High
-        testData:
-        - Du lieu Profile hop le
-        preconditions:
-        - User dang nhap va co quyen cap nhat Profile.
-        steps:
-        - step: 1
-          action: Mo Profile
-        - step: 2
-          action: Sua thong tin hop le
-        - step: 3
-          action: Luu
-        expectedResult: He thong validate va UPDATE Account/Profile thanh cong.
-        assertions:
-        - He thong validate va UPDATE Account/Profile thanh cong.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR09
-          - FR11
-          brule: []
-          nfr:
-          - NFR02
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /users/me/password:
-    patch:
-      summary: Patch /users/me/password
-      description: 'API operation mapped from the existing CAB test-pack entries for PATCH /users/me/password. The SRS/test workbook defines business
-        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source note: NO_MATCHING_BACKEND_ROUTE:
-        Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau rieng.'
-      operationId: patch_users_me_password
-      tags: &id003
-      - BR02
-      x-business-requirements: *id003
-      x-functional-requirements:
-      - FR10
-      - FR11
-      x-business-rules: []
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR10_INVALID
-        scenario: '[Negative] Doi mat khau voi password moi khong hop le (FR10,11)'
-        priority: High
-        testData:
-        - New password invalid
-        preconditions:
-        - User dang nhap
-        - password hien tai dung.
-        steps:
-        - step: 1
-          action: Nhap password moi khong hop le
-        - step: 2
-          action: Xac nhan
-        expectedResult: He thong reject va khong luu password moi.
-        assertions:
-        - He thong reject va khong luu password moi.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR10
-          - FR11
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau rieng.'
-      - testCaseId: TC_FR10_NEG
-        scenario: '[Negative] Doi mat khau voi password hien tai sai (FR10)'
-        priority: High
-        testData:
-        - Current password sai
-        preconditions:
-        - User dang nhap.
-        steps:
-        - step: 1
-          action: Nhap password cu sai
-        - step: 2
-          action: Nhap password moi
-        expectedResult: He thong reject va khong thay doi passwordHash.
-        assertions:
-        - He thong reject va khong thay doi passwordHash.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR10
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau rieng.'
-      - testCaseId: TC_FR10_POS
-        scenario: '[Positive] Doi mat khau thanh cong (FR10)'
-        priority: High
-        testData:
-        - Current password dung
-        - new password hop le
-        preconditions:
-        - User dang nhap
-        - password hien tai dung.
-        steps:
-        - step: 1
-          action: Nhap password hien tai
-        - step: 2
-          action: Nhap password moi
-        - step: 3
-          action: Xac nhan
-        expectedResult: He thong verify password cu, hash password moi va UPDATE passwordHash.
-        assertions:
-        - He thong verify password cu, hash password moi va UPDATE passwordHash.
-        traceability:
-          br:
-          - BR02
-          fr:
-          - FR10
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau rieng.'
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR02 - Profile
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 9
-x-test-case-ids:
-- TC_FR08_ISO
-- TC_FR08_POS
-- TC_FR09_BACKEND
-- TC_FR09_ISO
-- TC_FR09_NEG
-- TC_FR09_POS
-- TC_FR10_INVALID
-- TC_FR10_NEG
-- TC_FR10_POS
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR08_ISO
+  uc: UC04
+  scenario: '[Negative] Khong duoc xem ho so nguoi dung khac (FR8)'
+  case: '[Negative] Khong duoc xem ho so nguoi dung khac'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR08
+    brule: []
+    nfr:
+    - NFR03
+    - NFR05
+  api:
+    method: GET
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User A dang nhap
+  - User B co du lieu.
+  test_steps:
+  - step: 1
+    action: User A yeu cau Profile cua B
+  assertions:
+  - He thong tu choi truy cap
+  - dam bao data isolation.
+  expected_result: He thong tu choi truy cap; dam bao data isolation.
+  test_data:
+  - ID Profile B
+- id: TC_FR08_POS
+  uc: UC04
+  scenario: '[Positive] Xem ho so cua chinh minh (FR8)'
+  case: '[Positive] Xem ho so cua chinh minh'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR08
+    brule: []
+    nfr:
+    - NFR01
+  api:
+    method: GET
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Nguoi dung da dang nhap.
+  test_steps:
+  - step: 1
+    action: Mo Profile
+  - step: 2
+    action: Xem thong tin
+  assertions:
+  - He thong tra dung thong tin Profile cua user.
+  expected_result: He thong tra dung thong tin Profile cua user.
+  test_data:
+  - User hien tai
+- id: TC_FR09_BACKEND
+  uc: UC05
+  scenario: '[Negative] Bo qua validation o frontend nhung gui du lieu sai len backend (FR11)'
+  case: '[Negative] Bo qua validation o frontend nhung gui du lieu sai len backend'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR11
+    brule: []
+    nfr:
+    - NFR07
+  api:
+    method: PATCH
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User dang nhap.
+  test_steps:
+  - step: 1
+    action: Gui request truc tiep voi du lieu sai
+  assertions:
+  - Backend van validate va reject du lieu sai (NFR07).
+  expected_result: Backend van validate va reject du lieu sai (NFR07).
+  test_data:
+  - Payload khong hop le
+- id: TC_FR09_ISO
+  uc: UC05
+  scenario: '[Negative] Khong cap nhat Profile nguoi dung khac (FR9)'
+  case: '[Negative] Khong cap nhat Profile nguoi dung khac'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR09
+    brule: []
+    nfr:
+    - NFR05
+  api:
+    method: PATCH
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User A dang nhap
+  - User B co Profile.
+  test_steps:
+  - step: 1
+    action: User A gui request update Profile B
+  assertions:
+  - He thong tu choi thao tac ngoai pham vi quyen.
+  expected_result: He thong tu choi thao tac ngoai pham vi quyen.
+  test_data:
+  - ID Profile B
+- id: TC_FR09_NEG
+  uc: UC05
+  scenario: '[Negative] Cap nhat ho so voi du lieu khong hop le (FR9,11)'
+  case: '[Negative] Cap nhat ho so voi du lieu khong hop le'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR09
+    - FR11
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User dang nhap.
+  test_steps:
+  - step: 1
+    action: Nhap du lieu khong hop le
+  - step: 2
+    action: Luu
+  assertions:
+  - He thong reject va khong luu du lieu khong hop le.
+  expected_result: He thong reject va khong luu du lieu khong hop le.
+  test_data:
+  - Du lieu sai dinh dang
+- id: TC_FR09_POS
+  uc: UC05
+  scenario: '[Positive] Cap nhat ho so hop le (FR9,11)'
+  case: '[Positive] Cap nhat ho so hop le'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR09
+    - FR11
+    brule: []
+    nfr:
+    - NFR02
+  api:
+    method: PATCH
+    path: /users/me
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User dang nhap va co quyen cap nhat Profile.
+  test_steps:
+  - step: 1
+    action: Mo Profile
+  - step: 2
+    action: Sua thong tin hop le
+  - step: 3
+    action: Luu
+  assertions:
+  - He thong validate va UPDATE Account/Profile thanh cong.
+  expected_result: He thong validate va UPDATE Account/Profile thanh cong.
+  test_data:
+  - Du lieu Profile hop le
+- id: TC_FR10_INVALID
+  uc: UC06
+  scenario: '[Negative] Doi mat khau voi password moi khong hop le (FR10,11)'
+  case: '[Negative] Doi mat khau voi password moi khong hop le'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR10
+    - FR11
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /users/me/password
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau
+      rieng.'
+  preconditions:
+  - User dang nhap
+  - password hien tai dung.
+  test_steps:
+  - step: 1
+    action: Nhap password moi khong hop le
+  - step: 2
+    action: Xac nhan
+  assertions:
+  - He thong reject va khong luu password moi.
+  expected_result: He thong reject va khong luu password moi.
+  test_data:
+  - New password invalid
+- id: TC_FR10_NEG
+  uc: UC06
+  scenario: '[Negative] Doi mat khau voi password hien tai sai (FR10)'
+  case: '[Negative] Doi mat khau voi password hien tai sai'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR10
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /users/me/password
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau
+      rieng.'
+  preconditions:
+  - User dang nhap.
+  test_steps:
+  - step: 1
+    action: Nhap password cu sai
+  - step: 2
+    action: Nhap password moi
+  assertions:
+  - He thong reject va khong thay doi passwordHash.
+  expected_result: He thong reject va khong thay doi passwordHash.
+  test_data:
+  - Current password sai
+- id: TC_FR10_POS
+  uc: UC06
+  scenario: '[Positive] Doi mat khau thanh cong (FR10)'
+  case: '[Positive] Doi mat khau thanh cong'
+  priority: High
+  traceability:
+    br:
+    - BR02
+    fr:
+    - FR10
+    brule: []
+    nfr: []
+  api:
+    method: PATCH
+    path: /users/me/password
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: 'NO_MATCHING_BACKEND_ROUTE: Backend chi co PATCH /users/me chung, chua co endpoint doi mat khau
+      rieng.'
+  preconditions:
+  - User dang nhap
+  - password hien tai dung.
+  test_steps:
+  - step: 1
+    action: Nhap password hien tai
+  - step: 2
+    action: Nhap password moi
+  - step: 3
+    action: Xac nhan
+  assertions:
+  - He thong verify password cu, hash password moi va UPDATE passwordHash.
+  expected_result: He thong verify password cu, hash password moi va UPDATE passwordHash.
+  test_data:
+  - Current password dung
+  - new password hop le

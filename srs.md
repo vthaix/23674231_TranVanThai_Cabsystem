@@ -808,7 +808,6 @@ Không lưu lịch sử GPS chi tiết.
 | FR71 | Gửi Notification             |
 | FR72 | Lưu Notification             |
 | FR73 | Xem Notification             |
-| FR74 | Đánh dấu Notification đã đọc |
 
 ---
 
@@ -825,17 +824,7 @@ Không lưu lịch sử GPS chi tiết.
 
 ---
 
-## BR13 – Incident
-
-| Mã   | Requirement              |
-| ---- | ------------------------ |
-| FR81 | Tạo Incident             |
-| FR82 | Xem Incident             |
-| FR83 | Cập nhật Incident        |
-| FR84 | Cập nhật trạng thái      |
-| FR85 | Ghi nhận resolution      |
-| FR86 | Đóng Incident            |
-| FR87 | Ghi nhận thời gian xử lý |
+## BR13 – Incident (Removed from scope)
 
 ---
 
@@ -850,7 +839,6 @@ Không lưu lịch sử GPS chi tiết.
 | FR92 | Xem chi tiết Trip  |
 | FR93 | Theo dõi Driver    |
 | FR94 | Tra cứu Payment    |
-| FR95 | Xử lý Incident     |
 
 ---
 
@@ -1728,28 +1716,6 @@ Operations Staff có permission có thể xem.
 
 ---
 
-# UC28 – Đánh dấu Notification đã đọc
-
-```text
-isRead = true
-readAt = now
-```
-
----
-
-# UC29 – Xử lý Incident
-
-1. Staff mở Incident.
-2. Kiểm tra permission.
-3. Xem Trip liên quan.
-4. Cập nhật type/description.
-5. Cập nhật status.
-6. Ghi resolution.
-7. UPDATE resolvedAt.
-8. Lưu AuditLog.
-
----
-
 # UC30 – Quản lý Customer
 
 Operations Staff có thể:
@@ -1870,22 +1836,6 @@ details
 ```
 
 AuditLog không cho chỉnh sửa thông qua UI thông thường.
-
----
-
-# UC38 – Dashboard
-
-Management User xem:
-
-```text
-Total Trips
-Completed Trips
-Cancelled Trips
-Revenue
-Completion Rate
-Cancellation Rate
-Driver Metrics
-```
 
 ---
 

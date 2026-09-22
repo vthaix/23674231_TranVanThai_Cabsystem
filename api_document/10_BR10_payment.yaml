@@ -1,457 +1,472 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR10 - Payment
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR10 - Payment. Converted from the CAB System API test pack while preserving its test-case traceability.
-    Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR09
-  description: Business Requirement BR09
-- name: BR10
-  description: Business Requirement BR10
-- name: BR14
-  description: Business Requirement BR14
-paths:
-  /trips/{tripId}/payments/cash:
-    post:
-      summary: Post /trips/{tripId}/payments/cash
-      description: 'API operation mapped from the existing CAB test-pack entries for POST /trips/{tripId}/payments/cash. The SRS/test workbook
-        defines business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping. Source
-        note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.'
-      operationId: post_trips_tripId_payments_cash
-      tags: &id001
-      - BR09
-      - BR10
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR60
-      - FR61
-      - FR62
-      - FR63
-      - FR64
-      - FR65
-      - FR66
-      - FR67
-      - FR68
-      - FR69
-      x-business-rules:
-      - BRULE17
-      - BRULE18
-      x-non-functional-requirements:
-      - NFR03
-      - NFR04
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR23_ROLLBACK
-        scenario: '[Exception] Payment Provider loi khong rollback Trip (FR63,64)'
-        priority: High
-        testData:
-        - Provider failure
-        preconditions:
-        - Trip COMPLETED
-        - online Payment.
-        steps:
-        - step: 1
-          action: Gui payment
-        - step: 2
-          action: Provider loi
-        expectedResult: Trip van giu trang thai COMPLETED; Payment duoc danh dau phu hop.
-        assertions:
-        - Trip van giu trang thai COMPLETED
-        - Payment duoc danh dau phu hop.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR63
-          - FR64
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR60_PRE
-        scenario: '[Negative] Thanh toan khi Trip chua COMPLETED (FR60)'
-        priority: High
-        testData:
-        - Trip chua COMPLETED
-        preconditions:
-        - Trip IN_PROGRESS/khac COMPLETED.
-        steps:
-        - step: 1
-          action: Gui request Payment
-        expectedResult: He thong reject.
-        assertions:
-        - He thong reject.
-        traceability:
-          br:
-          - BR09
-          - BR10
-          fr:
-          - FR60
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR61_62_CASH
-        scenario: '[Positive] Thanh toan tien mat (FR61,62)'
-        priority: High
-        testData:
-        - method=CASH
-        preconditions:
-        - Trip COMPLETED
-        - fare da co.
-        steps:
-        - step: 1
-          action: Chon CASH
-        - step: 2
-          action: Xac nhan thanh toan
-        expectedResult: Payment duoc CREATE va ghi nhan theo trang thai CASH duoc SRS cho phep.
-        assertions:
-        - Payment duoc CREATE va ghi nhan theo trang thai CASH duoc SRS cho phep.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR61
-          - FR62
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR63_64_65_68_ONLINE
-        scenario: '[Positive] Thanh toan online Provider success (FR63,64,65,68)'
-        priority: High
-        testData:
-        - Provider transaction ID
-        - SUCCESS
-        preconditions:
-        - Trip COMPLETED
-        - fare da co.
-        steps:
-        - step: 1
-          action: Chon ONLINE
-        - step: 2
-          action: Gui Provider
-        - step: 3
-          action: Provider callback SUCCESS
-        expectedResult: Payment duoc tao/cap nhat SUCCESS va luu providerTransactionId.
-        assertions:
-        - Payment duoc tao/cap nhat SUCCESS va luu providerTransactionId.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR63
-          - FR64
-          - FR65
-          - FR68
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR64_TIMEOUT
-        scenario: '[Exception] Provider timeout (FR64)'
-        priority: High
-        testData:
-        - Provider timeout
-        preconditions:
-        - Online Payment dang xu ly.
-        steps:
-        - step: 1
-          action: Gui payment
-        - step: 2
-          action: Provider khong phan hoi
-        expectedResult: Payment duoc xu ly PENDING/FAILED tuy policy; Trip khong rollback.
-        assertions:
-        - Payment duoc xu ly PENDING/FAILED tuy policy
-        - Trip khong rollback.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR64
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR66_FAIL
-        scenario: '[Exception] Provider tra FAILED (FR64,66)'
-        priority: High
-        testData:
-        - Provider FAILED
-        preconditions:
-        - Online Payment dang xu ly.
-        steps:
-        - step: 1
-          action: Gui payment
-        - step: 2
-          action: Provider tra FAILED
-        expectedResult: Payment=FAILED va xu ly thong bao loi theo flow.
-        assertions:
-        - Payment=FAILED va xu ly thong bao loi theo flow.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR64
-          - FR66
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR67_DUP
-        scenario: '[Negative] Khong tao Payment SUCCESS thu hai (FR67)'
-        priority: High
-        testData:
-        - Payment SUCCESS da ton tai
-        preconditions:
-        - Trip da co Payment SUCCESS.
-        steps:
-        - step: 1
-          action: Gui thanh toan/callback SUCCESS lan 2
-        expectedResult: He thong reject duplicate success; toi da mot Payment SUCCESS cho Trip.
-        assertions:
-        - He thong reject duplicate success
-        - toi da mot Payment SUCCESS cho Trip.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR67
-          brule:
-          - BRULE17
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_FR69_SECURITY
-        scenario: '[Negative] Khong luu thong tin the nhay cam (FR69)'
-        priority: High
-        testData:
-        - Card number/CVV/PIN
-        preconditions:
-        - Online Payment.
-        steps:
-        - step: 1
-          action: Thuc hien payment
-        - step: 2
-          action: Kiem tra DB/log
-        expectedResult: He thong khong luu Card Number/CVV/PIN; khong ghi vao log.
-        assertions:
-        - He thong khong luu Card Number/CVV/PIN
-        - khong ghi vao log.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR69
-          brule:
-          - BRULE18
-          nfr:
-          - NFR03
-          - NFR04
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      - testCaseId: TC_LOG_PAYMENT_FAIL
-        scenario: '[Exception] Ghi log loi Payment Provider (FR64,66)'
-        priority: High
-        testData:
-        - Provider error
-        preconditions:
-        - Online payment
-        - Provider failure/timeout.
-        steps:
-        - step: 1
-          action: Gui payment
-        - step: 2
-          action: Provider loi
-        - step: 3
-          action: Kiem tra log
-        expectedResult: Payment error duoc log; log khong chua du lieu the nhay cam.
-        assertions:
-        - Payment error duoc log
-        - log khong chua du lieu the nhay cam.
-        traceability:
-          br:
-          - BR10
-          fr:
-          - FR64
-          - FR66
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: tripId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: tripId.'
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /trips/{tripId}/payment:
-    get:
-      summary: Get /trips/{tripId}/payment
-      description: API operation mapped from the existing CAB test-pack entries for GET /trips/{tripId}/payment. The SRS/test workbook defines
-        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: get_trips_tripId_payment
-      tags: &id002
-      - BR10
-      - BR14
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR94
-      x-business-rules: []
-      x-non-functional-requirements:
-      - NFR02
-      - NFR05
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR94_CUSTOMER
-        scenario: '[Positive] Customer xem Payment cua Trip cua minh (FR94)'
-        priority: High
-        testData:
-        - Payment thuoc Trip Customer
-        preconditions:
-        - Customer dang nhap
-        - co Trip cua minh.
-        steps:
-        - step: 1
-          action: Mo Payment cua Trip minh
-        expectedResult: He thong cho xem Payment cua Trip thuoc Customer.
-        assertions:
-        - He thong cho xem Payment cua Trip thuoc Customer.
-        traceability:
-          br:
-          - BR10
-          - BR14
-          fr:
-          - FR94
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR94_ISO
-        scenario: '[Negative] Customer khong xem Payment cua Customer khac (FR94)'
-        priority: High
-        testData:
-        - Payment cua B
-        preconditions:
-        - Customer A
-        - Payment cua Customer B.
-        steps:
-        - step: 1
-          action: Yeu cau xem Payment B
-        expectedResult: He thong reject.
-        assertions:
-        - He thong reject.
-        traceability:
-          br:
-          - BR10
-          - BR14
-          fr:
-          - FR94
-          brule: []
-          nfr:
-          - NFR05
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR94_POS
-        scenario: '[Positive] Operations Staff tra cuu Payment co permission (FR94)'
-        priority: High
-        testData:
-        - Permission hop le
-        preconditions:
-        - Staff dang nhap va co permission.
-        steps:
-        - step: 1
-          action: Mo Payment
-        - step: 2
-          action: Tra cuu Payment
-        expectedResult: He thong hien thi Payment trong pham vi permission.
-        assertions:
-        - He thong hien thi Payment trong pham vi permission.
-        traceability:
-          br:
-          - BR10
-          - BR14
-          fr:
-          - FR94
-          brule: []
-          nfr:
-          - NFR02
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: tripId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: tripId.'
-      security:
-      - bearerAuth: []
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR10 - Payment
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 12
-x-test-case-ids:
-- TC_FR23_ROLLBACK
-- TC_FR60_PRE
-- TC_FR61_62_CASH
-- TC_FR63_64_65_68_ONLINE
-- TC_FR64_TIMEOUT
-- TC_FR66_FAIL
-- TC_FR67_DUP
-- TC_FR69_SECURITY
-- TC_FR94_CUSTOMER
-- TC_FR94_ISO
-- TC_FR94_POS
-- TC_LOG_PAYMENT_FAIL
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR23_ROLLBACK
+  uc: UC23
+  scenario: '[Exception] Payment Provider loi khong rollback Trip (FR63,64)'
+  case: '[Exception] Payment Provider loi khong rollback Trip'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR63
+    - FR64
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Trip COMPLETED
+  - online Payment.
+  test_steps:
+  - step: 1
+    action: Gui payment
+  - step: 2
+    action: Provider loi
+  assertions:
+  - Trip van giu trang thai COMPLETED
+  - Payment duoc danh dau phu hop.
+  expected_result: Trip van giu trang thai COMPLETED; Payment duoc danh dau phu hop.
+  test_data:
+  - Provider failure
+- id: TC_FR60_PRE
+  uc: UC23
+  scenario: '[Negative] Thanh toan khi Trip chua COMPLETED (FR60)'
+  case: '[Negative] Thanh toan khi Trip chua COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR09
+    - BR10
+    fr:
+    - FR60
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Trip IN_PROGRESS/khac COMPLETED.
+  test_steps:
+  - step: 1
+    action: Gui request Payment
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Trip chua COMPLETED
+- id: TC_FR61_62_CASH
+  uc: UC23
+  scenario: '[Positive] Thanh toan tien mat (FR61,62)'
+  case: '[Positive] Thanh toan tien mat'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR61
+    - FR62
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Trip COMPLETED
+  - fare da co.
+  test_steps:
+  - step: 1
+    action: Chon CASH
+  - step: 2
+    action: Xac nhan thanh toan
+  assertions:
+  - Payment duoc CREATE va ghi nhan theo trang thai CASH duoc SRS cho phep.
+  expected_result: Payment duoc CREATE va ghi nhan theo trang thai CASH duoc SRS cho phep.
+  test_data:
+  - method=CASH
+- id: TC_FR63_64_65_68_ONLINE
+  uc: UC23
+  scenario: '[Positive] Thanh toan online Provider success (FR63,64,65,68)'
+  case: '[Positive] Thanh toan online Provider success'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR63
+    - FR64
+    - FR65
+    - FR68
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Trip COMPLETED
+  - fare da co.
+  test_steps:
+  - step: 1
+    action: Chon ONLINE
+  - step: 2
+    action: Gui Provider
+  - step: 3
+    action: Provider callback SUCCESS
+  assertions:
+  - Payment duoc tao/cap nhat SUCCESS va luu providerTransactionId.
+  expected_result: Payment duoc tao/cap nhat SUCCESS va luu providerTransactionId.
+  test_data:
+  - Provider transaction ID
+  - SUCCESS
+- id: TC_FR64_TIMEOUT
+  uc: UC23
+  scenario: '[Exception] Provider timeout (FR64)'
+  case: '[Exception] Provider timeout'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR64
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Online Payment dang xu ly.
+  test_steps:
+  - step: 1
+    action: Gui payment
+  - step: 2
+    action: Provider khong phan hoi
+  assertions:
+  - Payment duoc xu ly PENDING/FAILED tuy policy
+  - Trip khong rollback.
+  expected_result: Payment duoc xu ly PENDING/FAILED tuy policy; Trip khong rollback.
+  test_data:
+  - Provider timeout
+- id: TC_FR66_FAIL
+  uc: UC23
+  scenario: '[Exception] Provider tra FAILED (FR64,66)'
+  case: '[Exception] Provider tra FAILED'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR64
+    - FR66
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Online Payment dang xu ly.
+  test_steps:
+  - step: 1
+    action: Gui payment
+  - step: 2
+    action: Provider tra FAILED
+  assertions:
+  - Payment=FAILED va xu ly thong bao loi theo flow.
+  expected_result: Payment=FAILED va xu ly thong bao loi theo flow.
+  test_data:
+  - Provider FAILED
+- id: TC_FR67_DUP
+  uc: UC23
+  scenario: '[Negative] Khong tao Payment SUCCESS thu hai (FR67)'
+  case: '[Negative] Khong tao Payment SUCCESS thu hai'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR67
+    brule:
+    - BRULE17
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Trip da co Payment SUCCESS.
+  test_steps:
+  - step: 1
+    action: Gui thanh toan/callback SUCCESS lan 2
+  assertions:
+  - He thong reject duplicate success
+  - toi da mot Payment SUCCESS cho Trip.
+  expected_result: He thong reject duplicate success; toi da mot Payment SUCCESS cho Trip.
+  test_data:
+  - Payment SUCCESS da ton tai
+- id: TC_FR69_SECURITY
+  uc: UC23
+  scenario: '[Negative] Khong luu thong tin the nhay cam (FR69)'
+  case: '[Negative] Khong luu thong tin the nhay cam'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR69
+    brule:
+    - BRULE18
+    nfr:
+    - NFR03
+    - NFR04
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Online Payment.
+  test_steps:
+  - step: 1
+    action: Thuc hien payment
+  - step: 2
+    action: Kiem tra DB/log
+  assertions:
+  - He thong khong luu Card Number/CVV/PIN
+  - khong ghi vao log.
+  expected_result: He thong khong luu Card Number/CVV/PIN; khong ghi vao log.
+  test_data:
+  - Card number/CVV/PIN
+- id: TC_FR94_CUSTOMER
+  uc: UC24
+  scenario: '[Positive] Customer xem Payment cua Trip cua minh (FR94)'
+  case: '[Positive] Customer xem Payment cua Trip cua minh'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    - BR14
+    fr:
+    - FR94
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/payment
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+  preconditions:
+  - Customer dang nhap
+  - co Trip cua minh.
+  test_steps:
+  - step: 1
+    action: Mo Payment cua Trip minh
+  assertions:
+  - He thong cho xem Payment cua Trip thuoc Customer.
+  expected_result: He thong cho xem Payment cua Trip thuoc Customer.
+  test_data:
+  - Payment thuoc Trip Customer
+- id: TC_FR94_EMPTY
+  uc: UC24
+  scenario: '[Exception] Tra cuu Payment cho Trip chua tung thanh toan (FR94)'
+  case: '[Exception] Tra cuu Payment cho Trip chua tung thanh toan'
+  priority: Medium
+  traceability:
+    br:
+    - BR10
+    - BR14
+    fr:
+    - FR94
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/payment
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip ton tai nhung chua co Payment nao duoc tao.
+  test_steps:
+  - step: 1
+    action: Goi API tra cuu Payment theo Trip
+  assertions:
+  - He thong tra ve ket qua rong/khong co Payment
+  - khong loi he thong.
+  expected_result: He thong tra ve ket qua rong/khong co Payment; khong loi he thong.
+  test_data:
+  - Trip khong co Payment
+- id: TC_FR94_ISO
+  uc: UC24
+  scenario: '[Negative] Customer khong xem Payment cua Customer khac (FR94)'
+  case: '[Negative] Customer khong xem Payment cua Customer khac'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    - BR14
+    fr:
+    - FR94
+    brule: []
+    nfr:
+    - NFR05
+  api:
+    method: GET
+    path: /trips/{tripId}/payment
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${CUSTOMER_TOKEN}
+    body: {}
+  preconditions:
+  - Customer A
+  - Payment cua Customer B.
+  test_steps:
+  - step: 1
+    action: Yeu cau xem Payment B
+  assertions:
+  - He thong reject.
+  expected_result: He thong reject.
+  test_data:
+  - Payment cua B
+- id: TC_FR94_POS
+  uc: UC24
+  scenario: '[Positive] Operations Staff tra cuu Payment co permission (FR94)'
+  case: '[Positive] Operations Staff tra cuu Payment co permission'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    - BR14
+    fr:
+    - FR94
+    brule: []
+    nfr:
+    - NFR02
+  api:
+    method: GET
+    path: /trips/{tripId}/payment
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${OPERATIONS_TOKEN}
+    body: {}
+  preconditions:
+  - Staff dang nhap va co permission.
+  test_steps:
+  - step: 1
+    action: Mo Payment
+  - step: 2
+    action: Tra cuu Payment
+  assertions:
+  - He thong hien thi Payment trong pham vi permission.
+  expected_result: He thong hien thi Payment trong pham vi permission.
+  test_data:
+  - Permission hop le
+- id: TC_LOG_PAYMENT_FAIL
+  uc: UC23
+  scenario: '[Exception] Ghi log loi Payment Provider (FR64,66)'
+  case: '[Exception] Ghi log loi Payment Provider'
+  priority: High
+  traceability:
+    br:
+    - BR10
+    fr:
+    - FR64
+    - FR66
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/payments/cash
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+    note: Kem POST /trips/{tripId}/payments/online va POST /payments/{paymentId}/callback.
+  preconditions:
+  - Online payment
+  - Provider failure/timeout.
+  test_steps:
+  - step: 1
+    action: Gui payment
+  - step: 2
+    action: Provider loi
+  - step: 3
+    action: Kiem tra log
+  assertions:
+  - Payment error duoc log
+  - log khong chua du lieu the nhay cam.
+  expected_result: Payment error duoc log; log khong chua du lieu the nhay cam.
+  test_data:
+  - Provider error

@@ -1,408 +1,352 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR06 - Assignment
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR06 - Assignment. Converted from the CAB System API test pack while preserving its test-case
-    traceability. Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR05
-  description: Business Requirement BR05
-- name: BR06
-  description: Business Requirement BR06
-- name: BR07
-  description: Business Requirement BR07
-paths:
-  /trips/{tripId}/accept:
-    post:
-      summary: Post /trips/{tripId}/accept
-      description: API operation mapped from the existing CAB test-pack entries for POST /trips/{tripId}/accept. The SRS/test workbook defines
-        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: post_trips_tripId_accept
-      tags: &id001
-      - BR05
-      - BR06
-      - BR07
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR31
-      - FR42
-      - FR43
-      x-business-rules:
-      - BRULE06
-      - BRULE07
-      - BRULE11
-      - BRULE12
-      - BRULE28
-      x-non-functional-requirements:
-      - NFR01
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR31_43_POS
-        scenario: '[Positive] Driver Accept va tao Trip thanh cong (FR31,43,42)'
-        priority: High
-        testData:
-        - Assignment hop le
-        preconditions:
-        - Assignment SENT
-        - Booking SEARCHING
-        - Driver AVAILABLE.
-        steps:
-        - step: 1
-          action: Driver xem request
-        - step: 2
-          action: Accept
-        - step: 3
-          action: He thong lock
-        - step: 4
-          action: Tao Trip
-        expectedResult: Assignment ACCEPTED; Booking ASSIGNED; Trip duoc tao status ASSIGNED; Driver BUSY.
-        assertions:
-        - Assignment ACCEPTED
-        - Booking ASSIGNED
-        - Trip duoc tao status ASSIGNED
-        - Driver BUSY.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          - BR07
-          fr:
-          - FR31
-          - FR42
-          - FR43
-          brule:
-          - BRULE07
-          - BRULE11
-          - BRULE28
-          nfr:
-          - NFR01
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR31_BOOKING_CHANGED
-        scenario: '[Negative] Accept khi Booking khong con SEARCHING (FR31)'
-        priority: High
-        testData:
-        - Booking status khong SEARCHING
-        preconditions:
-        - Booking da ASSIGNED/CANCELLED.
-        steps:
-        - step: 1
-          action: Driver Accept Assignment cu
-        expectedResult: He thong reject; khong tao Trip moi.
-        assertions:
-        - He thong reject
-        - khong tao Trip moi.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          fr:
-          - FR31
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR31_DRIVER_BUSY
-        scenario: '[Negative] Accept khi Driver khong con AVAILABLE (FR31)'
-        priority: High
-        testData:
-        - Driver BUSY
-        preconditions:
-        - Driver da BUSY.
-        steps:
-        - step: 1
-          action: Driver Accept Assignment
-        expectedResult: He thong reject Accept.
-        assertions:
-        - He thong reject Accept.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          fr:
-          - FR31
-          brule:
-          - BRULE06
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR31_RACE
-        scenario: '[Boundary] Hai Driver Accept dong thoi (FR31)'
-        priority: High
-        testData:
-        - Driver A va B Accept
-        preconditions:
-        - Hai Assignment cho cung Booking
-        - ca hai Driver AVAILABLE.
-        steps:
-        - step: 1
-          action: Gui hai request Accept gan dong thoi
-        expectedResult: Chi mot Driver ACCEPT thanh cong; request con lai bi reject voi 409/Booking unavailable.
-        assertions:
-        - Chi mot Driver ACCEPT thanh cong
-        - request con lai bi reject voi 409/Booking unavailable.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          fr:
-          - FR31
-          brule:
-          - BRULE12
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR42_SECOND_TRIP
-        scenario: '[Exception] Booking da co Trip active, co gang tao Trip thu hai (FR42,43)'
-        priority: High
-        testData:
-        - Booking da gan voi 1 Trip active
-        preconditions:
-        - Booking da co 1 Trip dang active (chua COMPLETED/CANCELLED).
-        steps:
-        - step: 1
-          action: He thong/Driver khac Accept lai Assignment cho cung Booking
-        - step: 2
-          action: He thong kiem tra Trip active hien co
-        expectedResult: He thong tu choi tao Trip thu hai cho cung Booking; chi giu nguyen Trip active da co.
-        assertions:
-        - He thong tu choi tao Trip thu hai cho cung Booking
-        - chi giu nguyen Trip active da co.
-        traceability:
-          br:
-          - BR06
-          - BR07
-          fr:
-          - FR42
-          - FR43
-          brule:
-          - BRULE11
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR42_TRANSACTION
-        scenario: '[Exception] Loi giua transaction Accept (FR42)'
-        priority: High
-        testData:
-        - DB transaction error
-        preconditions:
-        - Booking SEARCHING
-        - Driver AVAILABLE.
-        steps:
-        - step: 1
-          action: Bat loi khi tao Trip/cap nhat lien quan
-        expectedResult: Transaction rollback; khong de Booking/Assignment/Driver o trang thai dang do.
-        assertions:
-        - Transaction rollback
-        - khong de Booking/Assignment/Driver o trang thai dang do.
-        traceability:
-          br:
-          - BR06
-          - BR07
-          fr:
-          - FR42
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_LOG_ASSIGN_FAIL
-        scenario: '[Exception] Ghi log khi Assignment/Accept gap loi (FR31,42)'
-        priority: High
-        testData:
-        - Assignment failure
-        preconditions:
-        - Accept flow gap loi.
-        steps:
-        - step: 1
-          action: Accept
-        - step: 2
-          action: Phat sinh loi
-        - step: 3
-          action: Kiem tra log
-        expectedResult: Transaction xu ly dung va loi Assignment duoc log.
-        assertions:
-        - Transaction xu ly dung va loi Assignment duoc log.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          - BR07
-          fr:
-          - FR31
-          - FR42
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        '409':
-          description: HTTP 409 is explicitly mentioned by at least one source test case.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: tripId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: tripId.'
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-  /trips/{tripId}/reject:
-    post:
-      summary: Post /trips/{tripId}/reject
-      description: API operation mapped from the existing CAB test-pack entries for POST /trips/{tripId}/reject. The SRS/test workbook defines
-        business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: post_trips_tripId_reject
-      tags: &id002
-      - BR05
-      - BR06
-      - BR07
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR32
-      - FR37
-      - FR39
-      - FR40
-      - FR44
-      x-business-rules:
-      - BRULE08
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR44_OTHER
-        scenario: '[Negative] Tu choi Assignment khong thuoc Driver (FR44)'
-        priority: High
-        testData:
-        - Assignment cua Driver B
-        preconditions:
-        - Driver A dang nhap
-        - Assignment cua Driver B.
-        steps:
-        - step: 1
-          action: Driver A gui Reject Assignment B
-        expectedResult: He thong reject thao tac.
-        assertions:
-        - He thong reject thao tac.
-        traceability:
-          br:
-          - BR06
-          - BR07
-          fr:
-          - FR44
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR44_REJECT
-        scenario: '[Positive] Driver tu choi request (FR44,32,37,39,40)'
-        priority: High
-        testData:
-        - rejectReason
-        - Assignment SENT
-        preconditions:
-        - Assignment SENT
-        - Driver xem duoc request.
-        steps:
-        - step: 1
-          action: Chon Reject
-        - step: 2
-          action: Nhap rejectReason neu co
-        expectedResult: Assignment=REJECTED; respondedAt duoc luu; rejectReason duoc luu neu co; Driver bi loai va retry.
-        assertions:
-        - Assignment=REJECTED
-        - respondedAt duoc luu
-        - rejectReason duoc luu neu co
-        - Driver bi loai va retry.
-        traceability:
-          br:
-          - BR05
-          - BR06
-          - BR07
-          fr:
-          - FR32
-          - FR37
-          - FR39
-          - FR40
-          - FR44
-          brule:
-          - BRULE08
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: tripId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: tripId.'
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR06 - Assignment
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 9
-x-test-case-ids:
-- TC_FR31_43_POS
-- TC_FR31_BOOKING_CHANGED
-- TC_FR31_DRIVER_BUSY
-- TC_FR31_RACE
-- TC_FR42_SECOND_TRIP
-- TC_FR42_TRANSACTION
-- TC_FR44_OTHER
-- TC_FR44_REJECT
-- TC_LOG_ASSIGN_FAIL
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR31_43_POS
+  uc: UC15
+  scenario: '[Positive] Driver Accept va tao Trip thanh cong (FR31,43,42)'
+  case: '[Positive] Driver Accept va tao Trip thanh cong'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    - BR07
+    fr:
+    - FR31
+    - FR42
+    - FR43
+    brule:
+    - BRULE07
+    - BRULE11
+    - BRULE28
+    nfr:
+    - NFR01
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Assignment SENT
+  - Booking SEARCHING
+  - Driver AVAILABLE.
+  test_steps:
+  - step: 1
+    action: Driver xem request
+  - step: 2
+    action: Accept
+  - step: 3
+    action: He thong lock
+  - step: 4
+    action: Tao Trip
+  assertions:
+  - Assignment ACCEPTED
+  - Booking ASSIGNED
+  - Trip duoc tao status ASSIGNED
+  - Driver BUSY.
+  expected_result: Assignment ACCEPTED; Booking ASSIGNED; Trip duoc tao status ASSIGNED; Driver BUSY.
+  test_data:
+  - Assignment hop le
+- id: TC_FR31_BOOKING_CHANGED
+  uc: UC15
+  scenario: '[Negative] Accept khi Booking khong con SEARCHING (FR31)'
+  case: '[Negative] Accept khi Booking khong con SEARCHING'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    fr:
+    - FR31
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking da ASSIGNED/CANCELLED.
+  test_steps:
+  - step: 1
+    action: Driver Accept Assignment cu
+  assertions:
+  - He thong reject
+  - khong tao Trip moi.
+  expected_result: He thong reject; khong tao Trip moi.
+  test_data:
+  - Booking status khong SEARCHING
+- id: TC_FR31_DRIVER_BUSY
+  uc: UC15
+  scenario: '[Negative] Accept khi Driver khong con AVAILABLE (FR31)'
+  case: '[Negative] Accept khi Driver khong con AVAILABLE'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    fr:
+    - FR31
+    brule:
+    - BRULE06
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Driver da BUSY.
+  test_steps:
+  - step: 1
+    action: Driver Accept Assignment
+  assertions:
+  - He thong reject Accept.
+  expected_result: He thong reject Accept.
+  test_data:
+  - Driver BUSY
+- id: TC_FR31_RACE
+  uc: UC15
+  scenario: '[Boundary] Hai Driver Accept dong thoi (FR31)'
+  case: '[Boundary] Hai Driver Accept dong thoi'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    fr:
+    - FR31
+    brule:
+    - BRULE12
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Hai Assignment cho cung Booking
+  - ca hai Driver AVAILABLE.
+  test_steps:
+  - step: 1
+    action: Gui hai request Accept gan dong thoi
+  assertions:
+  - Chi mot Driver ACCEPT thanh cong
+  - request con lai bi reject voi 409/Booking unavailable.
+  expected_result: Chi mot Driver ACCEPT thanh cong; request con lai bi reject voi 409/Booking unavailable.
+  test_data:
+  - Driver A va B Accept
+- id: TC_FR42_SECOND_TRIP
+  uc: UC15
+  scenario: '[Exception] Booking da co Trip active, co gang tao Trip thu hai (FR42,43)'
+  case: '[Exception] Booking da co Trip active, co gang tao Trip thu hai'
+  priority: High
+  traceability:
+    br:
+    - BR06
+    - BR07
+    fr:
+    - FR42
+    - FR43
+    brule:
+    - BRULE11
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Booking da co 1 Trip dang active (chua COMPLETED/CANCELLED).
+  test_steps:
+  - step: 1
+    action: He thong/Driver khac Accept lai Assignment cho cung Booking
+  - step: 2
+    action: He thong kiem tra Trip active hien co
+  assertions:
+  - He thong tu choi tao Trip thu hai cho cung Booking
+  - chi giu nguyen Trip active da co.
+  expected_result: He thong tu choi tao Trip thu hai cho cung Booking; chi giu nguyen Trip active da co.
+  test_data:
+  - Booking da gan voi 1 Trip active
+- id: TC_FR42_TRANSACTION
+  uc: UC15
+  scenario: '[Exception] Loi giua transaction Accept (FR42)'
+  case: '[Exception] Loi giua transaction Accept'
+  priority: High
+  traceability:
+    br:
+    - BR06
+    - BR07
+    fr:
+    - FR42
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Booking SEARCHING
+  - Driver AVAILABLE.
+  test_steps:
+  - step: 1
+    action: Bat loi khi tao Trip/cap nhat lien quan
+  assertions:
+  - Transaction rollback
+  - khong de Booking/Assignment/Driver o trang thai dang do.
+  expected_result: Transaction rollback; khong de Booking/Assignment/Driver o trang thai dang do.
+  test_data:
+  - DB transaction error
+- id: TC_FR44_OTHER
+  uc: UC16
+  scenario: '[Negative] Tu choi Assignment khong thuoc Driver (FR44)'
+  case: '[Negative] Tu choi Assignment khong thuoc Driver'
+  priority: High
+  traceability:
+    br:
+    - BR06
+    - BR07
+    fr:
+    - FR44
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/reject
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Driver A dang nhap
+  - Assignment cua Driver B.
+  test_steps:
+  - step: 1
+    action: Driver A gui Reject Assignment B
+  assertions:
+  - He thong reject thao tac.
+  expected_result: He thong reject thao tac.
+  test_data:
+  - Assignment cua Driver B
+- id: TC_FR44_REJECT
+  uc: UC16
+  scenario: '[Positive] Driver tu choi request (FR44,32,37,39,40)'
+  case: '[Positive] Driver tu choi request'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    - BR07
+    fr:
+    - FR32
+    - FR37
+    - FR39
+    - FR40
+    - FR44
+    brule:
+    - BRULE08
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/reject
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${DRIVER_TOKEN}
+    body: {}
+  preconditions:
+  - Assignment SENT
+  - Driver xem duoc request.
+  test_steps:
+  - step: 1
+    action: Chon Reject
+  - step: 2
+    action: Nhap rejectReason neu co
+  assertions:
+  - Assignment=REJECTED
+  - respondedAt duoc luu
+  - rejectReason duoc luu neu co
+  - Driver bi loai va retry.
+  expected_result: Assignment=REJECTED; respondedAt duoc luu; rejectReason duoc luu neu co; Driver bi
+    loai va retry.
+  test_data:
+  - rejectReason
+  - Assignment SENT
+- id: TC_LOG_ASSIGN_FAIL
+  uc: UC15
+  scenario: '[Exception] Ghi log khi Assignment/Accept gap loi (FR31,42)'
+  case: '[Exception] Ghi log khi Assignment/Accept gap loi'
+  priority: High
+  traceability:
+    br:
+    - BR05
+    - BR06
+    - BR07
+    fr:
+    - FR31
+    - FR42
+    brule: []
+    nfr: []
+  api:
+    method: POST
+    path: /trips/{tripId}/accept
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Accept flow gap loi.
+  test_steps:
+  - step: 1
+    action: Accept
+  - step: 2
+    action: Phat sinh loi
+  - step: 3
+    action: Kiem tra log
+  assertions:
+  - Transaction xu ly dung va loi Assignment duoc log.
+  expected_result: Transaction xu ly dung va loi Assignment duoc log.
+  test_data:
+  - Assignment failure

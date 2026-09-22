@@ -1,256 +1,183 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR11 - Notification
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR11 - Notification. Converted from the CAB System API test pack while preserving its test-case
-    traceability. Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR11
-  description: Business Requirement BR11
-paths:
-  /notifications:
-    get:
-      summary: Get /notifications
-      description: API operation mapped from the existing CAB test-pack entries for GET /notifications. The SRS/test workbook defines business
-        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: get_notifications
-      tags: &id001
-      - BR11
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR70
-      - FR71
-      - FR72
-      - FR73
-      x-business-rules: []
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR70_71_72_POS
-        scenario: '[Positive] Tao gui va luu Notification cho su kien (FR70,71,72)'
-        priority: High
-        testData:
-        - Booking/Driver/Trip/Payment event
-        preconditions:
-        - Xay ra su kien quan trong.
-        steps:
-        - step: 1
-          action: Tao Notification
-        - step: 2
-          action: Gui Notification
-        - step: 3
-          action: Kiem tra DB
-        expectedResult: Notification duoc tao, gui den recipient va luu lai de xem.
-        assertions:
-        - Notification duoc tao, gui den recipient va luu lai de xem.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR70
-          - FR71
-          - FR72
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR73_ISO
-        scenario: '[Negative] Khong xem Notification cua recipient khac (FR73)'
-        priority: High
-        testData:
-        - recipientId khac
-        preconditions:
-        - Notification cua user khac.
-        steps:
-        - step: 1
-          action: Yeu cau truy cap
-        expectedResult: He thong reject/khong tra du lieu khac recipient.
-        assertions:
-        - He thong reject/khong tra du lieu khac recipient.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR73
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR73_POS
-        scenario: '[Positive] Xem Notification cua recipient (FR73,72)'
-        priority: High
-        testData:
-        - Recipient hien tai
-        preconditions:
-        - User dang nhap
-        - co Notification.
-        steps:
-        - step: 1
-          action: Mo Notification
-        expectedResult: He thong query dung recipient va hien thi Notification.
-        assertions:
-        - He thong query dung recipient va hien thi Notification.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR72
-          - FR73
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR73_SORT
-        scenario: '[Positive] Notification sap xep createdAt giam dan (FR73)'
-        priority: High
-        testData:
-        - N1 createdAt moi
-        - N2 cu
-        preconditions:
-        - Co nhieu Notification.
-        steps:
-        - step: 1
-          action: Mo danh sach
-        expectedResult: Notification duoc hien thi theo createdAt DESC.
-        assertions:
-        - Notification duoc hien thi theo createdAt DESC.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR73
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      security:
-      - bearerAuth: []
-  /notifications/{notificationId}/read:
-    post:
-      summary: Post /notifications/{notificationId}/read
-      description: API operation mapped from the existing CAB test-pack entries for POST /notifications/{notificationId}/read. The SRS/test workbook
-        defines business behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: post_notifications_notificationId_read
-      tags: &id002
-      - BR11
-      x-business-requirements: *id002
-      x-functional-requirements:
-      - FR74
-      x-business-rules: []
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR74_POS
-        scenario: '[Positive] Danh dau Notification da doc (FR74)'
-        priority: High
-        testData:
-        - Notification unread
-        preconditions:
-        - Notification thuoc user
-        - isRead=false.
-        steps:
-        - step: 1
-          action: Mo Notification
-        - step: 2
-          action: Danh dau da doc
-        expectedResult: isRead=true va readAt duoc luu.
-        assertions:
-        - isRead=true va readAt duoc luu.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR74
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR74_REPEAT
-        scenario: '[Positive] Danh dau Notification da doc da doc (FR74)'
-        priority: Medium
-        testData:
-        - Notification da doc
-        preconditions:
-        - Notification isRead=true.
-        steps:
-        - step: 1
-          action: Gui request read
-        expectedResult: Trang thai van nhat quan; khong tao du lieu doc moi bat hop ly.
-        assertions:
-        - Trang thai van nhat quan
-        - khong tao du lieu doc moi bat hop ly.
-        traceability:
-          br:
-          - BR11
-          fr:
-          - FR74
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: notificationId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: notificationId.'
-      security:
-      - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-            example: {}
-        description: Request payload is intentionally open because the source SRS/test workbook does not define a complete JSON request schema.
-          Use the Test Case's testData and backend route contract to populate the payload.
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR11 - Notification
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 6
-x-test-case-ids:
-- TC_FR70_71_72_POS
-- TC_FR73_ISO
-- TC_FR73_POS
-- TC_FR73_SORT
-- TC_FR74_POS
-- TC_FR74_REPEAT
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR70_71_72_POS
+  uc: UC27
+  scenario: '[Positive] Tao gui va luu Notification cho su kien (FR70,71,72)'
+  case: '[Positive] Tao gui va luu Notification cho su kien'
+  priority: High
+  traceability:
+    br:
+    - BR11
+    fr:
+    - FR70
+    - FR71
+    - FR72
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /notifications
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Xay ra su kien quan trong.
+  test_steps:
+  - step: 1
+    action: Tao Notification
+  - step: 2
+    action: Gui Notification
+  - step: 3
+    action: Kiem tra DB
+  assertions:
+  - Notification duoc tao, gui den recipient va luu lai de xem.
+  expected_result: Notification duoc tao, gui den recipient va luu lai de xem.
+  test_data:
+  - Booking/Driver/Trip/Payment event
+- id: TC_FR73_EMPTY
+  uc: UC27
+  scenario: '[Exception] User chua co Notification nao (FR73)'
+  case: '[Exception] User chua co Notification nao'
+  priority: Medium
+  traceability:
+    br:
+    - BR11
+    fr:
+    - FR73
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /notifications
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User dang nhap
+  - chua tung nhan Notification nao.
+  test_steps:
+  - step: 1
+    action: Goi API xem danh sach Notification
+  assertions:
+  - He thong tra ve danh sach rong
+  - khong loi.
+  expected_result: He thong tra ve danh sach rong; khong loi.
+  test_data:
+  - User chua co Notification
+- id: TC_FR73_ISO
+  uc: UC27
+  scenario: '[Negative] Khong xem Notification cua recipient khac (FR73)'
+  case: '[Negative] Khong xem Notification cua recipient khac'
+  priority: High
+  traceability:
+    br:
+    - BR11
+    fr:
+    - FR73
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /notifications
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Notification cua user khac.
+  test_steps:
+  - step: 1
+    action: Yeu cau truy cap
+  assertions:
+  - He thong reject/khong tra du lieu khac recipient.
+  expected_result: He thong reject/khong tra du lieu khac recipient.
+  test_data:
+  - recipientId khac
+- id: TC_FR73_POS
+  uc: UC27
+  scenario: '[Positive] Xem Notification cua recipient (FR73,72)'
+  case: '[Positive] Xem Notification cua recipient'
+  priority: High
+  traceability:
+    br:
+    - BR11
+    fr:
+    - FR72
+    - FR73
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /notifications
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - User dang nhap
+  - co Notification.
+  test_steps:
+  - step: 1
+    action: Mo Notification
+  assertions:
+  - He thong query dung recipient va hien thi Notification.
+  expected_result: He thong query dung recipient va hien thi Notification.
+  test_data:
+  - Recipient hien tai
+- id: TC_FR73_SORT
+  uc: UC27
+  scenario: '[Positive] Notification sap xep createdAt giam dan (FR73)'
+  case: '[Positive] Notification sap xep createdAt giam dan'
+  priority: High
+  traceability:
+    br:
+    - BR11
+    fr:
+    - FR73
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /notifications
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Co nhieu Notification.
+  test_steps:
+  - step: 1
+    action: Mo danh sach
+  assertions:
+  - Notification duoc hien thi theo createdAt DESC.
+  expected_result: Notification duoc hien thi theo createdAt DESC.
+  test_data:
+  - N1 createdAt moi
+  - N2 cu

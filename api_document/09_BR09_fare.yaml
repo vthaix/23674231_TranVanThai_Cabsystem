@@ -1,130 +1,91 @@
-openapi: 3.0.3
-info:
-  title: CAB System API - BR09 - Fare
-  version: '1.0'
-  description: Swagger/OpenAPI specification for BR09 - Fare. Converted from the CAB System API test pack while preserving its test-case traceability.
-    Business requirements and expected behavior remain source-derived.
-servers:
-- url: http://localhost:3000
-  description: Local cab_backend_nodejs server. Change this URL to the actual API host/port before testing.
-tags:
-- name: BR09
-  description: Business Requirement BR09
-paths:
-  /trips/{tripId}/fare:
-    get:
-      summary: Get /trips/{tripId}/fare
-      description: API operation mapped from the existing CAB test-pack entries for GET /trips/{tripId}/fare. The SRS/test workbook defines business
-        behavior and test evidence; exact HTTP contract details are not invented beyond the source test-pack mapping.
-      operationId: get_trips_tripId_fare
-      tags: &id001
-      - BR09
-      x-business-requirements: *id001
-      x-functional-requirements:
-      - FR57
-      - FR58
-      - FR59
-      - FR60
-      x-business-rules:
-      - BRULE16
-      x-non-functional-requirements: []
-      x-implementation-status: IMPLEMENTATION_MAPPING_REQUIRED
-      x-test-cases:
-      - testCaseId: TC_FR57_POS
-        scenario: '[Positive] Tinh va luu fare cho Trip COMPLETED (FR57,58,59,60)'
-        priority: High
-        testData:
-        - Trip input hop le
-        preconditions:
-        - Trip COMPLETED
-        - co pickup/destination/vehicleType.
-        steps:
-        - step: 1
-          action: Tinh fare
-        - step: 2
-          action: Luu Trip.fare
-        - step: 3
-          action: Hien thi
-        expectedResult: Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
-        assertions:
-        - Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
-        traceability:
-          br:
-          - BR09
-          fr:
-          - FR57
-          - FR58
-          - FR59
-          - FR60
-          brule:
-          - BRULE16
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      - testCaseId: TC_FR60_NEG
-        scenario: '[Negative] Khong tinh Payment truoc khi Trip COMPLETED (FR60)'
-        priority: High
-        testData:
-        - Trip IN_PROGRESS
-        preconditions:
-        - Trip chua COMPLETED.
-        steps:
-        - step: 1
-          action: Kich hoat quy trinh payment/tinh fare
-        expectedResult: He thong khong cho thanh toan truoc khi Trip COMPLETED.
-        assertions:
-        - He thong khong cho thanh toan truoc khi Trip COMPLETED.
-        traceability:
-          br:
-          - BR09
-          fr:
-          - FR60
-          brule: []
-          nfr: []
-        mappingStatus: IMPLEMENTATION_MAPPING_REQUIRED
-        mappingNote: null
-      responses:
-        '200':
-          description: Successful response / business outcome according to the source test cases.
-        default:
-          description: Other validation, authorization, business-rule, or server error according to backend implementation.
-      parameters:
-      - name: tripId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-        description: 'Path parameter: tripId.'
-      security:
-      - bearerAuth: []
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Use the JWT obtained from the login endpoint.
-  schemas:
-    JsonObject:
-      type: object
-      additionalProperties: true
-      description: Flexible JSON object. Exact fields are implementation-defined by the current backend/source test case.
-externalDocs:
-  description: CAB System SRS (source of truth for requirements)
-  url: https://github.com/vthaix/23674231_TranVanThai_Cabsystem/blob/main/srs.md
-x-source-of-truth:
+name: BR09 - Fare
+version: '1.0'
+source_of_truth:
   srs: srs.md
   test_cases: CAB_System_TestCases_Final_v2.xlsx
-x-test-case-count: 2
-x-test-case-ids:
-- TC_FR57_POS
-- TC_FR60_NEG
-x-notes:
+base_url: ${BASE_URL}
+variables:
+  token: ${TOKEN}
+  admin_token: ${ADMIN_TOKEN}
+  driver_token: ${DRIVER_TOKEN}
+  customer_token: ${CUSTOMER_TOKEN}
+  operations_token: ${OPERATIONS_TOKEN}
+notes:
 - SRS is the source of truth for requirements.
 - Excel (CAB_System_TestCases_Final_v2.xlsx) is the source of truth for test cases.
 - Concrete HTTP routes are not defined by SRS unless explicitly stated.
 - Any inferred HTTP route or HTTP method must be marked as IMPLEMENTATION_MAPPING_REQUIRED.
-- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes where available; when no matching route
-  exists, api.note says NO_MATCHING_BACKEND_ROUTE.
-- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid any change of business meaning through translation.
+- api.path below is cross-referenced against the real Express routes in cab_backend_nodejs/src/routes
+  where available; when no matching route exists, api.note says NO_MATCHING_BACKEND_ROUTE.
+- Assertions are kept in Vietnamese, split verbatim from the Excel 'Expected Result' column, to avoid
+  any change of business meaning through translation.
+tests:
+- id: TC_FR57_POS
+  uc: UC22
+  scenario: '[Positive] Tinh va luu fare cho Trip COMPLETED (FR57,58,59,60)'
+  case: '[Positive] Tinh va luu fare cho Trip COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR09
+    fr:
+    - FR57
+    - FR58
+    - FR59
+    - FR60
+    brule:
+    - BRULE16
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/fare
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip COMPLETED
+  - co pickup/destination/vehicleType.
+  test_steps:
+  - step: 1
+    action: Tinh fare
+  - step: 2
+    action: Luu Trip.fare
+  - step: 3
+    action: Hien thi
+  assertions:
+  - Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
+  expected_result: Fare duoc tinh, luu vao Trip.fare va hien thi cho dung Trip.
+  test_data:
+  - Trip input hop le
+- id: TC_FR60_NEG
+  uc: UC22
+  scenario: '[Negative] Khong tinh Payment truoc khi Trip COMPLETED (FR60)'
+  case: '[Negative] Khong tinh Payment truoc khi Trip COMPLETED'
+  priority: High
+  traceability:
+    br:
+    - BR09
+    fr:
+    - FR60
+    brule: []
+    nfr: []
+  api:
+    method: GET
+    path: /trips/{tripId}/fare
+    mapping_status: IMPLEMENTATION_MAPPING_REQUIRED
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ${TOKEN}
+    body: {}
+  preconditions:
+  - Trip chua COMPLETED.
+  test_steps:
+  - step: 1
+    action: Kich hoat quy trinh payment/tinh fare
+  assertions:
+  - He thong khong cho thanh toan truoc khi Trip COMPLETED.
+  expected_result: He thong khong cho thanh toan truoc khi Trip COMPLETED.
+  test_data:
+  - Trip IN_PROGRESS
