@@ -1,61 +1,28 @@
 # SOFTWARE REQUIREMENTS SPECIFICATION
-# CAB SYSTEM — SRS mở rộng
+# CAB SYSTEM
 
-> Phiên bản: 1.1 — mở rộng từ SRS rút gọn bám `phieucham.md`.
->
-> Mục tiêu của bản này là **giữ nguyên toàn bộ luồng 30 tiêu chí chấm hiện tại**, đồng thời bổ sung lại các nghiệp vụ vận hành/quản trị/báo cáo và các external system cần thiết cho một CAB System hoàn chỉnh.
->
-> Các FR/UC không gắn `PC#` là yêu cầu mở rộng của hệ thống, không thay đổi tiêu chí chấm.
+**Phiên bản:** 1.1
 
 ---
 
-## 1. Mục tiêu
+# 1. Mục tiêu
 
-CAB System là hệ thống đặt xe gồm API Gateway, các microservice nghiệp vụ và các hệ thống bên ngoài.
+CAB System là nền tảng quản lý và vận hành dịch vụ đặt xe, gồm các chức năng dành cho Customer, Driver, nhân viên vận hành, Administrator và Ban giám đốc; đồng thời tích hợp Payment Provider, Map Provider và Kafka cho messaging/notification.
 
-Luồng lõi vẫn là:
+Hệ thống quản lý xuyên suốt vòng đời:
 
 ```text
-Customer đăng ký / đăng nhập
+Account / Authentication
         ↓
-Customer đặt xe
+Customer / Driver / Fleet
         ↓
-Hệ thống tìm Driver phù hợp
+Booking → Dispatch → Offer
         ↓
-Offer → Driver nhận chuyến
-        ↓
-Trip: ASSIGNED → ARRIVED → IN_PROGRESS → COMPLETED / CANCELED
+Trip
         ↓
 Payment → Review
-```
-
-Luồng mở rộng:
-
-```text
-Employee vận hành
-    ├── quản lý Customer / Driver / Account
-    ├── theo dõi Booking / Offer / Trip
-    ├── hỗ trợ phân công / hủy / xử lý sự cố
-    ├── tra cứu Payment
-    └── xem Audit
-
-Board of Directors
-    ├── Dashboard
-    ├── KPI vận hành
-    ├── Doanh thu
-    ├── Chuyến đi
-    ├── Tỷ lệ hủy / hoàn thành
-    └── Hiệu quả Driver
-
-Map Provider
-    ├── Geocoding
-    ├── Route distance
-    └── ETA
-
-Notification Provider (Kafka)
-    ├── Publish event
-    ├── Subscribe topic
-    └── Fan-out notification tới Customer / Driver / Employee
+        ↓
+Notification / Reporting / Audit
 ```
 
 ---
@@ -64,14 +31,14 @@ Notification Provider (Kafka)
 
 | Stakeholder | Vai trò | Mối quan tâm |
 |---|---|---|
-| **Customer** | Đặt xe, theo dõi chuyến, thanh toán, đánh giá | Đặt xe nhanh, đúng tài xế, trạng thái minh bạch |
-| **Driver** | Nhận và thực hiện chuyến | Nhận offer đúng, cập nhật trạng thái/vị trí, xem lịch sử |
-| **Employee / Operations Staff** | Nhân viên vận hành hệ thống | Quản lý user, driver, booking, trip, payment, sự cố |
-| **Administrator** | Quản trị tài khoản, role, permission | Bảo mật và phân quyền |
+| **Customer** | Người đặt xe và sử dụng dịch vụ | Đặt xe, theo dõi chuyến, thanh toán, đánh giá |
+| **Driver** | Người nhận và thực hiện chuyến | Nhận chuyến, cập nhật trạng thái/vị trí, xem lịch sử |
+| **Employee** | Nhân viên vận hành hệ thống | Quản lý user, driver, booking, trip, payment, incident |
+| **Administrator** | Quản trị hệ thống | Account, role, permission, security |
 | **Board of Directors** | Ban giám đốc | Dashboard, KPI, doanh thu, hiệu quả vận hành |
-| **Payment Provider** | Cổng thanh toán bên ngoài | Nhận request và callback thanh toán |
-| **Notification Provider (Kafka)** | Hệ thống messaging bên ngoài/được triển khai như event backbone | Pub/Sub notification, bảo đảm event delivery |
-| **Map Provider** | Dịch vụ bản đồ bên ngoài | Geocoding, khoảng cách tuyến đường, ETA |
+| **Payment Provider** | Cổng thanh toán bên ngoài | Thanh toán và callback |
+| **Map Provider** | Dịch vụ bản đồ bên ngoài | Geocoding, route distance, ETA |
+| **Kafka** | Event streaming backbone | Publish/subscribe nghiệp vụ và notification |
 
 ---
 
@@ -79,87 +46,84 @@ Notification Provider (Kafka)
 
 ## 3.1 Customer
 
-- Đăng ký, đăng nhập.
-- Xem hồ sơ.
+Customer có thể:
+
+- Đăng ký và đăng nhập.
+- Xem và cập nhật hồ sơ trong phạm vi cho phép.
 - Tìm Driver quanh vị trí.
-- Tạo Booking.
-- Xem Booking.
+- Tạo và xem Booking.
 - Theo dõi Trip.
-- Hủy Trip trong phạm vi cho phép.
+- Hủy chuyến theo rule.
 - Thanh toán.
-- Đánh giá.
+- Đánh giá chuyến.
 - Xem Notification.
 
 ## 3.2 Driver
 
-- Đăng ký qua OTP.
+Driver có thể:
+
+- Đăng ký bằng OTP.
 - Xem hồ sơ.
-- Bật/tắt Online.
+- Chờ Admin duyệt.
+- Bật/tắt nhận chuyến.
 - Cập nhật vị trí.
 - Xem và nhận Offer.
 - Thực hiện Trip.
-- Hủy Trip trong phạm vi cho phép.
+- Hủy Trip theo rule.
 - Xem Notification.
 
-## 3.3 Employee / Operations Staff
+## 3.3 Employee
 
-Employee là nhóm actor nghiệp vụ nội bộ. Có thể phân thành các role:
+Employee là nhóm người dùng nội bộ phục vụ vận hành, gồm các role:
 
-- `OPERATIONS_STAFF`: vận hành Booking/Trip/Driver.
-- `USER_STAFF`: quản lý Customer/Driver/Account.
-- `FINANCE_STAFF`: tra cứu Payment.
-- `SUPERVISOR`: có thêm quyền phân công/reassign và xử lý ngoại lệ.
+| Role | Phạm vi chính |
+|---|---|
+| `OPERATIONS_STAFF` | Booking, Dispatch, Trip, Driver |
+| `USER_STAFF` | Customer, Driver, Account |
+| `FINANCE_STAFF` | Payment, transaction |
+| `SUPERVISOR` | Reassign, exception handling, giám sát vận hành |
 
-Quyền chính:
-
-- Tìm kiếm và xem Customer / Driver.
-- Xem và cập nhật trạng thái Account theo permission.
-- Theo dõi Booking.
-- Theo dõi Offer.
-- Theo dõi Trip đang hoạt động.
-- Hỗ trợ hủy hoặc reassign theo Rule.
-- Tra cứu Payment.
-- Ghi nhận / xử lý Incident.
-- Xem Audit Log trong phạm vi được cấp quyền.
+Employee có thể thực hiện nghiệp vụ theo permission được cấp.
 
 ## 3.4 Administrator
 
-- Quản lý Account.
-- Khóa/mở khóa Account.
-- Quản lý Role/Permission.
-- Gán Role.
-- Kiểm soát quyền truy cập.
+Administrator quản lý:
+
+- Account.
+- Role.
+- Permission.
+- Khóa/mở khóa account.
+- Gán role.
+- Kiểm soát truy cập.
 
 ## 3.5 Board of Directors
 
-- Xem Dashboard điều hành.
-- Xem KPI theo ngày/tháng/quý.
-- Xem số Booking/Trip.
-- Xem doanh thu.
-- Xem tỷ lệ hoàn thành/hủy.
-- Xem hiệu quả Driver.
-- Lọc dữ liệu theo thời gian và khu vực.
+Board of Directors sử dụng hệ thống ở chế độ **read-only** để xem:
 
-> Board là **read-only** đối với dữ liệu nghiệp vụ; không được trực tiếp thay đổi Booking/Trip/Payment.
+- Dashboard.
+- Booking/Trip KPI.
+- Doanh thu.
+- Completion rate.
+- Cancellation rate.
+- Driver performance.
+- Báo cáo theo thời gian và khu vực.
 
 ## 3.6 Payment Provider
 
-Hệ thống thanh toán bên ngoài gọi callback tới CAB System.
+Payment Provider xử lý thanh toán bên ngoài và gửi callback về hệ thống.
 
-## 3.7 Notification Provider — Kafka
+## 3.7 Map Provider
 
-Kafka là hệ thống event streaming cho Notification.
+Map Provider cung cấp:
 
-Notification Service publish/consume các topic nghiệp vụ; Customer/Driver/Employee không gọi Kafka trực tiếp.
-
-## 3.8 Map Provider
-
-Hệ thống bên ngoài cung cấp:
-
-- Geocoding / reverse geocoding.
+- Geocoding.
+- Reverse geocoding.
 - Route distance.
 - ETA.
-- Route summary.
+
+## 3.8 Kafka
+
+Kafka là event streaming backbone cho các event nghiệp vụ và notification. Client không kết nối Kafka trực tiếp.
 
 ---
 
@@ -167,110 +131,137 @@ Hệ thống bên ngoài cung cấp:
 
 | Mã | Business Goal |
 |---|---|
-| BG01 | Cho phép Customer đăng ký, đăng nhập và quản lý tài khoản |
-| BG02 | Cho phép Customer tạo Booking |
-| BG03 | Tự động tìm và phân công Driver phù hợp |
-| BG04 | Quản lý toàn bộ vòng đời Trip |
+| BG01 | Quản lý account và authentication |
+| BG02 | Cho phép Customer tạo và quản lý Booking |
+| BG03 | Tìm và phân công Driver phù hợp |
+| BG04 | Quản lý vòng đời Trip |
 | BG05 | Hỗ trợ thanh toán và đánh giá |
-| BG06 | Gửi Notification theo event |
-| BG07 | Cho phép Employee quản lý vận hành Customer, Driver, Booking và Trip |
-| BG08 | Cho phép Employee tra cứu Payment và xử lý sự cố |
-| BG09 | Cho phép Administrator quản lý RBAC |
-| BG10 | Cung cấp Dashboard/KPI cho Board of Directors |
-| BG11 | Tích hợp Map Provider để chuẩn hóa vị trí, khoảng cách và ETA |
-| BG12 | Sử dụng Kafka cho Pub/Sub Notification và event-driven integration |
-| BG13 | Ghi nhận Audit đối với các thao tác quản trị/vận hành nhạy cảm |
+| BG06 | Gửi và lưu Notification |
+| BG07 | Hỗ trợ nhân viên vận hành Customer, Driver, Booking, Trip |
+| BG08 | Tra cứu Payment và xử lý Incident |
+| BG09 | Quản lý RBAC và bảo mật hệ thống |
+| BG10 | Cung cấp Dashboard/KPI/báo cáo cho Ban giám đốc |
+| BG11 | Tích hợp Map Provider để chuẩn hóa vị trí, distance và ETA |
+| BG12 | Sử dụng Kafka cho Pub/Sub và event-driven integration |
+| BG13 | Ghi nhận Audit đối với thao tác quản trị/vận hành nhạy cảm |
 
 ---
 
 # 5. Scope
 
-## 5.1 In Scope — Core
+## 5.1 Chức năng hệ thống
 
-- Account, Authentication, RBAC.
-- Customer / Driver profile.
-- Driver onboarding và approval.
-- Driver availability.
-- Driver location.
-- Booking / Offer / Trip.
-- Payment online.
+- Account, Authentication và RBAC.
+- Customer Profile.
+- Driver Profile và Driver onboarding.
+- Fleet/Vehicle.
+- Driver availability và location.
+- Booking, Dispatch và Offer.
+- Trip operations.
+- Fare và Payment.
 - Review.
 - Notification.
-- Map integration.
-- Employee Operation.
-- Dashboard / Reporting.
+- Employee Operations.
+- Incident.
+- Reporting và Dashboard.
 - Audit.
-- Kafka Pub/Sub Notification.
+- Map integration.
+- Kafka event streaming.
 
-## 5.2 Out of Scope
+## 5.2 Không thuộc hệ thống
 
 - Quản lý lương Driver.
 - Kế toán doanh nghiệp đầy đủ.
 - Quản lý kho/nhiên liệu.
 - Bảo dưỡng Vehicle chi tiết.
 - Dynamic pricing phức tạp.
-- Loyalty / Membership / Subscription.
+- Loyalty/Membership/Subscription.
 - Machine Learning dự đoán nhu cầu.
-- GPS history chi tiết của toàn bộ hành trình nếu không phục vụ vận hành.
+- GPS history chi tiết không phục vụ nghiệp vụ.
 
 ---
 
-# 6. Business Workflow
+# 6. Business Workflows
 
 ## 6.1 Customer đặt xe
 
-1. Customer tạo Booking.
-2. Booking Service lưu trạng thái `SEARCHING`.
-3. Hệ thống tìm Driver `ONLINE`, `APPROVED`, đúng `vehicleType`.
-4. Hệ thống có thể gọi Map Provider để lấy distance/ETA.
-5. Chọn Driver phù hợp.
-6. Tạo Offer.
-7. Driver accept.
-8. Trip được tạo `ASSIGNED`.
-9. Notification event được publish lên Kafka.
-10. Customer nhận thông tin Driver.
+```text
+Customer
+  ↓
+Create Booking
+  ↓
+SEARCHING
+  ↓
+Find eligible Driver
+  ↓
+Distance / ETA
+  ↓
+Offer
+  ↓
+Driver Accept
+  ↓
+ASSIGNED
+  ↓
+Trip
+  ↓
+Payment
+  ↓
+Review
+```
 
 ## 6.2 Thực hiện Trip
 
-`ASSIGNED → ARRIVED → IN_PROGRESS → COMPLETED`
+```text
+ASSIGNED
+   ↓
+ARRIVED
+   ↓
+IN_PROGRESS
+   ↓
+COMPLETED
+```
 
 hoặc:
 
-`ASSIGNED / ARRIVED → CANCELED`
-
-Driver cập nhật vị trí hiện tại. Map Provider có thể cung cấp ETA/distance cho màn hình theo dõi.
+```text
+ASSIGNED / ARRIVED
+        ↓
+     CANCELED
+```
 
 ## 6.3 Employee vận hành
 
 ```text
-Employee login
-     ↓
-Xem Dashboard vận hành
-     ↓
-Tìm Customer / Driver / Booking / Trip
-     ↓
-Theo dõi trạng thái
-     ↓
-Hỗ trợ xử lý:
-   ├── hủy theo quyền
-   ├── reassign Driver
-   ├── xử lý Incident
-   └── tra cứu Payment
-     ↓
-Ghi Audit Log
+Employee Login
+      ↓
+Search / Monitor
+      ├── Customer
+      ├── Driver
+      ├── Booking
+      ├── Offer
+      ├── Trip
+      └── Payment
+      ↓
+Operation
+      ├── Cancel
+      ├── Reassign
+      ├── Incident
+      └── Exception handling
+      ↓
+Audit Log
 ```
 
 ## 6.4 Board xem báo cáo
 
 ```text
-Board login
+Board Login
    ↓
 Dashboard
    ├── Booking
    ├── Trip
+   ├── Revenue
    ├── Completion Rate
    ├── Cancellation Rate
-   ├── Revenue
    └── Driver Performance
 ```
 
@@ -283,12 +274,12 @@ Kafka Topic
       ↓
 Notification Service
       ↓
-notifications DB
+Notification DB
       ↓
 Customer / Driver / Employee
 ```
 
-Các event mẫu:
+Event mẫu:
 
 - `booking.created`
 - `booking.no_driver_found`
@@ -309,11 +300,11 @@ Client / Employee
       ↓
 Gateway
       ↓
-Ride / People-Fleet Service
+Domain Service
       ↓
 Map Provider
       ↓
-routeDistance / eta / geocodedAddress
+Distance / ETA / Geocoding
 ```
 
 ---
@@ -331,234 +322,381 @@ routeDistance / eta / geocodedAddress
 
 ---
 
-# 8. Functional Requirements
+# 8. Use Cases theo Actor
 
-## 8.1 Core FR hiện hữu
+## 8.1 Customer — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-01 | Monorepo có gateway/services/db/postman/docs | 1 |
-| FR-02 | Không commit `.env`, secret, node_modules | 2 |
-| FR-03 | Gateway routing, JWT, RBAC, rate limit, sanitize | 3, 8 |
-| FR-04 | REST nội bộ; asynchronous event qua messaging | 4, 7 |
-| FR-05 | Docker Compose chạy toàn bộ hệ thống | 5 |
-| FR-06 | Health/ready/health-services | 6 |
-| FR-10 | Customer registration | 9 |
-| FR-11 | Login và JWT | 10 |
-| FR-13 | Customer xem hồ sơ | 11 |
-| FR-14 | Driver xem hồ sơ | 12 |
-| FR-19 | Driver cập nhật vị trí | 13 |
-| FR-20 | Tìm Driver quanh tọa độ | 13 |
-| FR-21 | Tạo Booking | 15 |
-| FR-22 | Driver matching | 15 |
-| FR-25 | Driver xem Offer | 16 |
-| FR-26 | Driver nhận Offer | 16 |
-| FR-30 | Trip state transition | 17 |
-| FR-31 | Trip location | 17 |
-| FR-33 | Hủy Trip | 18 |
-| FR-34 | Tạo Payment | 19 |
-| FR-35 | Payment callback | 19 |
-| FR-36 | Review | 20 |
-| FR-37 | Notification listing | 15,16,18,22 |
+| UC | Use Case | FR liên quan | PC# |
+|---|---|---|:-:|
+| UC01 | Đăng ký Customer | FR-C01 | 9 |
+| UC02 | Đăng nhập | FR-C02 | 10 |
+| UC03 | Xem hồ sơ Customer | FR-C03 | 11 |
+| UC04 | Tìm Driver quanh vị trí | FR-C04 | 13 |
+| UC05 | Xem Booking của mình | FR-C05 | 14 |
+| UC06 | Đặt xe | FR-C06, FR-C07 | 15 |
+| UC07 | Theo dõi Trip | FR-C08 | 17 |
+| UC08 | Hủy Trip | FR-C09 | 18 |
+| UC09 | Thanh toán online | FR-C10 | 19 |
+| UC10 | Đánh giá Trip | FR-C11 | 20 |
+| UC11 | Xem Notification | FR-C12 |  |
 
-## 8.2 Employee / Operations
+## 8.2 Driver — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-50 | Employee có thể tìm kiếm Customer theo id/name/phone/email, theo permission | — |
-| FR-51 | Employee có thể tìm kiếm Driver theo id/name/status/vehicleType/khu vực | — |
-| FR-52 | Employee xem chi tiết Booking, filter theo status/time/customer/driver | — |
-| FR-53 | Employee theo dõi Trip đang hoạt động, gồm trạng thái, Driver và vị trí hiện tại | — |
-| FR-54 | Employee được hủy Booking/Trip theo quyền và state transition hợp lệ; bắt buộc reason | — |
-| FR-55 | Supervisor được reassign Driver cho Booking/Trip khi Booking/Trip còn ở trạng thái được phép; thao tác tạo Audit Log | — |
-| FR-56 | Employee tra cứu Payment theo trip/customer/status/provider transaction id | — |
-| FR-57 | Employee tạo, xem, cập nhật và đóng Incident | — |
-| FR-58 | Employee xem lịch sử thao tác liên quan Booking/Trip/Driver trong phạm vi permission | — |
-| FR-59 | Administrator quản lý Account status và RBAC | — |
+| UC | Use Case | FR liên quan | PC# |
+|---|---|---|:-:|
+| UC12 | Đăng ký và xác thực OTP | FR-D01, FR-D02 | 21 |
+| UC13 | Gửi hồ sơ Driver | FR-D03 | 21 |
+| UC14 | Xem hồ sơ Driver | FR-D04 | 12 |
+| UC15 | Bật/tắt nhận chuyến | FR-D05 | 23 |
+| UC16 | Cập nhật vị trí | FR-D06 | 13 |
+| UC17 | Xem Offer | FR-D07 | 16 |
+| UC18 | Nhận Offer | FR-D08 | 16 |
+| UC19 | Cập nhật trạng thái Trip | FR-D09 | 17 |
+| UC20 | Hủy Trip | FR-D10 | 18 |
+| UC21 | Xem Notification | FR-D11 |  |
 
-## 8.3 Board of Directors / Reporting
+## 8.3 Administrator — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-60 | Board xem Dashboard tổng quan Booking, Trip, Driver, Payment | — |
-| FR-61 | Board xem tổng số Trip, Trip completed/canceled và completion/cancellation rate | — |
-| FR-62 | Board xem doanh thu theo ngày/tháng/quý | — |
-| FR-63 | Board xem hiệu quả Driver theo số chuyến, completion rate và cancellation rate | — |
-| FR-64 | Board lọc báo cáo theo khoảng thời gian và khu vực | — |
-| FR-65 | Board chỉ có quyền đọc; không được mutate Booking/Trip/Payment | — |
+| UC | Use Case | FR liên quan | PC# |
+|---|---|---|:-:|
+| UC22 | Xem hồ sơ Driver chờ duyệt | FR-A01 | 22 |
+| UC23 | Duyệt Driver | FR-A02 | 22 |
+| UC24 | Từ chối Driver | FR-A03 | 22 |
+| UC25 | Quản lý Account | FR-A04, FR-A05 |  |
+| UC26 | Quản lý Role/Permission | FR-A06 |  |
 
-## 8.4 Map Provider
+## 8.4 Employee — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-66 | Hệ thống gọi Map Provider để chuẩn hóa địa chỉ/geocoding khi cần | — |
-| FR-67 | Hệ thống lấy route distance và ETA từ Map Provider cho Trip/ước lượng | — |
-| FR-68 | Map Provider timeout/error không làm lộ lỗi nội bộ; service trả lỗi chuẩn hóa và dùng fallback được định nghĩa | — |
-| FR-69 | Không gửi secret/API key của Map Provider ra client | — |
+| UC | Use Case | FR liên quan |
+|---|---|---|
+| UC27 | Tìm kiếm Customer | FR-E01 |
+| UC28 | Quản lý Customer | FR-E02 |
+| UC29 | Tìm kiếm Driver | FR-E03 |
+| UC30 | Quản lý Driver/Vehicle | FR-E04 |
+| UC31 | Theo dõi Booking | FR-E05 |
+| UC32 | Hỗ trợ Booking | FR-E06 |
+| UC33 | Theo dõi Offer | FR-E07 |
+| UC34 | Giám sát Trip đang hoạt động | FR-E08 |
+| UC35 | Hủy Booking/Trip theo quyền | FR-E09 |
+| UC36 | Reassign Driver | FR-E10 |
+| UC37 | Tra cứu Payment | FR-E11 |
+| UC38 | Tạo Incident | FR-E12 |
+| UC39 | Xử lý Incident | FR-E13 |
+| UC40 | Xem Audit Log | FR-E14 |
+| UC41 | Xem Notification | FR-E15 |
 
-## 8.5 Notification Provider — Kafka
+## 8.5 Board of Directors — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-70 | Notification Service publish/consume event qua Kafka | — |
-| FR-71 | Notification Service subscribe các topic nghiệp vụ và tạo notification tương ứng recipient | — |
-| FR-72 | Consumer Kafka phải idempotent; event trùng không tạo duplicate notification | — |
-| FR-73 | Notification có `eventId`, `type`, `recipientId`, `createdAt`, `payload` | — |
-| FR-74 | Hệ thống lưu notification vào DB để Customer/Driver/Employee có thể xem lại | — |
-| FR-75 | Kafka outage không làm mất transaction nghiệp vụ chính; event phải có cơ chế retry/DLQ phù hợp | — |
+| UC | Use Case | FR liên quan |
+|---|---|---|
+| UC42 | Xem Dashboard | FR-B01 |
+| UC43 | Xem Booking/Trip KPI | FR-B02 |
+| UC44 | Xem doanh thu | FR-B03 |
+| UC45 | Xem hiệu quả Driver | FR-B04 |
+| UC46 | Lọc báo cáo theo thời gian/khu vực | FR-B05 |
 
-## 8.6 Audit
+## 8.6 Payment Provider — Use Cases
 
-| FR | Yêu cầu | PC# |
-|---|---|:-:|
-| FR-80 | Các thao tác quản trị/vận hành nhạy cảm tạo Audit Log | — |
-| FR-81 | Audit Log chứa actorId, actorRole, action, resourceType, resourceId, timestamp, requestId và metadata tối thiểu | — |
-| FR-82 | Audit Log append-only đối với Employee/Board; chỉ Administrator có quyền quản trị cấu hình lưu trữ | — |
+| UC | Use Case | FR liên quan | PC# |
+|---|---|---|:-:|
+| UC47 | Xử lý thanh toán | FR-P01 | 19 |
+| UC48 | Gửi payment callback | FR-P02 | 19 |
 
----
+## 8.7 Map Provider — Use Cases
 
-# 9. Use Cases
+| UC | Use Case | FR liên quan |
+|---|---|---|
+| UC49 | Geocoding | FR-M01 |
+| UC50 | Reverse Geocoding | FR-M02 |
+| UC51 | Route Distance | FR-M03 |
+| UC52 | ETA | FR-M04 |
 
-| UC | Tên | Actor | FR chính | PC# |
-|---|---|---|---|:-:|
-| UC01 | Đăng ký Customer | Customer | FR-10 | 9 |
-| UC02 | Đăng nhập | Customer, Driver, Admin, Employee, Board | FR-11 | 10 |
-| UC03 | Xem hồ sơ Customer | Customer, Employee, Admin | FR-13, FR-50 | 11 |
-| UC04 | Xem hồ sơ Driver | Driver, Employee, Admin | FR-14, FR-51 | 12 |
-| UC05 | Tìm Driver quanh vị trí | Customer, Employee | FR-20 | 13 |
-| UC06 | Xem danh sách Booking của Customer | Customer | FR-24 | 14 |
-| UC07 | Đặt xe | Customer | FR-21–24 | 15 |
-| UC08 | Xem và nhận Offer | Driver | FR-25, FR-26 | 16 |
-| UC09 | Cập nhật trạng thái và vị trí Trip | Driver | FR-30–32 | 17 |
-| UC10 | Hủy Trip | Customer, Driver, Employee | FR-33, FR-54 | 18 |
-| UC11 | Thanh toán online | Customer | FR-34 | 19 |
-| UC12 | Callback thanh toán | Payment Provider | FR-35 | 19 |
-| UC13 | Đánh giá Trip | Customer | FR-36 | 20 |
-| UC14 | OTP Driver | Driver | FR-15 | 21 |
-| UC15 | Gửi hồ sơ Driver | Driver | FR-15 | 21 |
-| UC16 | Xem hồ sơ Driver chờ duyệt | Admin | FR-16 | 22 |
-| UC17 | Duyệt / từ chối Driver | Admin | FR-17 | 22 |
-| UC18 | Bật/tắt nhận chuyến, cập nhật vị trí | Driver | FR-18, FR-19 | 23 |
-| UC19 | Xem Notification | Customer, Driver, Employee | FR-37, FR-74 | — |
-| UC20 | Health Check | Bất kỳ | FR-06 | 6 |
-| UC21 | Kiểm tra Security | Người chấm | FR-40–47 | 24–30 |
-| UC22 | Quản lý Customer | Employee | FR-50, FR-59 | — |
-| UC23 | Quản lý Driver / Vehicle | Employee | FR-51 | — |
-| UC24 | Quản lý Booking | Employee | FR-52, FR-54 | — |
-| UC25 | Giám sát Trip đang hoạt động | Employee | FR-53 | — |
-| UC26 | Reassign Driver | Supervisor | FR-55 | — |
-| UC27 | Tra cứu Payment | Employee | FR-56 | — |
-| UC28 | Xử lý Incident | Employee / Supervisor | FR-57, FR-80 | — |
-| UC29 | Xem Audit Log | Employee, Administrator | FR-58, FR-80–82 | — |
-| UC30 | Xem Dashboard điều hành | Board | FR-60 | — |
-| UC31 | Xem KPI vận hành | Board | FR-61, FR-63 | — |
-| UC32 | Xem báo cáo doanh thu | Board | FR-62 | — |
-| UC33 | Lọc báo cáo theo thời gian/khu vực | Board | FR-64 | — |
-| UC34 | Geocoding / Reverse Geocoding | Map Provider | FR-66 | — |
-| UC35 | Tính Route Distance / ETA | Map Provider | FR-67 | — |
-| UC36 | Publish Notification Event | Domain Service, Kafka | FR-70, FR-73 | — |
-| UC37 | Consume Kafka và tạo Notification | Notification Service, Kafka | FR-71–75 | — |
+## 8.8 Kafka / Notification — Use Cases
+
+| UC | Use Case | FR liên quan |
+|---|---|---|
+| UC53 | Publish Domain Event | FR-K01 |
+| UC54 | Subscribe Domain Event | FR-K02 |
+| UC55 | Tạo Notification từ Event | FR-K03 |
+| UC56 | Retry / DLQ Event | FR-K04 |
+| UC57 | Đọc lại Notification | FR-K05 |
+
+## 8.9 Security / System — Use Cases
+
+| UC | Use Case | FR liên quan | PC# |
+|---|---|---|:-:|
+| UC58 | Health Check / Readiness | FR-S01 | 6 |
+| UC59 | Gateway Routing / Auth / RBAC | FR-S02, FR-S03 | 3, 8 |
+| UC60 | Docker Compose Deployment | FR-S04 | 5 |
+| UC61 | Security Validation | FR-S05–FR-S12 | 24–30 |
 
 ---
 
-# 10. Business Rules
+# 9. Functional Requirements theo Actor
+
+## 9.1 Customer — FR
+
+| Mã | Yêu cầu | PC# |
+|---|---|:-:|
+| FR-C01 | Customer đăng ký tài khoản bằng thông tin hợp lệ | 9 |
+| FR-C02 | Customer đăng nhập và nhận JWT | 10 |
+| FR-C03 | Customer lấy thông tin hồ sơ của chính mình bằng token | 11 |
+| FR-C04 | Customer tìm Driver quanh tọa độ với radius, filter status và paging | 13 |
+| FR-C05 | Customer liệt kê Booking của chính mình | 14 |
+| FR-C06 | Customer tạo Booking với pickup, destination và vehicleType hợp lệ | 15 |
+| FR-C07 | Hệ thống tìm Driver phù hợp và tạo Offer | 15 |
+| FR-C08 | Customer theo dõi trạng thái Trip | 17 |
+| FR-C09 | Customer hủy Trip khi state cho phép và cung cấp reason | 18 |
+| FR-C10 | Customer tạo Payment và theo dõi kết quả | 19 |
+| FR-C11 | Customer đánh giá Trip đã hoàn thành | 20 |
+| FR-C12 | Customer xem danh sách Notification của mình |  |
+
+## 9.2 Driver — FR
+
+| Mã | Yêu cầu | PC# |
+|---|---|:-:|
+| FR-D01 | Driver yêu cầu OTP khi đăng ký | 21 |
+| FR-D02 | Driver xác thực OTP trước khi gửi hồ sơ | 21 |
+| FR-D03 | Driver gửi hồ sơ cá nhân và Vehicle | 21 |
+| FR-D04 | Driver xem thông tin hồ sơ của mình | 12 |
+| FR-D05 | Driver bật/tắt trạng thái nhận chuyến | 23 |
+| FR-D06 | Driver cập nhật vị trí hiện tại | 13 |
+| FR-D07 | Driver xem Offer được giao | 16 |
+| FR-D08 | Driver accept Offer theo state machine | 16 |
+| FR-D09 | Driver cập nhật trạng thái Trip | 17 |
+| FR-D10 | Driver hủy Trip khi state cho phép | 18 |
+| FR-D11 | Driver xem Notification của mình |  |
+
+## 9.3 Administrator — FR
+
+| Mã | Yêu cầu | PC# |
+|---|---|:-:|
+| FR-A01 | Administrator xem danh sách hồ sơ Driver chờ duyệt | 22 |
+| FR-A02 | Administrator duyệt hồ sơ Driver | 22 |
+| FR-A03 | Administrator từ chối hồ sơ Driver và ghi lý do | 22 |
+| FR-A04 | Administrator khóa/mở khóa Account |  |
+| FR-A05 | Administrator quản lý trạng thái Account |  |
+| FR-A06 | Administrator gán/quản lý Role và Permission |  |
+
+## 9.4 Employee — FR
+
+| Mã | Yêu cầu |
+|---|---|
+| FR-E01 | Employee tìm Customer theo id/name/phone/email theo permission |
+| FR-E02 | Employee xem và quản lý Customer theo permission |
+| FR-E03 | Employee tìm Driver theo id/name/status/vehicleType/khu vực |
+| FR-E04 | Employee xem và quản lý Driver/Vehicle theo permission |
+| FR-E05 | Employee xem Booking theo status/time/customer/driver |
+| FR-E06 | Employee hỗ trợ Booking theo state machine và permission |
+| FR-E07 | Employee xem Offer và trạng thái dispatch |
+| FR-E08 | Employee theo dõi Trip đang hoạt động, gồm Driver, state và location |
+| FR-E09 | Employee hủy Booking/Trip khi state và permission cho phép; bắt buộc reason |
+| FR-E10 | Supervisor reassign Driver cho Booking/Trip khi điều kiện state cho phép |
+| FR-E11 | FINANCE_STAFF hoặc role được cấp quyền tra cứu Payment và provider transaction |
+| FR-E12 | Employee tạo Incident gắn với Booking/Trip/Account |
+| FR-E13 | Employee cập nhật Incident đến trạng thái RESOLVED/CLOSED |
+| FR-E14 | Employee xem Audit Log trong phạm vi permission |
+| FR-E15 | Employee xem Notification liên quan tới nghiệp vụ mình được phép xem |
+
+## 9.5 Board of Directors — FR
+
+| Mã | Yêu cầu |
+|---|---|
+| FR-B01 | Board xem Dashboard tổng quan Booking, Trip, Driver và Payment |
+| FR-B02 | Board xem tổng số Trip, completed/canceled và completion/cancellation rate |
+| FR-B03 | Board xem doanh thu theo ngày/tháng/quý |
+| FR-B04 | Board xem hiệu quả Driver theo số chuyến và các KPI vận hành |
+| FR-B05 | Board lọc Dashboard/Report theo khoảng thời gian và khu vực |
+| FR-B06 | Board chỉ có quyền đọc dữ liệu báo cáo và không được mutate nghiệp vụ |
+
+## 9.6 Payment Provider — FR
+
+| Mã | Yêu cầu | PC# |
+|---|---|:-:|
+| FR-P01 | Payment Provider xử lý transaction theo payment request hợp lệ | 19 |
+| FR-P02 | Payment Provider gửi callback có xác thực về hệ thống | 19 |
+
+## 9.7 Map Provider — FR
+
+| Mã | Yêu cầu |
+|---|---|
+| FR-M01 | Hệ thống gọi Map Provider để geocode địa chỉ |
+| FR-M02 | Hệ thống reverse geocode tọa độ khi nghiệp vụ cần địa chỉ hiển thị |
+| FR-M03 | Hệ thống lấy route distance cho điểm đi/điểm đến |
+| FR-M04 | Hệ thống lấy ETA cho Trip/ước lượng |
+| FR-M05 | Map Provider timeout/error phải được chuẩn hóa; không làm lộ lỗi nội bộ |
+| FR-M06 | API key/secret của Map Provider chỉ tồn tại ở server-side configuration |
+
+## 9.8 Kafka / Notification — FR
+
+| Mã | Yêu cầu |
+|---|---|
+| FR-K01 | Domain Service publish event với envelope thống nhất lên Kafka |
+| FR-K02 | Notification Service subscribe các topic nghiệp vụ cần thiết |
+| FR-K03 | Notification Service tạo Notification tương ứng recipient từ event |
+| FR-K04 | Consumer Kafka có retry, idempotency và DLQ |
+| FR-K05 | Notification được lưu vào DB để Customer/Driver/Employee xem lại |
+| FR-K06 | Duplicate event không tạo duplicate Notification |
+| FR-K07 | Notification event phải có `eventId`, `eventType`, `occurredAt`, `producer` và dữ liệu nghiệp vụ tối thiểu |
+
+## 9.9 Security / System — FR
+
+| Mã | Yêu cầu | PC# |
+|---|---|:-:|
+| FR-S01 | Các service có health/ready endpoint và gateway health-services | 6 |
+| FR-S02 | Gateway thực hiện routing, JWT validation và RBAC | 3, 8 |
+| FR-S03 | Gateway/service áp dụng rate limit và sanitize input | 3, 8 |
+| FR-S04 | Toàn hệ thống chạy được bằng Docker Compose | 5 |
+| FR-S05 | Không để lộ secret trong repository hoặc image | 2 |
+| FR-S06 | Internal service sử dụng REST cho synchronous call; event dùng messaging | 4, 7 |
+| FR-S07 | Chống SQL/NoSQL Injection | 24–30 |
+| FR-S08 | Chống XSS/input injection | 24–30 |
+| FR-S09 | JWT tampering/invalid token phải bị từ chối | 24–30 |
+| FR-S10 | Unauthorized resource access phải bị từ chối | 24–30 |
+| FR-S11 | Replay/idempotency phải được kiểm soát với transaction/event nhạy cảm | 24–30 |
+| FR-S12 | Project có đầy đủ Postman/test/documentation phục vụ kiểm tra hệ thống | 1 |
+
+---
+
+# 10. Business Rules theo Actor
+
+## 10.1 Customer — BR
 
 | Mã | Quy tắc |
 |---|---|
-| BR-01 | Chỉ Customer đã xác thực mới đặt Booking |
-| BR-02 | Booking bắt buộc có pickup, destination và vehicleType hợp lệ |
-| BR-03 | Chỉ Driver `APPROVED` và `ONLINE` đúng loại xe mới được nhận Offer |
-| BR-04 | Driver matching ưu tiên Driver hợp lệ gần nhất theo metric đã cấu hình |
-| BR-05 | Một Booking chỉ có một Offer `ACCEPTED` |
-| BR-06 | Trip state transition phải hợp lệ, không được tự ý nhảy trạng thái |
-| BR-07 | Chỉ Trip `COMPLETED` mới được thanh toán và đánh giá |
-| BR-08 | Một Trip chỉ có tối đa một Payment thành công và một Review |
-| BR-09 | Số tiền Payment do server xác định, không tin `amount` từ client |
-| BR-10 | Hủy Trip phải có reason |
-| BR-11 | Người dùng chỉ đọc resource thuộc mình, trừ role có quyền quản trị |
-| BR-12 | OTP 6 số, TTL 5 phút, giới hạn số lần nhập sai |
-| BR-13 | Service sở hữu resource chịu trách nhiệm kiểm tra ownership đối với resource ID |
-| **BR-14** | Employee chỉ thực hiện thao tác theo RBAC permission; `OPERATIONS_STAFF` không được sửa RBAC |
-| **BR-15** | USER_STAFF được quản lý Customer/Driver/Account trong phạm vi được cấp; thao tác lock/unlock phải tạo Audit |
-| **BR-16** | Employee không được bypass state machine của Booking/Trip; thao tác hủy/reassign phải thỏa điều kiện state |
-| **BR-17** | Reassign chỉ thực hiện khi Trip/Booking chưa ở trạng thái terminal; phải ghi actor, lý do và thời điểm |
-| **BR-18** | Board of Directors chỉ có quyền đọc các aggregate/report; không được mutate dữ liệu nghiệp vụ |
-| **BR-19** | Map Provider không được xem là source of truth cho quyền sở hữu Booking/Trip; dữ liệu nghiệp vụ vẫn do CAB System quyết định |
-| **BR-20** | API key/secret của Map Provider chỉ nằm ở server-side secret/config |
-| **BR-21** | Khi Map Provider không khả dụng, hệ thống chỉ dùng fallback đã định nghĩa; không tự động coi lỗi map là lỗi thanh toán |
-| **BR-22** | Mỗi Kafka event có `eventId` duy nhất; consumer phải idempotent theo `eventId` |
-| **BR-23** | Notification event dùng Pub/Sub; publisher không cần biết subscriber cụ thể |
-| **BR-24** | Kafka delivery có thể at-least-once; duplicate event phải được xử lý idempotently |
-| **BR-25** | Event thất bại nhiều lần phải vào retry/DLQ, không block transaction chính vô hạn |
-| **BR-26** | Thao tác quản trị/vận hành nhạy cảm phải có Audit Log |
-| **BR-27** | Audit Log phải ghi actorId, role, action, resource và timestamp |
-| **BR-28** | Board không được xem dữ liệu cá nhân vượt quá mức cần thiết cho báo cáo; dữ liệu nhạy cảm phải được mask/aggregate |
+| BR-C01 | Chỉ Customer đã xác thực mới được tạo Booking |
+| BR-C02 | Customer chỉ được đọc/sửa resource thuộc mình nếu không có quyền đặc biệt |
+| BR-C03 | Booking phải có pickup, destination và vehicleType hợp lệ |
+| BR-C04 | Customer chỉ được hủy Trip ở trạng thái được phép |
+| BR-C05 | Chỉ Trip hợp lệ/hoàn thành mới được đánh giá |
+| BR-C06 | Payment amount do server xác định, không tin amount từ client |
+
+## 10.2 Driver — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-D01 | OTP gồm 6 chữ số, TTL 5 phút |
+| BR-D02 | Giới hạn số lần nhập OTP sai theo policy |
+| BR-D03 | Chỉ Driver đã APPROVED mới được ONLINE |
+| BR-D04 | Chỉ Driver ONLINE, phù hợp vehicleType và không BUSY mới được nhận Offer |
+| BR-D05 | Driver không được tự ý nhảy trạng thái Trip |
+| BR-D06 | Driver chỉ được cập nhật Trip mà mình được phân công |
+
+## 10.3 Administrator — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-A01 | Chỉ Administrator hoặc role được cấp quyền mới quản lý RBAC |
+| BR-A02 | Lock/unlock Account phải ghi Audit |
+| BR-A03 | Thay đổi Role/Permission phải ghi Audit |
+| BR-A04 | Administrator không được bỏ qua state machine nghiệp vụ nếu thao tác ảnh hưởng Booking/Trip |
+
+## 10.4 Employee — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-E01 | Employee chỉ thực hiện thao tác theo RBAC permission |
+| BR-E02 | `OPERATIONS_STAFF` không được sửa Role/Permission |
+| BR-E03 | `FINANCE_STAFF` chỉ truy cập Payment theo phạm vi quyền được cấp |
+| BR-E04 | Hủy Booking/Trip phải thỏa state transition và có reason |
+| BR-E05 | Reassign chỉ được thực hiện khi Booking/Trip chưa ở terminal state |
+| BR-E06 | Reassign phải ghi actor, lý do và thời điểm vào Audit |
+| BR-E07 | Incident phải gắn với resource liên quan và có người xử lý khi chuyển `IN_PROGRESS` |
+| BR-E08 | Các thao tác quản trị/vận hành nhạy cảm phải tạo Audit Log |
+
+## 10.5 Board of Directors — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-B01 | Board chỉ có quyền đọc dữ liệu Dashboard/Report |
+| BR-B02 | Board không được mutate Booking, Trip, Payment hoặc Account |
+| BR-B03 | Dữ liệu nhạy cảm phải được mask/aggregate khi đưa vào báo cáo |
+| BR-B04 | Report phải hỗ trợ giới hạn theo thời gian/khu vực |
+
+## 10.6 Payment Provider — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-P01 | Callback phải được xác thực chữ ký/secret theo cơ chế đã cấu hình |
+| BR-P02 | Payment callback phải idempotent |
+| BR-P03 | Client không được tự xác nhận Payment success |
+
+## 10.7 Map Provider — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-M01 | Map Provider không phải source of truth cho Booking/Trip ownership |
+| BR-M02 | Không gửi API key/secret Map Provider cho client |
+| BR-M03 | Khi Map Provider lỗi, service trả lỗi chuẩn hóa hoặc fallback đã định nghĩa |
+| BR-M04 | Map timeout không được làm transaction nghiệp vụ treo vô hạn |
+
+## 10.8 Kafka / Notification — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-K01 | Mỗi event có `eventId` duy nhất |
+| BR-K02 | Consumer phải idempotent theo `eventId` |
+| BR-K03 | Delivery có thể at-least-once; duplicate phải được xử lý an toàn |
+| BR-K04 | Publisher không cần biết subscriber cụ thể |
+| BR-K05 | Event lỗi lặp lại phải đi qua retry/DLQ |
+| BR-K06 | Kafka outage không được làm mất transaction nghiệp vụ chính nếu transaction đã commit; event phải có cơ chế recovery phù hợp |
+
+## 10.9 Security / System — BR
+
+| Mã | Quy tắc |
+|---|---|
+| BR-S01 | Service sở hữu resource phải kiểm tra ownership/permission |
+| BR-S02 | State transition phải được kiểm tra ở service sở hữu state |
+| BR-S03 | JWT phải được kiểm tra signature, expiration và permission |
+| BR-S04 | Secret không được ghi vào source code, response hoặc log không cần thiết |
+| BR-S05 | Rate limiting áp dụng ở các endpoint cần bảo vệ |
+| BR-S06 | Security-sensitive action phải có request/correlation id để trace |
 
 ---
 
-# 11. Non-functional Requirements bổ sung
+# 11. Audit Requirements
 
-| NFR | Nội dung |
-|---|---|
-| NFR-20 | Kafka consumer có idempotency theo `eventId` |
-| NFR-21 | Kafka producer dùng `acks`/retry phù hợp môi trường triển khai; không silently drop event |
-| NFR-22 | Notification Service có retry và DLQ |
-| NFR-23 | Map Provider timeout/circuit breaker để tránh làm nghẽn service nghiệp vụ |
-| NFR-24 | API key Map Provider không xuất hiện trong response/log |
-| NFR-25 | Dashboard/report query không được làm ảnh hưởng đáng kể tới OLTP; có thể dùng read model/aggregate query của backoffice-service |
-| NFR-26 | Audit Log có `X-Request-Id` để trace xuyên Gateway → Service → Kafka |
-| NFR-27 | Employee và Board API đều phải kiểm tra JWT + RBAC + ownership/scope phù hợp |
+Các thao tác sau phải tạo Audit Log:
 
----
+- Lock/unlock Account.
+- Gán/thay đổi Role hoặc Permission.
+- Duyệt/từ chối Driver.
+- Hủy Booking/Trip bởi Employee.
+- Reassign Driver.
+- Tạo/cập nhật/đóng Incident.
+- Các thao tác quản trị khác được cấu hình là sensitive action.
 
-# 12. Data Model bổ sung
-
-Ngoài các bảng hiện hữu:
-
-- `accounts`
-- `customers`
-- `drivers`
-- `bookings`
-- `offers`
-- `trips`
-- `reviews`
-- `payments`
-- `notifications`
-
-bổ sung:
-
-### `incidents`
-
-| Field | Mô tả |
-|---|---|
-| `id` | Incident ID |
-| `type` | Loại sự cố |
-| `severity` | Mức độ |
-| `status` | OPEN / IN_PROGRESS / RESOLVED / CLOSED |
-| `booking_id` | Booking liên quan |
-| `trip_id` | Trip liên quan |
-| `reported_by` | Actor tạo incident |
-| `assigned_to` | Employee xử lý |
-| `description` | Mô tả |
-| `resolution` | Kết quả xử lý |
-| `created_at` | Thời điểm tạo |
-| `resolved_at` | Thời điểm xử lý xong |
-
-### `audit_logs`
+Audit Log tối thiểu có:
 
 | Field | Mô tả |
 |---|---|
 | `id` | Audit ID |
-| `actor_id` | Employee/Admin |
-| `actor_role` | Role tại thời điểm thao tác |
+| `actorId` | Người thực hiện |
+| `actorRole` | Role tại thời điểm thao tác |
 | `action` | Hành động |
-| `resource_type` | Customer/Driver/Booking/Trip/Payment/... |
-| `resource_id` | ID resource |
-| `request_id` | Trace ID |
-| `metadata` | JSON metadata tối thiểu |
-| `created_at` | Timestamp |
+| `resourceType` | Loại resource |
+| `resourceId` | ID resource |
+| `requestId` | Correlation/trace ID |
+| `metadata` | Metadata cần thiết |
+| `createdAt` | Thời gian |
 
-### Notification event envelope
+---
+
+# 12. Notification Requirements
+
+## 12.1 Kafka Topics
+
+| Topic | Producer | Consumer |
+|---|---|---|
+| `booking.events` | ride-service | notification-service, backoffice-service |
+| `trip.events` | ride-service | notification-service, backoffice-service |
+| `driver.events` | people-fleet-service | notification-service, backoffice-service |
+| `payment.events` | billing-feedback-service | notification-service, backoffice-service |
+| `incident.events` | backoffice-service | notification-service |
+| `notification.commands` | domain services | notification-service |
+| `notification.dlq` | notification-service | operator/admin |
+
+## 12.2 Event Envelope
 
 ```json
 {
@@ -574,19 +712,74 @@ bổ sung:
 }
 ```
 
+## 12.3 Notification Flow
+
+```text
+Booking / Trip / Driver / Payment / Incident
+                    ↓
+              Domain Event
+                    ↓
+                   Kafka
+                    ↓
+          Notification Service
+                    ↓
+          Idempotency / Retry
+                    ↓
+             Notification DB
+                    ↓
+        Customer / Driver / Employee
+```
+
 ---
 
-# 13. Kafka Topics
+# 13. Data Model
 
-| Topic | Producer | Consumer |
-|---|---|---|
-| `booking.events` | booking-service | notification-service, backoffice-service |
-| `trip.events` | ride-service | notification-service, backoffice-service |
-| `driver.events` | people-fleet-service | notification-service, backoffice-service |
-| `payment.events` | billing-feedback-service | notification-service, backoffice-service |
-| `incident.events` | backoffice-service | notification-service |
-| `notification.commands` | domain services | notification-service |
-| `notification.dlq` | notification-service | operator/admin |
+## 13.1 Các entity chính
+
+- `accounts`
+- `roles`
+- `permissions`
+- `customers`
+- `drivers`
+- `vehicles`
+- `driver_locations`
+- `bookings`
+- `offers`
+- `trips`
+- `payments`
+- `reviews`
+- `notifications`
+
+## 13.2 Incident
+
+| Field | Mô tả |
+|---|---|
+| `id` | Incident ID |
+| `type` | Loại sự cố |
+| `severity` | Mức độ |
+| `status` | OPEN / IN_PROGRESS / RESOLVED / CLOSED |
+| `bookingId` | Booking liên quan |
+| `tripId` | Trip liên quan |
+| `reportedBy` | Actor tạo incident |
+| `assignedTo` | Employee xử lý |
+| `description` | Mô tả |
+| `resolution` | Kết quả |
+| `createdAt` | Thời điểm tạo |
+| `resolvedAt` | Thời điểm xử lý xong |
+
+## 13.3 Audit Logs
+
+| Field | Mô tả |
+|---|---|
+| `id` | Audit ID |
+| `actorId` | Employee/Admin |
+| `actorRole` | Role |
+| `action` | Hành động |
+| `resourceType` | Loại resource |
+| `resourceId` | ID resource |
+| `requestId` | Trace ID |
+| `metadata` | JSON metadata |
+| `createdAt` | Timestamp |
 
 ---
 
@@ -595,39 +788,91 @@ bổ sung:
 | Service | Trách nhiệm |
 |---|---|
 | `identity-service` | Account, authentication, RBAC |
-| `people-fleet-service` | Customer profile, Driver profile, Fleet/Vehicle, driver location |
-| `ride-service` | Booking, Dispatch, Offer, Trip, Fare/route coordination |
+| `people-fleet-service` | Customer profile, Driver profile, Vehicle, driver location |
+| `ride-service` | Booking, Dispatch, Offer, Trip, Fare, route coordination |
 | `billing-feedback-service` | Payment, Review |
-| `notification-service` | Notification DB + Kafka consumer/producer |
+| `notification-service` | Notification DB, Kafka consumer/producer |
 | `backoffice-service` | Operations, Incident, Reporting, Dashboard, Audit |
 
 External systems:
 
 ```text
-Payment Provider  → callback → billing-feedback-service
-Map Provider      ← request ← ride / people-fleet / gateway-backed APIs
-Kafka             ↔ notification-service + domain event producers
+Payment Provider
+      ↓ callback
+billing-feedback-service
+
+Map Provider
+      ↕
+ride-service / people-fleet-service
+
+Kafka
+      ↕
+domain services / notification-service / backoffice-service
 ```
 
 ---
 
-# 15. Phạm vi đối với `phieucham.md`
+# 15. Non-functional Requirements
 
-- **Không sửa 30 tiêu chí chấm hiện tại.**
-- Các UC/FR mới từ `FR-50` trở đi là phần mở rộng của sản phẩm.
-- PC#13 vẫn là `Tìm Driver quanh vị trí`, không biến thành quyền riêng của Board/Employee.
-- PC#7 tiếp tục kiểm tra message broker; phần Notification mở rộng dùng Kafka Pub/Sub.
-- Các tiêu chí 9–30 hiện tại vẫn giữ nguyên flow Customer/Driver/Admin/Payment.
+| Mã | Yêu cầu |
+|---|---|
+| NFR-01 | Hệ thống sử dụng JWT và RBAC cho authenticated API |
+| NFR-02 | Internal service sử dụng REST cho synchronous call và Kafka cho event-driven communication |
+| NFR-03 | Kafka consumer có idempotency theo `eventId` |
+| NFR-04 | Kafka producer/consumer có retry policy phù hợp |
+| NFR-05 | Notification Service có DLQ |
+| NFR-06 | Map Provider có timeout/circuit-breaker hoặc cơ chế bảo vệ tương đương |
+| NFR-07 | Map API key không xuất hiện ở client, response hoặc log không cần thiết |
+| NFR-08 | Dashboard/reporting không được làm ảnh hưởng đáng kể đến OLTP; có thể dùng read model/aggregate query |
+| NFR-09 | Audit có correlation/request ID để trace xuyên Gateway → Service → Kafka |
+| NFR-10 | Employee và Board API bắt buộc JWT + RBAC + scope/ownership phù hợp |
+| NFR-11 | API phải có input validation và output sanitization cần thiết |
+| NFR-12 | System services có health/ready endpoint |
 
-Như vậy SRS có hai lớp:
+---
 
-```text
-CORE — phục vụ 30 tiêu chí chấm
-        ↓
-EXTENDED — vận hành thực tế
-        ├── Employee Operations
-        ├── Board Reporting
-        ├── Map Provider
-        ├── Kafka Notification
-        └── Incident + Audit
-```
+# 16. Requirement Traceability theo tiêu chí kiểm tra
+
+| PC# | Nội dung kiểm tra | UC/FR chính |
+|---:|---|---|
+| 1 | Project structure / API / Postman / docs | UC61, FR-S12 |
+| 2 | Không commit secret / file rác | FR-S05 |
+| 3 | Gateway routing, auth, RBAC, rate limit | UC59, FR-S02, FR-S03 |
+| 4 | Internal REST | FR-S06 |
+| 5 | Docker Compose | UC60, FR-S04 |
+| 6 | Health/Ready | UC58, FR-S01 |
+| 7 | Message broker | FR-S06, FR-K01–FR-K04 |
+| 8 | Gateway security | UC59, FR-S02–FR-S03 |
+| 9 | Customer registration | UC01, FR-C01 |
+| 10 | Login/JWT | UC02, FR-C02 |
+| 11 | Customer profile | UC03, FR-C03 |
+| 12 | Driver profile | UC14, FR-D04 |
+| 13 | Driver nearby / location | UC04, UC16, FR-C04, FR-D06 |
+| 14 | Customer Booking list | UC05, FR-C05 |
+| 15 | Booking / matching | UC06, FR-C06–FR-C07 |
+| 16 | Offer / accept | UC17–UC18, FR-D07–FR-D08 |
+| 17 | Trip lifecycle | UC07, UC19, FR-C08, FR-D09 |
+| 18 | Trip cancellation | UC08, UC20, FR-C09, FR-D10 |
+| 19 | Payment / callback | UC09, UC47–UC48, FR-C10, FR-P01–FR-P02 |
+| 20 | Review | UC10, FR-C11 |
+| 21 | Driver OTP / onboarding | UC12–UC13, FR-D01–FR-D03 |
+| 22 | Driver approval | UC22–UC24, FR-A01–FR-A03 |
+| 23 | Driver availability | UC15, FR-D05 |
+| 24–30 | Security tests | UC61, FR-S07–FR-S11 |
+
+---
+
+# 17. Quy tắc tổng quát về quyền và dữ liệu
+
+1. Mọi API authenticated đều phải xác thực JWT trước khi xử lý nghiệp vụ.
+2. Authorization phải được kiểm tra tại service sở hữu resource, không chỉ ở Gateway.
+3. Customer chỉ truy cập dữ liệu thuộc mình trừ quyền đặc biệt được định nghĩa.
+4. Driver chỉ truy cập dữ liệu Driver/Trip/Offer thuộc phạm vi của mình.
+5. Employee chỉ thực hiện nghiệp vụ theo role và permission.
+6. Board chỉ truy cập aggregate/report ở chế độ read-only.
+7. Administrator quản lý RBAC nhưng không được bỏ qua business state machine khi thao tác vào domain resource.
+8. Mọi thay đổi trạng thái quan trọng phải qua state transition hợp lệ.
+9. Payment success chỉ được xác định bởi server sau khi xác thực kết quả từ Payment Provider.
+10. Kafka event phải có idempotency và khả năng retry/recovery.
+11. External Provider không được trở thành source of truth cho ownership hoặc business state của CAB System.
+12. Thao tác nhạy cảm phải truy vết được bằng Audit Log và request/correlation ID.
