@@ -1,0 +1,21 @@
+{
+  "name": "cab-system",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "gateway",
+    "services/*",
+    "mocks/*",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "dev": "echo \"Use docker compose for the full system\""
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
