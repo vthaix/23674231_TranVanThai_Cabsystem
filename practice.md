@@ -1,3 +1,36 @@
+# SETUP
+
+1. Mở docker
+
+2. Kiểm tra docker compose
+
+
+```bash
+docker compose ps
+```
+
+Nếu chưa có container hoặc container đã stop thì chạy:
+
+```bash
+docker compose up -d
+```
+
+"Nếu HTTP 200 là Gateway đang hoạt động."
+
+3. Kiểm tra Gateway
+
+```bash
+curl -i http://localhost:8000/health
+```
+
+4. Kiểm tra toàn bộ service
+
+```bash
+curl -s http://localhost:8000/health/services
+```
+
+"Nếu các service đều up thì môi trường demo đã sẵn sàng."
+
 # KỊCH BẢN BÁO CÁO CÁC TIÊU CHÍ ĐÃ PASS
 
 ## PC1 – Source Code Architecture
