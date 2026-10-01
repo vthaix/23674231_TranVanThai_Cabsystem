@@ -1,18 +1,16 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package*.json ./
-COPY services/identity-service/package.json services/identity-service/package.json
-COPY shared/package.json shared/package.json
+COPY services/customer-service/package*.json ./services/customer-service/
 
-RUN npm install --omit=dev
+RUN cd services/customer-service && npm install --omit=dev
 
-COPY services/identity-service ./services/identity-service
+COPY services/customer-service ./services/customer-service
 COPY shared ./shared
 
-WORKDIR /app/services/identity-service
+WORKDIR /backend/services/customer-service
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["node", "src/index.js"]

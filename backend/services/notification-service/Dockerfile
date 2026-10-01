@@ -1,18 +1,16 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package*.json ./
-COPY services/identity-service/package.json services/identity-service/package.json
-COPY shared/package.json shared/package.json
+COPY services/notification-service/package*.json ./services/notification-service/
 
-RUN npm install --omit=dev
+RUN cd services/notification-service && npm install --omit=dev
 
-COPY services/identity-service ./services/identity-service
+COPY services/notification-service ./services/notification-service
 COPY shared ./shared
 
-WORKDIR /app/services/identity-service
+WORKDIR /backend/services/notification-service
 
-EXPOSE 3000
+EXPOSE 3006
 
 CMD ["node", "src/index.js"]

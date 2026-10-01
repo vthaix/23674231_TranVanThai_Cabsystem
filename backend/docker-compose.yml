@@ -48,7 +48,7 @@ services:
       dockerfile: services/customer-service/Dockerfile
     container_name: cab-customer-service
     environment:
-      PORT: 3000
+      PORT: 3001
       SERVICE_NAME: customer-service
       NODE_ENV: development
       DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@customer-db:5432/customer_db
@@ -65,7 +65,7 @@ services:
       dockerfile: services/driver-service/Dockerfile
     container_name: cab-driver-service
     environment:
-      PORT: 3000
+      PORT: 3002
       SERVICE_NAME: driver-service
       NODE_ENV: development
       DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@driver-db:5432/driver_db
@@ -88,7 +88,7 @@ services:
       dockerfile: services/booking-service/Dockerfile
     container_name: cab-booking-service
     environment:
-      PORT: 3000
+      PORT: 3003
       SERVICE_NAME: booking-service
       NODE_ENV: development
       DATABASE_URL: postgresql://booking:${BOOKING_DB_PASSWORD}@booking-db:5432/booking_db
@@ -108,7 +108,7 @@ services:
       dockerfile: services/trip-service/Dockerfile
     container_name: cab-trip-service
     environment:
-      PORT: 3000
+      PORT: 3004
       SERVICE_NAME: trip-service
       NODE_ENV: development
       DATABASE_URL: postgresql://trip:${TRIP_DB_PASSWORD}@trip-db:5432/trip_db
@@ -131,7 +131,7 @@ services:
       dockerfile: services/payment-service/Dockerfile
     container_name: cab-payment-service
     environment:
-      PORT: 3000
+      PORT: 3005
       SERVICE_NAME: payment-service
       NODE_ENV: development
       DATABASE_URL: postgresql://payment:${PAYMENT_DB_PASSWORD}@payment-db:5432/payment_db
@@ -151,7 +151,7 @@ services:
       dockerfile: services/notification-service/Dockerfile
     container_name: cab-notification-service
     environment:
-      PORT: 3000
+      PORT: 3006
       SERVICE_NAME: notification-service
       MONGO_URL: mongodb://notification:${NOTIFICATION_DB_PASSWORD}@notification-db:27017/notification_db?authSource=admin
       KAFKA_BROKERS: kafka:9092

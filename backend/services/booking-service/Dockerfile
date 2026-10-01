@@ -1,18 +1,16 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package*.json ./
-COPY services/identity-service/package.json services/identity-service/package.json
-COPY shared/package.json shared/package.json
+COPY services/booking-service/package*.json ./services/booking-service/
 
-RUN npm install --omit=dev
+RUN cd services/booking-service && npm install --omit=dev
 
-COPY services/identity-service ./services/identity-service
+COPY services/booking-service ./services/booking-service
 COPY shared ./shared
 
-WORKDIR /app/services/identity-service
+WORKDIR /backend/services/booking-service
 
-EXPOSE 3000
+EXPOSE 3003
 
 CMD ["node", "src/index.js"]

@@ -1,17 +1,15 @@
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package*.json ./
-COPY services/identity-service/package.json services/identity-service/package.json
-COPY shared/package.json shared/package.json
+COPY services/identity-service/package*.json ./services/identity-service/
 
-RUN npm install --omit=dev
+RUN cd services/identity-service && npm install --omit=dev
 
 COPY services/identity-service ./services/identity-service
 COPY shared ./shared
 
-WORKDIR /app/services/identity-service
+WORKDIR /backend/services/identity-service
 
 EXPOSE 3000
 
