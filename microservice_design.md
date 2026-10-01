@@ -1,9 +1,8 @@
 # CAB SYSTEM — Microservice Design (v15.1)
 
 > **Kiến trúc:** API Gateway + 7 Bounded Context (Identity, Customer, Driver, Booking, Trip, Payment, Notification) + hạ tầng Kafka, Redis, PostgreSQL, MongoDB + 2 mock provider
-> **Nguồn nghiệp vụ:** `srs.md` (SRS v1.3.1) và phiếu chấm 30 tiêu chí (PC1–PC30)
+> **Nguồn nghiệp vụ:** `srs.md` (SRS) và phiếu chấm 30 tiêu chí (PC1–PC30)
 > **Giao tiếp:** REST/HTTPS (Client → Gateway) · **Internal REST** (đồng bộ nội bộ, FR-S06) · Kafka (bất đồng bộ)
-> **Ngày:** 01/10/2026 · **Thay đổi so với v15:** xem [mục 12.4](#124-thay-đổi-v15--v151)
 
 > **Ghi chú thuật ngữ:** "IPC" là *Inter-Process Communication*: cách service này gọi service khác. Trong hệ thống này IPC đồng bộ là **Internal REST** (`/internal/**`), IPC bất đồng bộ là **Kafka**.
 
