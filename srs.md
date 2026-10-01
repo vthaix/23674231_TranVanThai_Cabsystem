@@ -1,7 +1,7 @@
 # SOFTWARE REQUIREMENTS SPECIFICATION
 # CAB SYSTEM
 
-**Phiên bản:** 1.2
+**Phiên bản:** 1.3 (01/10/2026) — xem [mục 19](#19-lịch-sử-thay-đổi)
 
 ---
 
@@ -179,6 +179,8 @@ Kafka là event streaming backbone cho các event nghiệp vụ và notification
 - Loyalty/Membership/Subscription.
 - Machine Learning dự đoán nhu cầu.
 - GPS history chi tiết không phục vụ nghiệp vụ.
+- Hoa hồng/phí nền tảng: hệ thống **không thu hoa hồng**; số tiền Payment bằng đúng `Trip.fare`.
+- Chi trả (payout) cho Driver, giữ tiền (hold/authorization) và hoàn tiền (refund): Payment chỉ xử lý thanh toán của Customer cho Trip đã `COMPLETED`.
 
 ---
 
@@ -289,6 +291,7 @@ Event mẫu:
 - `trip.canceled`
 - `trip.completed`
 - `payment.completed`
+- `payment.failed`
 - `driver.approved`
 - `driver.rejected`
 - `incident.created`
@@ -314,18 +317,28 @@ Distance / ETA / Geocoding
 ```text
 Trip COMPLETED
     ↓
-Create Payment (Idempotency-Key)
+Customer: POST /payments (Idempotency-Key)
     ↓
-Payment PENDING
+Payment Service: kiểm tra Trip COMPLETED + đúng Customer, amount = Trip.fare
     ↓
-Payment Provider
+Payment PENDING ──▶ Payment Provider (tạo transaction → providerTransactionId)
     ↓
-Callback HMAC
-    ├── valid + success → Payment COMPLETED → paymentStatus=PAID
-    └── failed → Payment FAILED
+Provider xử lý
+    ↓
+Callback HMAC → POST /payments/callback
+    ├── chữ ký hợp lệ + SUCCESS → Payment COMPLETED → Trip.paymentStatus = PAID
+    ├── chữ ký hợp lệ + FAILED  → Payment FAILED (Customer có thể tạo Payment mới)
+    └── chữ ký sai              → 401, không đổi trạng thái
 ```
 
-Số tiền do server tính từ Fare; client không được tự xác nhận Payment success. Callback lặp lại theo `providerTransactionId` không tạo Payment thành công lần hai.
+Số tiền do server lấy từ `Trip.fare`; client không được gửi `amount` và không được tự xác nhận Payment success. Callback lặp lại theo `providerTransactionId` không tạo Payment thành công lần hai.
+
+Quy tắc bổ sung:
+
+1. Payment chỉ phát sinh **sau khi** Trip `COMPLETED`. Hủy Booking/Trip không tạo Payment nên không có refund.
+2. `POST /payments` nhận `tripId`, `method` (`ONLINE`) và `paymentMethodId` tùy chọn; không nhận `amount`.
+3. Payment `PENDING` quá `PAYMENT_PENDING_TIMEOUT_MIN` phút mà chưa có callback chuyển `FAILED` (`failureCode = TIMEOUT`). Callback `SUCCESS` đến muộn sau đó được ghi nhận, không tự đổi trạng thái và phát cảnh báo cho Finance.
+4. Payment Provider là hệ thống ngoài (mock trong môi trường test); hợp đồng giao tiếp ở [FR-P03–FR-P05](#96-payment-provider--fr).
 
 ## 6.8 Driver onboarding bằng OTP
 
@@ -361,11 +374,27 @@ Trùng email/phone trả `409 Conflict`; dữ liệu sai định dạng trả `4
 
 ## 6.9.2 Role login
 
-`POST /auth/login` dùng chung cho Customer, Driver, Employee, Administrator và Board. Account phải ở trạng thái hoạt động và credential hợp lệ; role lấy từ server-side account record.
+`POST /auth/login` dùng chung cho Customer, Driver, Employee, Administrator và Board. Body gồm `password` và **một** định danh: `email` hoặc `phone`. Customer đăng ký bằng cả email lẫn phone nên dùng được cả hai; Driver chỉ cần `phone`. Account phải ở trạng thái hoạt động và credential hợp lệ; role lấy từ server-side account record. Sai thông tin trả `401` với thông báo chung, không tiết lộ định danh nào tồn tại.
 
 ## 6.9.3 Internal accounts
 
 Môi trường test phải seed ít nhất một Account cho Admin, Board và từng role Employee. Driver login sử dụng Account được tạo trong quá trình onboarding.
+
+## 6.9.4 Driver registration
+
+`POST /drivers/register` (sau khi verify OTP) nhận `registrationToken` và:
+
+| Field | Quy tắc |
+|---|---|
+| `phone` | bắt buộc, đã verify OTP, unique qua `phone_hash`; là định danh đăng nhập của Driver |
+| `password` | bắt buộc, tối thiểu 8 ký tự |
+| `fullName` | bắt buộc |
+| `email` | tùy chọn; nếu có phải hợp lệ và unique |
+| `dateOfBirth`, `nationalId` | bắt buộc; `nationalId` unique qua hash |
+| `licenseNumber`, `licenseClass`, `licenseExpiryDate` | bắt buộc; bằng lái hết hạn bị từ chối |
+| `vehicle` | bắt buộc: `vehicleType`, `plateNumber` (unique), `brand`, `model`, `color`, `manufactureYear`, `seatCount` |
+
+Kết quả: Account (role `DRIVER`) và hồ sơ Driver `PENDING_APPROVAL`. Driver chưa được duyệt không thể `ONLINE`.
 
 # 7. State Machine
 
@@ -409,127 +438,64 @@ Môi trường test phải seed ít nhất một Account cho Admin, Board và t�
 5. Chỉ một Driver có thể `ACCEPTED` cho một Booking. Khi hai request Accept đồng thời, request thắng là request commit transaction đầu tiên; request còn lại nhận `409 Conflict`.
 6. Khi Offer được Accept, Booking chuyển `ASSIGNED`, Trip được tạo, Driver chuyển `BUSY` và các Offer `PENDING` còn lại của Booking chuyển `CANCELED`.
 7. Khi tất cả Offer đều hết hạn/từ chối và không còn Driver phù hợp, Booking chuyển `NO_DRIVER_FOUND` và phát event `booking.no_driver_found`.
+8. Khi Booking đang `SEARCHING`, mỗi Driver chỉ có tối đa một Offer `PENDING` tại một thời điểm và không được mời lại cho cùng Booking.
+9. `POST /offers/{id}/accept` là idempotent với cùng Driver: nếu Offer đã `ACCEPTED` bởi chính Driver đó thì tiếp tục/trả kết quả của luồng nhận chuyến thay vì lỗi.
+10. Luồng nhận chuyến gồm: Offer `ACCEPTED` → tạo Trip (idempotent theo `bookingId`) → Driver `BUSY` → Booking `ASSIGNED`. Nếu một bước lỗi tạm thời, hệ thống phải tự hoàn tất lại (recovery) mà không tạo Trip trùng.
+11. Khi Driver chuyển `OFFLINE` trong lúc có Offer `PENDING`, Offer đó chuyển `CANCELED` và Booking thử Driver kế tiếp.
 
-# 8. Use Cases theo Actor
+# 8. Use Cases
 
-## 8.1 Customer — Use Cases
+> **Nguyên tắc:** UC được dùng cho các luồng nghiệp vụ có ý nghĩa độc lập. Các tiêu chí kỹ thuật như source structure, secret management và internal REST được đặc tả bằng FR/NFR/architecture thay vì tạo UC chỉ để tăng số lượng. Các tiêu chí có luồng kiểm tra trực tiếp được giữ UC riêng.
+>
+> `Đăng nhập` là **một UC dùng chung** cho Customer, Driver, Employee, Administrator và Board. Role/permission được xác định từ Account và kiểm soát bằng RBAC; không tạo UC đăng nhập riêng cho từng actor.
 
-| UC | Use Case | FR liên quan | PC# |
-|---|---|---|:-:|
-| UC01 | Đăng ký Customer | FR-C01 | 9 |
-| UC02 | Đăng nhập | FR-C02 | 10 |
-| UC03 | Xem hồ sơ Customer | FR-C03 | 11 |
-| UC04 | Tìm Driver quanh vị trí | FR-C04 | 13 |
-| UC05 | Xem Booking của mình | FR-C05 | 14 |
-| UC06 | Đặt xe | FR-C06, FR-C07 | 15 |
-| UC07 | Theo dõi Trip | FR-C08 | 17 |
-| UC08 | Hủy Trip | FR-C09 | 18 |
-| UC09 | Thanh toán online | FR-C10 | 19 |
-| UC10 | Đánh giá Trip | FR-C11 | 20 |
-| UC11 | Xem Notification | FR-C12 |  |
-
-## 8.2 Driver — Use Cases
-
-| UC | Use Case | FR liên quan | PC# |
-|---|---|---|:-:|
-| UC12 | Đăng ký và xác thực OTP | FR-D01, FR-D02 | 21 |
-| UC13 | Gửi hồ sơ Driver | FR-D03 | 21 |
-| UC14 | Xem hồ sơ Driver | FR-D04 | 12 |
-| UC15 | Bật/tắt nhận chuyến | FR-D05 | 23 |
-| UC16 | Cập nhật vị trí | FR-D06 | 13 |
-| UC17 | Xem Offer | FR-D07 | 16 |
-| UC18 | Nhận Offer | FR-D08 | 16 |
-| UC19 | Cập nhật trạng thái Trip | FR-D09 | 17 |
-| UC20 | Hủy Trip | FR-D10 | 18 |
-| UC21 | Xem Notification | FR-D11 |  |
-
-## 8.3 Administrator — Use Cases
-
-| UC | Use Case | FR liên quan | PC# |
-|---|---|---|:-:|
-| UC22 | Xem hồ sơ Driver chờ duyệt | FR-A01 | 22 |
-| UC23 | Duyệt Driver | FR-A02 | 22 |
-| UC24 | Từ chối Driver | FR-A03 | 22 |
-| UC25 | Quản lý Account | FR-A04, FR-A05 |  |
-| UC26 | Quản lý Role/Permission | FR-A06 |  |
-
-## 8.4 Employee — Use Cases
-
-| UC | Use Case | FR liên quan |
-|---|---|---|
-| UC27 | Tìm kiếm Customer | FR-E01 |
-| UC28 | Quản lý Customer | FR-E02 |
-| UC29 | Tìm kiếm Driver | FR-E03 |
-| UC30 | Quản lý Driver/Vehicle | FR-E04 |
-| UC31 | Theo dõi Booking | FR-E05 |
-| UC32 | Hỗ trợ Booking | FR-E06 |
-| UC33 | Theo dõi Offer | FR-E07 |
-| UC34 | Giám sát Trip đang hoạt động | FR-E08 |
-| UC35 | Hủy Booking/Trip theo quyền | FR-E09 |
-| UC36 | Reassign Driver | FR-E10 |
-| UC37 | Tra cứu Payment | FR-E11 |
-| UC38 | Tạo Incident | FR-E12 |
-| UC39 | Xử lý Incident | FR-E13 |
-| UC40 | Xem Audit Log | FR-E14 |
-| UC41 | Xem Notification | FR-E15 |
-
-## 8.5 Board of Directors — Use Cases
-
-| UC | Use Case | FR liên quan |
-|---|---|---|
-| UC42 | Xem Dashboard | FR-B01 |
-| UC43 | Xem Booking/Trip KPI | FR-B02 |
-| UC44 | Xem doanh thu | FR-B03 |
-| UC45 | Xem hiệu quả Driver | FR-B04 |
-| UC46 | Lọc báo cáo theo thời gian/khu vực | FR-B05 |
-
-## 8.6 Payment Provider — Use Cases
-
-| UC | Use Case | FR liên quan | PC# |
-|---|---|---|:-:|
-| UC47 | Xử lý thanh toán | FR-P01 | 19 |
-| UC48 | Gửi payment callback | FR-P02 | 19 |
-
-## 8.7 Map Provider — Use Cases
-
-| UC | Use Case | FR liên quan |
-|---|---|---|
-| UC49 | Geocoding | FR-M01 |
-| UC50 | Reverse Geocoding | FR-M02 |
-| UC51 | Route Distance | FR-M03 |
-| UC52 | ETA | FR-M04 |
-
-## 8.8 Kafka / Notification — Use Cases
-
-| UC | Use Case | FR liên quan |
-|---|---|---|
-| UC53 | Publish Domain Event | FR-K01 |
-| UC54 | Subscribe Domain Event | FR-K02 |
-| UC55 | Tạo Notification từ Event | FR-K03 |
-| UC56 | Retry / DLQ Event | FR-K04 |
-| UC57 | Đọc lại Notification | FR-K05 |
-
-## 8.9 Authentication theo Actor
+## 8.1 Use Cases phục vụ trực tiếp phiếu chấm
 
 | UC | Actor | Use Case | FR liên quan | PC# |
 |---|---|---|---|:-:|
-| UC62 | Driver | Đăng nhập Driver | FR-D12 |  |
-| UC63 | Employee | Đăng nhập Employee | FR-E16 |  |
-| UC64 | Administrator | Đăng nhập Administrator | FR-A07 |  |
-| UC65 | Board of Directors | Đăng nhập Board | FR-B07 |  |
+| UC01 | Customer | Đăng ký Customer | FR-C01 | 9 |
+| UC02 | Customer / Driver / Employee / Administrator / Board | Đăng nhập và nhận JWT | FR-C02 | 10 |
+| UC03 | Customer | Xem hồ sơ Customer | FR-C03 | 11 |
+| UC04 | Driver | Xem hồ sơ Driver | FR-D04 | 12 |
+| UC05 | Customer / Driver | Tìm Driver quanh vị trí và cập nhật location | FR-C04, FR-D06 | 13 |
+| UC06 | Customer | Xem Booking của mình | FR-C05 | 14 |
+| UC07 | Customer | Đặt xe và matching Driver | FR-C06, FR-C07 | 15 |
+| UC08 | Driver | Xem và nhận Offer | FR-D07, FR-D08 | 16 |
+| UC09 | Customer / Driver | Theo dõi và cập nhật vòng đời Trip | FR-C08, FR-D09 | 17 |
+| UC10 | Customer / Driver | Hủy Booking/Trip | FR-C09, FR-D10 | 18 |
+| UC11 | Customer / Payment Provider | Thanh toán online và callback | FR-C10, FR-P01, FR-P02 | 19 |
+| UC12 | Customer | Đánh giá Trip | FR-C11 | 20 |
+| UC13 | Driver | Đăng ký Driver bằng OTP và gửi hồ sơ | FR-D01, FR-D02, FR-D03 | 21 |
+| UC14 | Administrator | Xem và duyệt/từ chối Driver | FR-A01, FR-A02, FR-A03 | 22 |
+| UC15 | Driver | Bật/tắt nhận chuyến | FR-D05 | 23 |
+| UC16 | Client / Gateway | Gateway Routing / Authentication / RBAC / Rate Limit | FR-S02, FR-S03 | 3, 8 |
+| UC17 | System Operator | Docker Compose Deployment | FR-S04 | 5 |
+| UC18 | System | Health Check / Readiness | FR-S01 | 6 |
+| UC19 | Domain Services / Notification Service | Kafka Messaging / Notification Event | FR-S06, FR-K01–FR-K04 | 7 |
+| UC20 | Tester / System | Security Validation | FR-S07–FR-S13 | 24–30 |
 
-Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ thống; role được xác định từ Account và không được tin từ client.
+## 8.2 Use Cases cơ bản của actor không có tiêu chí chấm riêng
 
-## 8.10 Security / System — Use Cases
+Các actor này **không bị loại khỏi hệ thống**. Vì không có tiêu chí chấm riêng, chỉ giữ những UC cơ bản đủ để thể hiện họ sử dụng hệ thống như thế nào; chi tiết nghiệp vụ được đặc tả bằng FR/BR.
 
-| UC | Use Case | FR liên quan | PC# |
-|---|---|---|:-:|
-| UC58 | Health Check / Readiness | FR-S01 | 6 |
-| UC59 | Gateway Routing / Auth / RBAC | FR-S02, FR-S03 | 3, 8 |
-| UC60 | Docker Compose Deployment | FR-S04 | 5 |
-| UC61 | Security Validation | FR-S07–FR-S13 | 24–30 |
+| UC | Actor | Use Case | FR liên quan | Ghi chú |
+|---|---|---|---|---|
+| UC21 | Employee | Vận hành và hỗ trợ nghiệp vụ | FR-E01–FR-E15 | Gom tìm kiếm, giám sát, hỗ trợ Booking/Trip, Reassign, Payment, Incident và Audit |
+| UC22 | Board of Directors | Xem Dashboard và báo cáo quản trị | FR-B01–FR-B06 | Read-only; không tạo UC riêng cho từng KPI/report |
+| UC23 | Map Provider | Cung cấp dịch vụ bản đồ | FR-M01–FR-M06 | Gom Geocoding, Reverse Geocoding, Distance và ETA thành một integration UC |
 
----
+## 8.3 Nghiệp vụ không tạo UC riêng
+
+Các chức năng sau vẫn thuộc SRS nhưng được mô tả bằng FR/BR/workflow thay vì tách thành UC riêng:
+
+- **Administrator:** quản lý Account, Role và Permission theo `FR-A04–FR-A06`.
+- **Notification:** Customer, Driver và Employee xem Notification theo các FR tương ứng; Kafka/Notification được kiểm tra tập trung ở `UC19`.
+- **Authentication theo từng role:** không có `UC62–UC65`; mọi role sử dụng `UC02`.
+- **Map sub-function:** Geocoding, Reverse Geocoding, Route Distance và ETA thuộc `UC23`, không tách thành 4 UC.
+- **Employee sub-function:** Search Customer, Search Driver, Booking support, Trip monitoring, Reassign, Incident và Audit thuộc `UC21`, không tách thành 15 UC.
+- **Board sub-function:** KPI, Revenue, Driver Performance và filter report thuộc `UC22`, không tách thành các UC riêng.
+
+PC1, PC2 và PC4 là các tiêu chí kỹ thuật/quality attribute nên được truy vết trực tiếp tới `FR-S14`, `FR-S05` và `FR-S06`, không cần tạo UC riêng chỉ để chứa chúng.
 
 # 9. Functional Requirements theo Actor
 
@@ -538,17 +504,17 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 | Mã | Yêu cầu | PC# |
 |---|---|:-:|
 | FR-C01 | Customer đăng ký tài khoản bằng thông tin hợp lệ | 9 |
-| FR-C02 | Customer đăng nhập và nhận JWT | 10 |
+| FR-C02 | Người dùng (Customer, Driver, Employee, Administrator hoặc Board) đăng nhập bằng credential hợp lệ và nhận JWT; role được lấy từ Account server-side và không được tin từ client | 10 |
 | FR-C03 | Customer lấy thông tin hồ sơ của chính mình bằng token | 11 |
 | FR-C04 | Customer tìm Driver quanh tọa độ với radius, filter status và paging | 13 |
 | FR-C05 | Customer liệt kê Booking của chính mình bằng `page` và `limit`; response có `data`, `pagination.page`, `pagination.limit`, `pagination.total`, `pagination.totalPages` | 14 |
 | FR-C06 | Customer tạo Booking với pickup, destination và vehicleType hợp lệ | 15 |
 | FR-C07 | Hệ thống tự động matching sau khi tạo Booking, tìm Driver phù hợp, tạo Offer theo TTL và giới hạn số lần thử | 15 |
-| FR-C08 | Customer theo dõi trạng thái Trip | 17 |
+| FR-C08 | Customer theo dõi trạng thái Trip, thông tin Driver/Vehicle được gán và vị trí hiện tại của Driver trong Trip | 16, 17 |
 | FR-C09 | Customer hủy Booking/Trip khi state cho phép và cung cấp reason; Booking ở `SEARCHING` có thể chuyển `CANCELED` trước khi có Driver | 18 |
 | FR-C10 | Customer tạo Payment và theo dõi kết quả | 19 |
 | FR-C11 | Customer đánh giá Trip đã hoàn thành bằng `stars` từ 1–5 và `comment` tối đa 500 ký tự; mỗi Trip chỉ có một Review | 20 |
-| FR-C12 | Customer xem danh sách Notification của mình |  |
+| FR-C12 | Customer xem danh sách Notification của mình (`GET /notifications`, có paging) và đánh dấu đã đọc | 15, 16 |
 
 ## 9.2 Driver — FR
 
@@ -556,7 +522,7 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 |---|---|:-:|
 | FR-D01 | Driver yêu cầu OTP khi đăng ký | 21 |
 | FR-D02 | Driver xác thực OTP trước khi gửi hồ sơ | 21 |
-| FR-D03 | Driver gửi hồ sơ cá nhân và Vehicle | 21 |
+| FR-D03 | Driver gửi hồ sơ cá nhân, giấy tờ, mật khẩu và Vehicle theo [mục 6.9.4](#694-driver-registration); hồ sơ được tạo ở `PENDING_APPROVAL` | 21 |
 | FR-D04 | Driver xem thông tin hồ sơ của mình | 12 |
 | FR-D05 | Driver bật/tắt trạng thái nhận chuyến theo state machine; `BUSY` không được chuyển trực tiếp sang `OFFLINE`; khi chuyển `ONLINE` phải có location hợp lệ gần nhất | 23 |
 | FR-D06 | Driver cập nhật vị trí hiện tại | 13 |
@@ -564,7 +530,6 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 | FR-D08 | Driver accept Offer theo state machine | 16 |
 | FR-D09 | Driver cập nhật trạng thái Trip | 17 |
 | FR-D10 | Driver hủy Trip từ `ASSIGNED` hoặc `ARRIVED`, bắt buộc reason; `IN_PROGRESS` không được hủy | 18 |
-| FR-D12 | Driver đăng nhập bằng email/phone và password hợp lệ, nhận JWT với role `DRIVER` |  |
 | FR-D11 | Driver xem Notification của mình |  |
 
 ## 9.3 Administrator — FR
@@ -577,7 +542,6 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 | FR-A04 | Administrator khóa/mở khóa Account |  |
 | FR-A05 | Administrator quản lý trạng thái Account |  |
 | FR-A06 | Administrator gán/quản lý Role và Permission |  |
-| FR-A07 | Administrator đăng nhập bằng Account có role `ADMIN` và nhận JWT |  |
 
 ## 9.4 Employee — FR
 
@@ -616,6 +580,9 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 |---|---|:-:|
 | FR-P01 | Payment Provider xử lý transaction theo payment request hợp lệ | 19 |
 | FR-P02 | Payment Provider gửi callback có xác thực HMAC về hệ thống; `providerTransactionId` phải duy nhất | 19 |
+| FR-P03 | Payment Service gọi Payment Provider `POST /transactions` với `merchantRef` (= `paymentId`), `amount`, `currency`, `callbackUrl`; Provider trả `providerTransactionId` và trạng thái `PENDING` | 19 |
+| FR-P04 | Callback gồm header `X-Signature = HMAC-SHA256(rawBody, PAYMENT_CALLBACK_SECRET)` và body `providerTransactionId`, `merchantRef`, `status` (`SUCCESS`/`FAILED`), `amount`, `occurredAt`; Payment kiểm tra chữ ký trên raw body, khớp `amount` với Payment, xử lý idempotent | 19, 30 |
+| FR-P05 | Mock Payment Provider tự gửi callback sau `MOCK_CALLBACK_DELAY_MS` và có endpoint `POST /mock/transactions/{id}/complete?result=SUCCESS` hoặc `?result=FAILED` để kiểm thử thủ công bằng Postman | 19 |
 
 ## 9.7 Map Provider — FR
 
@@ -659,6 +626,9 @@ Tất cả các UC đăng nhập sử dụng cơ chế JWT chung của hệ th�
 | FR-S13 | Idempotency: `POST /bookings` và `POST /payments` bắt buộc `Idempotency-Key`; cùng key + cùng payload trả lại response cũ; cùng key + payload khác trả `422`; callback dùng unique `providerTransactionId`; duplicate event dùng `eventId` và không tạo duplicate effect. TTL idempotency mặc định 24 giờ. | 30 |
 | FR-S14 | Project có đầy đủ source structure, Postman collection, automated test và documentation phục vụ kiểm tra 30 tiêu chí. | 1 |
 | FR-S15 | Chỉ API Gateway publish port ra host trong môi trường Compose; service nghiệp vụ không publish port trực tiếp ra host. | 8 |
+| FR-S16 | Mọi API danh sách trả `{ "data": [...], "pagination": { "page", "limit", "total", "totalPages" } }`; `page` bắt đầu từ 1, `limit` mặc định `PAGE_LIMIT_DEFAULT`, tối đa `PAGE_LIMIT_MAX`; giá trị ngoài miền hợp lệ trả `400`. | 13, 14 |
+| FR-S17 | Request thiếu `Idempotency-Key` trên endpoint bắt buộc trả `400`; Internal API xác thực bằng service credential (JWT nội bộ ngắn hạn có `iss`/`aud`), service kiểm tra `iss` nằm trong danh sách được phép gọi endpoint đó. | 4, 8, 30 |
+| FR-S18 | Mỗi service phải có `GET /health` (liveness) và `GET /ready` (kiểm tra DB/Redis/Kafka mà service phụ thuộc); Gateway tổng hợp tại `/health/services`. | 6 |
 
 ### 9.9.1 Chuẩn cấu trúc project
 
@@ -668,19 +638,28 @@ Project phải có cấu trúc logic tương đương:
 gateway/
 services/
   identity-service/
-  people-fleet-service/
-  ride-service/
-  billing-feedback-service/
+  customer-service/
+  driver-service/
+  booking-service/
+  trip-service/
+  payment-service/
   notification-service/
-  backoffice-service/
-shared/
+  backoffice-service/        # giai đoạn P2
+mocks/
+  mock-payment-provider/
+  mock-map-provider/
+shared/                      # thư viện dùng chung: auth, service-auth, kafka, outbox, idempotency, crypto, sanitize, errors, pagination
 postman/
 tests/
 docs/
+scripts/                     # init Kafka topics, seed dữ liệu
 docker-compose.yml
 .env.example
+.gitignore
 README.md
 ```
+
+Mỗi service có `src/` (routes, controllers, services, repositories, events), `migrations/`, `Dockerfile`, `package.json`, `tests/`. `node_modules/`, `.env` và secret không được commit; `.env.example` bắt buộc commit.
 
 Tên thư mục có thể khác nếu vẫn thể hiện rõ các boundary tương ứng.
 
@@ -797,6 +776,9 @@ Mã HTTP chuẩn: `400` validation, `401` chưa xác thực/token không hợp l
 | BR-F02 | Công thức mặc định: `fare = round(baseFare[vehicleType] + perKm[vehicleType] × distanceKm)`. Bảng giá được seed/config theo môi trường test. |
 | BR-F03 | Chỉ Trip `COMPLETED` mới được tạo Payment. |
 | BR-F04 | Một Trip chỉ có tối đa một Payment `COMPLETED`. Payment `FAILED` có thể tạo Payment mới. |
+| BR-F05 | `Payment.amount` = `Trip.fare` tại thời điểm Trip `COMPLETED`; không có hoa hồng, không có payout cho Driver. |
+| BR-F06 | Chỉ Customer sở hữu Trip mới được tạo Payment cho Trip đó. |
+| BR-F07 | Trong lúc một Payment `PENDING` còn hiệu lực, không cho tạo Payment khác cho cùng Trip (`409`). |
 
 ## 10.10 OTP / Registration — BR
 
@@ -854,22 +836,26 @@ Audit Log tối thiểu có:
 
 | Topic | Producer | Consumer |
 |---|---|---|
-| `booking.events` | ride-service | notification-service, backoffice-service |
-| `trip.events` | ride-service | notification-service, backoffice-service |
-| `driver.events` | people-fleet-service | notification-service, backoffice-service |
-| `payment.events` | billing-feedback-service | notification-service, backoffice-service |
+| `identity.events` | identity-service | notification-service |
+| `booking.events` | booking-service | notification-service, driver-service, customer-service, backoffice-service |
+| `trip.events` | trip-service | booking-service, driver-service, customer-service, notification-service, backoffice-service |
+| `driver.events` | driver-service | notification-service, booking-service, backoffice-service |
+| `driver.location` | driver-service | trip-service |
+| `payment.events` | payment-service | trip-service, customer-service, notification-service, backoffice-service |
 | `incident.events` | backoffice-service | notification-service |
 | `notification.commands` | domain services | notification-service |
 | `notification.dlq` | notification-service | operator/admin |
 
 ## 12.1.1 Partition key và consumer group
 
+- `identity.events`: partition key = `accountId`.
 - `booking.events`: partition key = `bookingId`.
 - `trip.events`: partition key = `tripId`.
-- `driver.events`: partition key = `driverId`.
+- `driver.events`, `driver.location`: partition key = `driverId`.
 - `payment.events`: partition key = `tripId`.
-- Notification Service dùng consumer group `notification-service`; Backoffice Service dùng consumer group `backoffice-service`.
+- Mỗi service dùng consumer group trùng tên service (ví dụ `notification-service`, `booking-service`).
 - Các event của cùng aggregate phải dùng cùng partition key để giữ thứ tự tương đối trong partition.
+- Consumer lỗi quá số lần retry chuyển event sang topic DLT/`notification.dlq` và không chặn partition.
 
 ## 12.2 Event Envelope
 
@@ -878,7 +864,11 @@ Audit Log tối thiểu có:
   "eventId": "evt_01J...",
   "eventType": "trip.assigned",
   "occurredAt": "2026-09-30T10:00:00Z",
-  "producer": "ride-service",
+  "eventVersion": 1,
+  "producer": "trip-service",
+  "aggregateType": "Trip",
+  "aggregateId": "trip_123",
+  "requestId": "req_123",
   "recipientIds": ["user_123"],
   "data": {
     "tripId": "trip_123",
@@ -886,6 +876,8 @@ Audit Log tối thiểu có:
   }
 }
 ```
+
+Các trường `eventVersion`, `aggregateType`, `aggregateId`, `requestId` là bổ sung bắt buộc từ v1.3 để truy vết và tiến hóa schema; `data` không chứa dữ liệu nhạy cảm.
 
 ## 12.3 Notification Flow
 
@@ -911,24 +903,20 @@ Booking / Trip / Driver / Payment / Incident
 
 ## 13.1 Các entity chính
 
-- `accounts`
-- `roles`
-- `permissions`
-- `user_roles`
-- `role_permissions`
-- `customers`
-- `drivers`
-- `vehicles`
-- `driver_locations`
-- `bookings`
-- `offers`
-- `trips`
-- `payments`
-- `reviews`
-- `notifications`
-- `otps` (hoặc Redis key tương đương)
-- `idempotency_keys`
-- `outbox_events`
+| Service | Entity |
+|---|---|
+| identity-service | `accounts`, `roles`, `permissions`, `account_roles`, `role_permissions`, `refresh_tokens` (P2), `audit_logs` |
+| customer-service | `customer_profiles`, `payment_methods` (P2), `customer_activity` (P2) |
+| driver-service | `drivers`, `vehicles`, `work_schedules`, `driver_locations`, `driver_status_history`, OTP (Redis) |
+| booking-service | `bookings`, `offers`, `booking_status_history`, `idempotency_keys` |
+| trip-service | `trips`, `trip_status_history`, `fare_rules`, `reviews` |
+| payment-service | `payments`, `webhook_events`, `idempotency_keys` |
+| notification-service | `notifications`, `notification_templates`, `device_tokens`, `delivery_attempts` |
+| mọi service phát event | `outbox_events` |
+| mọi service nhận event | `processed_events` |
+| backoffice-service (P2) | `incidents`, `audit_logs`, read model báo cáo |
+
+Chi tiết cột, kiểu và ràng buộc nằm ở `microservice_design` mục 8.
 
 ## 13.2 Fare
 
@@ -1019,8 +1007,11 @@ Outbox dùng để bảo đảm event được phát sau khi transaction nghiệ
 - `pickupAddress`, `pickupLat`, `pickupLng`
 - `destinationAddress`, `destinationLat`, `destinationLng`
 - `vehicleType`
+- `note` (tùy chọn)
 - `status`
-- `currentDriverId` (nullable)
+- `attemptCount`
+- `currentDriverId` (nullable), `tripId` (nullable)
+- `cancelReason` (khi `CANCELED`)
 - `createdAt`, `updatedAt`
 
 ### Offer
@@ -1028,49 +1019,63 @@ Outbox dùng để bảo đảm event được phát sau khi transaction nghiệ
 - `id`
 - `bookingId`
 - `driverId`
+- `attemptNo`
 - `status`
-- `expiresAt`
+- `expiresAt`, `respondedAt`
 - `createdAt`
 
 ### Trip
 
 - `id`
-- `bookingId`
+- `bookingId` (unique)
 - `customerId`
-- `driverId`
+- `driverId`, `vehicleId`, `driverSnapshot` (tên, xe, biển số, rating tại thời điểm gán)
 - `status`
-- `fare`
-- `distanceKm`
+- `fare`, `distanceKm`
 - `paymentStatus` (`UNPAID`, `PAID`)
+- `assignedAt`, `arrivedAt`, `startedAt`, `completedAt`, `canceledAt`, `cancelReason`
 - `createdAt`, `updatedAt`
 
 ### Payment
 
 - `id`
 - `tripId`
-- `amount`
-- `status`
+- `customerId`
+- `amount` (bằng `Trip.fare`), `currency` (`VND`)
+- `method` (`ONLINE`), `paymentMethodId` (tùy chọn)
+- `status`, `failureCode` (khi `FAILED`)
 - `providerTransactionId` (unique khi có)
 - `createdAt`, `updatedAt`
+
+### Review
+
+- `id`
+- `tripId` (unique)
+- `customerId`, `driverId`
+- `stars` (1–5), `comment` (≤ 500 ký tự)
+- `createdAt`
 
 # 14. Deployment Components
 
 Môi trường Compose tối thiểu gồm:
 
-| Component | Vai trò |
-|---|---|
-| `gateway` | API Gateway, entry point duy nhất của client |
-| `identity-service` | Account, authentication, RBAC |
-| `people-fleet-service` | Customer/Driver/Vehicle/location |
-| `ride-service` | Booking/Dispatch/Offer/Trip/Fare |
-| `billing-feedback-service` | Payment/Review |
-| `notification-service` | Notification + Kafka consumer/producer |
-| `backoffice-service` | Employee Operations/Incident/Reporting/Audit |
-| `kafka` | Event streaming |
-| `redis` | OTP/rate limit/idempotency/realtime data |
-| `postgres-*` | Persistence cho dữ liệu quan hệ theo ownership của service |
-| `mock-payment-provider` | Payment Provider cho môi trường test |
-| `mock-map-provider` | Map Provider cho môi trường test |
+| Component | Vai trò | Publish port ra host |
+|---|---|:-:|
+| `gateway` | API Gateway, entry point duy nhất của client | ✓ |
+| `identity-service` | Account, authentication, RBAC | ✗ |
+| `customer-service` | Customer profile, phương thức thanh toán | ✗ |
+| `driver-service` | Driver profile, Vehicle, location, availability, OTP | ✗ |
+| `booking-service` | Booking, Dispatch, Offer | ✗ |
+| `trip-service` | Trip, Fare, tracking, Review | ✗ |
+| `payment-service` | Payment, callback | ✗ |
+| `notification-service` | Notification + Kafka consumer/producer | ✗ |
+| `backoffice-service` | Employee Operations, Incident, Reporting, Audit (giai đoạn P2) | ✗ |
+| `kafka` | Event streaming | ✗ |
+| `redis` | OTP, rate limit, GEO/reservation, realtime data | ✗ |
+| `identity-db`, `customer-db`, `driver-db`, `booking-db`, `trip-db`, `payment-db` | PostgreSQL, mỗi service một instance | ✗ |
+| `notification-db` | MongoDB | ✗ |
+| `mock-payment-provider` | Payment Provider cho môi trường test | ✗ |
+| `mock-map-provider` | Map Provider cho môi trường test | ✗ |
 
 Các service nghiệp vụ không publish port ra host; client chỉ truy cập Gateway. Database được sở hữu theo service, không dùng shared domain database làm source of truth.
 
@@ -1078,38 +1083,51 @@ Các service nghiệp vụ không publish port ra host; client chỉ truy cập 
 
 | Caller | Callee | Cơ chế |
 |---|---|---|
-| Gateway | mọi service | REST |
-| identity-service | people-fleet-service | Internal REST |
-| ride-service | people-fleet-service | Internal REST |
-| ride-service | Map Provider adapter | REST |
-| billing-feedback-service | Payment Provider adapter | REST/callback |
-| Domain services | Kafka | Publish event |
-| notification-service | Kafka | Subscribe/Publish |
-| backoffice-service | Kafka | Subscribe |
+| Gateway | mọi service | REST (forward JWT + service credential) |
+| identity-service | customer-service | Internal REST |
+| driver-service | identity-service | Internal REST |
+| booking-service | driver-service | Internal REST |
+| booking-service | trip-service | Internal REST |
+| trip-service | driver-service | Internal REST |
+| payment-service | trip-service | Internal REST |
+| payment-service | customer-service | Internal REST (khi có `paymentMethodId`) |
+| booking-service, trip-service | Map Provider adapter | REST |
+| payment-service | Payment Provider adapter | REST + callback |
+| Domain services | Kafka | Publish event (outbox) |
+| Domain services, notification-service | Kafka | Subscribe |
 
-Internal REST phải dùng service credential và chỉ khả dụng trong service network.
+Internal REST dùng prefix `/internal`, phải có service credential và chỉ khả dụng trong service network. Đồ thị gọi **không có vòng**.
+
+## 14.2 Phạm vi triển khai
+
+| Giai đoạn | Nội dung |
+|---|---|
+| **P1** (30 tiêu chí) | Gateway, Identity, Customer (profile), Driver, Booking, Trip (gồm Review), Payment, Notification, Kafka, Redis, mock provider, Compose, seed, Postman, test |
+| **P2** | Employee Operations, Incident, Board dashboard/report, xem Audit, quản lý account/role (FR-A04–FR-A06), refresh/logout, CRUD `payment_methods`, `customer_activity`, `backoffice-service` |
 
 # 15. Microservice Ownership
 
 | Service | Trách nhiệm |
 |---|---|
 | `identity-service` | Account, authentication, RBAC |
-| `people-fleet-service` | Customer profile, Driver profile, Vehicle, driver location |
-| `ride-service` | Booking, Dispatch, Offer, Trip, Fare, route coordination |
-| `billing-feedback-service` | Payment, Review |
+| `customer-service` | Customer profile, phương thức thanh toán |
+| `driver-service` | Driver profile, Vehicle, availability, driver location, OTP, reservation |
+| `booking-service` | Booking, Dispatch, Offer |
+| `trip-service` | Trip, Fare, tracking, Review |
+| `payment-service` | Payment, callback Payment Provider |
 | `notification-service` | Notification DB, Kafka consumer/producer |
-| `backoffice-service` | Operations, Incident, Reporting, Dashboard, Audit |
+| `backoffice-service` (P2) | Operations, Incident, Reporting, Dashboard, Audit |
 
 External systems:
 
 ```text
 Payment Provider
       ↓ callback
-billing-feedback-service
+payment-service
 
 Map Provider
       ↕
-ride-service / people-fleet-service
+booking-service / trip-service
 
 Kafka
       ↕
@@ -1145,7 +1163,7 @@ domain services / notification-service / backoffice-service
 `GET /health` trả `200` khi process đang chạy:
 
 ```json
-{ "status": "UP", "service": "ride-service" }
+{ "status": "UP", "service": "trip-service" }
 ```
 
 `GET /ready` trả `200` khi service và dependency bắt buộc đã sẵn sàng; trả `503` nếu dependency chưa sẵn sàng:
@@ -1153,7 +1171,7 @@ domain services / notification-service / backoffice-service
 ```json
 {
   "status": "READY",
-  "service": "ride-service",
+  "service": "trip-service",
   "dependencies": { "database": "UP", "kafka": "UP" }
 }
 ```
@@ -1180,6 +1198,12 @@ domain services / notification-service / backoffice-service
 | `RATE_LIMIT_BOOKING` | `10 req/phút/user` |
 | `RATE_LIMIT_LOGIN` | `10 req/phút/IP` |
 | `IDEMPOTENCY_TTL_H` | `24` |
+| `PAYMENT_PENDING_TIMEOUT_MIN` | `15` |
+| `MOCK_CALLBACK_DELAY_MS` | `2000` |
+| `RESERVATION_TTL_SEC` | `35` |
+| `LOCATION_STALE_SEC` | `0` (tắt; production có thể đặt 60) |
+| `ARRIVAL_CONFIRM_RADIUS_M` | `0` (tắt kiểm tra bán kính khi xác nhận đến điểm) |
+| `INTERNAL_JWT_TTL_SEC` | `60` |
 
 Các giá trị là mặc định cho môi trường test; có thể cấu hình qua environment nhưng không được làm thay đổi semantics của 30 tiêu chí.
 
@@ -1200,16 +1224,20 @@ Các giá trị là mặc định cho môi trường test; có thể cấu hình
 | 21 | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register` |
 | 22 | `GET /admin/drivers?status=PENDING_APPROVAL`, `GET /admin/drivers/{id}`, `POST /admin/drivers/{id}/approve`, `POST /admin/drivers/{id}/reject` |
 | 23 | `PUT /drivers/me/availability` |
+| bổ sung | `GET /trips/{id}/location`, `GET /notifications`, `PATCH /notifications/{id}/read` |
 
 ### 16.2.1 Quy tắc endpoint quan trọng
 
-- `GET /drivers/nearby`: hỗ trợ `lat`, `lng`, `radius`, `status`, `page`, `limit`; `radius` mặc định `1000m`, `limit` tối đa `50`.
-- `PUT /drivers/me/location`: cập nhật vị trí Driver; vị trí gần nhất được dùng khi kiểm tra điều kiện `ONLINE`.
+- `GET /drivers/nearby`: hỗ trợ `lat`, `lng`, `radius`, `status`, `vehicleType`, `page`, `limit`; `radius` mặc định `1000m`; `status` nhận `ONLINE`/`OFFLINE`/`BUSY`, **mặc định `ONLINE`**; `limit` tối đa `50`. Mỗi phần tử trả `id`, `fullName`, `status`, `vehicleType`, `lat`, `lng`, `distanceM`, sắp xếp theo `distanceM` tăng dần; response theo FR-S16. Chỉ Driver đã được duyệt mới xuất hiện.
+- `PUT /drivers/me/location`: body `lat`, `lng`; ngoài miền hợp lệ trả `400`; vị trí gần nhất được dùng khi kiểm tra điều kiện `ONLINE` và khi tìm Driver.
 - `GET /bookings`: chỉ trả Booking thuộc Customer đang đăng nhập nếu actor là Customer.
 - `POST /bookings`: bắt buộc `Idempotency-Key`.
-- `POST /payments`: bắt buộc `Idempotency-Key`, chỉ chấp nhận Trip `COMPLETED`.
+- `POST /payments`: body `tripId`, `method` (`ONLINE`), `paymentMethodId` (tùy chọn); bắt buộc `Idempotency-Key`; chỉ chấp nhận Trip `COMPLETED` thuộc Customer đang đăng nhập; trả `201` với Payment `PENDING` và `providerTransactionId`.
+- `GET /trips/{id}/location`: Customer của Trip (hoặc Driver được gán, Employee có quyền) xem vị trí gần nhất của Driver trong Trip `ASSIGNED`/`ARRIVED`/`IN_PROGRESS`.
 - `PATCH /trips/{id}/status`: chỉ Driver được phân công mới được gọi.
-- `POST /trips/{id}/cancel`: chỉ cho `ASSIGNED`/`ARRIVED`; `IN_PROGRESS` trả `409`.
+- `POST /trips/{id}/cancel`: body `reason` bắt buộc; chỉ cho `ASSIGNED`/`ARRIVED`; `IN_PROGRESS` trả `409`.
+- `POST /bookings/{id}/cancel`: body `reason`; chỉ cho Booking `SEARCHING`; Booking đã `ASSIGNED` trả `409` và Customer hủy qua `POST /trips/{id}/cancel`.
+- `POST /auth/login`: body `password` và `email` **hoặc** `phone` (xem 6.9.2).
 - `POST /payments/callback`: xác thực HMAC; callback sai chữ ký trả `401`.
 
 # 16.3 Ma trận quyền tối thiểu
@@ -1229,60 +1257,72 @@ Employee phải được kiểm tra thêm bằng permission cụ thể; `OPERATI
 
 # 16.4 Key Management
 
-- Giá trị mã hóa lưu theo dạng `enc:v1:<iv>:<tag>:<ciphertext>` hoặc định dạng tương đương có `keyId`.
+- Giá trị mã hóa lưu theo dạng `enc:v1:<keyId>:<iv>:<tag>:<ciphertext>` (AES-256-GCM, mỗi lần mã hóa một IV ngẫu nhiên 12 byte).
+- Các cột bắt buộc mã hóa: `phone`, `nationalId`, `licenseNumber`, token phương thức thanh toán. Các cột tra cứu dùng `*_hash` = HMAC-SHA256 với `PHONE_HASH_PEPPER`/`HASH_PEPPER` riêng, không dùng cùng khóa với mã hóa.
 - Encryption key và HMAC key phải được cấp từ Docker secret/secret manager/environment secure, không nằm trong repository/image.
 - Khi rotate key, key mới dùng cho dữ liệu ghi mới; key cũ vẫn được đọc trong giai đoạn chuyển đổi; có job re-encrypt dữ liệu cũ.
 - Bằng chứng PC24: truy vấn DB không thấy plaintext ở các cột nhạy cảm; password ở dạng bcrypt; PII encrypted có keyId.
 
 # 16.5 Test seed tối thiểu
 
-Để test 30 tiêu chí, môi trường test phải có tối thiểu:
+Để test 30 tiêu chí, môi trường test phải có tối thiểu (seed chạy khi `SEED_ON_START=true`, ID cố định để các service khớp nhau, mật khẩu seed lấy từ `SEED_PASSWORD` trong `.env`):
 
-- 1 Customer active.
-- 1 Driver được duyệt, `OFFLINE`; 3–5 Driver `ONLINE`/`BUSY` ở các khoảng cách khác nhau, trong đó ít nhất 3 Driver nằm trong bán kính 1 km.
+- 1 Customer active (email + phone).
+- Quanh điểm tham chiếu `10.7769, 106.7009` (Bến Thành), 1 Driver được duyệt `OFFLINE` và các Driver sau:
+
+| Driver | Trạng thái | Khoảng cách | Ghi chú |
+|---|---|---|---|
+| D1 | `OFFLINE` | ~300 m | đã duyệt |
+| D2 | `ONLINE` | ~200 m | `SEDAN` |
+| D3 | `ONLINE` | ~450 m | `BIKE` |
+| D4 | `ONLINE` | ~800 m | `SEDAN` |
+| D5 | `BUSY` | ~600 m | |
+| D6 | `ONLINE` | ~2500 m | ngoài bán kính 1 km |
+| D7 | `PENDING_APPROVAL` | — | dùng cho PC22 |
+
 - 1 Admin account.
 - Ít nhất 1 Employee cho mỗi role (`OPERATIONS_STAFF`, `USER_STAFF`, `FINANCE_STAFF`, `SUPERVISOR`).
 - 1 Board account.
-- Ít nhất 5 Booking của một Customer để kiểm tra paging.
-- Fare table cho `BIKE`, `SEDAN`, `SUV`.
+- Ít nhất 5 Booking của một Customer (các trạng thái khác nhau) để kiểm tra paging.
+- Fare table: `BIKE` base 10 000 + 4 000/km; `SEDAN` 20 000 + 9 000/km; `SUV` 30 000 + 12 000/km (VND).
 - Payment Provider và Map Provider có mock/sandbox cho môi trường test.
 
 # 17. Requirement Traceability theo tiêu chí kiểm tra
 
 | PC# | Nội dung kiểm tra | UC/FR chính |
 |---:|---|---|
-| 1 | Project structure / API / Postman / docs | UC61, FR-S14 |
+| 1 | Project structure / API / Postman / docs | FR-S14 |
 | 2 | Không commit secret / file rác | FR-S05 |
-| 3 | Gateway routing, auth, RBAC, rate limit | UC59, FR-S02, FR-S03 |
-| 4 | Internal REST | FR-S06 |
-| 5 | Docker Compose | UC60, FR-S04 |
-| 6 | Health/Ready | UC58, FR-S01 |
-| 7 | Message broker | FR-S06, FR-K01–FR-K04 |
-| 8 | Gateway security / không bypass internal service | UC59, FR-S02–FR-S03, FR-S15 |
+| 3 | Gateway routing, auth, RBAC, rate limit | UC16, FR-S02–FR-S03 |
+| 4 | Internal REST | FR-S06, FR-S17 |
+| 5 | Docker Compose | UC17, FR-S04 |
+| 6 | Health/Ready | UC18, FR-S01, FR-S18 |
+| 7 | Message broker | UC19, FR-S06, FR-K01–FR-K04 |
+| 8 | Gateway security / không bypass internal service | UC16, FR-S02–FR-S03, FR-S15, FR-S17 |
 | 9 | Customer registration | UC01, FR-C01 |
 | 10 | Login/JWT | UC02, FR-C02 |
 | 11 | Customer profile | UC03, FR-C03 |
-| 12 | Driver profile | UC14, FR-D04 |
-| 13 | Driver nearby / location | UC04, UC16, FR-C04, FR-D06 |
-| 14 | Customer Booking list | UC05, FR-C05 |
-| 15 | Booking / matching | UC06, FR-C06–FR-C07 |
-| 16 | Offer / accept | UC17–UC18, FR-D07–FR-D08 |
-| 17 | Trip lifecycle | UC07, UC19, FR-C08, FR-D09 |
-| 18 | Trip cancellation | UC08, UC20, FR-C09, FR-D10 |
-| 19 | Payment / callback | UC09, UC47–UC48, FR-C10, FR-P01–FR-P02 |
-| 20 | Review | UC10, FR-C11 |
-| 21 | Driver OTP / onboarding | UC12–UC13, FR-D01–FR-D03 |
-| 22 | Driver approval | UC22–UC24, FR-A01–FR-A03 |
+| 12 | Driver profile | UC04, FR-D04 |
+| 13 | Driver nearby / location | UC05, FR-C04, FR-D06, FR-S16 |
+| 14 | Customer Booking list | UC06, FR-C05, FR-S16 |
+| 15 | Booking / matching | UC07, FR-C06–FR-C07 |
+| 16 | Offer / accept | UC08, FR-D07–FR-D08 |
+| 17 | Trip lifecycle | UC09, FR-C08, FR-D09 |
+| 18 | Trip cancellation | UC10, FR-C09, FR-D10 |
+| 19 | Payment / callback | UC11, FR-C10, FR-P01–FR-P05 |
+| 20 | Review | UC12, FR-C11 |
+| 21 | Driver OTP / onboarding | UC13, FR-D01–FR-D03 |
+| 22 | Driver approval | UC14, FR-A01–FR-A03 |
 | 23 | Driver availability | UC15, FR-D05 |
-| 24 | Bảo vệ dữ liệu nhạy cảm khi lưu trữ | UC61, FR-S07 |
-| 25 | Chống SQL/NoSQL Injection | UC61, FR-S08 |
-| 26 | Chống XSS/input injection | UC61, FR-S09 |
-| 27 | JWT tampering/invalid token | UC61, FR-S10 |
-| 28 | Unauthorized resource access | UC61, FR-S11 |
-| 29 | Rate limit | UC59, UC61, FR-S12 |
-| 30 | Replay/idempotency | UC61, FR-S13 |
+| 24 | Bảo vệ dữ liệu nhạy cảm khi lưu trữ | UC20, FR-S07 |
+| 25 | Chống SQL/NoSQL Injection | UC20, FR-S08 |
+| 26 | Chống XSS/input injection | UC20, FR-S09 |
+| 27 | JWT tampering/invalid token | UC20, FR-S10 |
+| 28 | Unauthorized resource access | UC20, FR-S11 |
+| 29 | Rate limit | UC16, UC20, FR-S03, FR-S12 |
+| 30 | Replay/idempotency | UC20, FR-S13, FR-S17, FR-P04 |
 
----
+**Lưu ý:** PC1, PC2 và PC4 là các tiêu chí kiểm tra nền tảng/tổ chức hoặc communication pattern nên trace trực tiếp tới FR là đủ, không cần tạo UC riêng. Employee, Board, Map Provider và các nghiệp vụ quản trị/hỗ trợ khác cũng không tạo UC chỉ để có mã; chúng vẫn được ràng buộc bởi FR/BR/workflow và kiến trúc tương ứng.
 
 # 18. Quy tắc tổng quát về quyền và dữ liệu
 
@@ -1299,3 +1339,20 @@ Employee phải được kiểm tra thêm bằng permission cụ thể; `OPERATI
 11. Kafka event phải có idempotency và khả năng retry/recovery.
 12. External Provider không được trở thành source of truth cho ownership hoặc business state của CAB System.
 13. Thao tác nhạy cảm phải truy vết được bằng Audit Log và request/correlation ID.
+
+# 19. Lịch sử thay đổi
+
+## v1.3 (01/10/2026)
+
+| Nội dung | Thay đổi |
+|---|---|
+| Kiến trúc | Tách `people-fleet-service` thành `customer-service` + `driver-service`, `ride-service` thành `booking-service` + `trip-service`, `billing-feedback-service` thành `payment-service` (Review chuyển sang `trip-service`) để khớp sơ đồ kiến trúc 7 service. `backoffice-service` thuộc giai đoạn P2. |
+| Deployment | Mỗi service một database riêng (6 PostgreSQL + 1 MongoDB); bổ sung `mocks/`, cột "publish port" và phạm vi P1/P2 (14.2). |
+| Phạm vi | Làm rõ **không** có hoa hồng, payout cho Driver, hold và refund (5.2, BR-F05). |
+| Thanh toán | Làm rõ vòng đời Payment (6.7), hợp đồng Provider và callback (FR-P03–FR-P05), timeout `PENDING`, ràng buộc một Payment hiệu lực cho mỗi Trip (BR-F06, BR-F07). |
+| Account | Login bằng `email` hoặc `phone`; Driver đăng ký chỉ cần `phone`, có `password` (6.9.2, 6.9.4). |
+| Dispatch | Bổ sung quy tắc Offer, accept idempotent, recovery và hủy Offer khi Driver offline (7.4 mục 8–11). |
+| Kafka | Bổ sung `identity.events`, `driver.location`, consumer của từng service, thêm `eventVersion`/`aggregateType`/`aggregateId`/`requestId` vào envelope (12). |
+| Non-functional | FR-S16 (paging), FR-S17 (Idempotency-Key/service credential), FR-S18 (health); key mã hóa có `keyId` và tách pepper (16.4); cấu hình mới (16.1). |
+| API | `GET /trips/{id}/location`, `GET/PATCH /notifications`; làm rõ `nearby`, `payments`, `cancel`, `login` (16.2). |
+| Seed | Seed cụ thể: Driver D1–D7 theo khoảng cách/trạng thái, bảng giá mặc định (16.5). |
