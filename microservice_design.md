@@ -1,9 +1,9 @@
-# CAB SYSTEM — Microservice Design (v15)
+# CAB SYSTEM — Microservice Design (v15.1)
 
 > **Kiến trúc:** API Gateway + 7 Bounded Context (Identity, Customer, Driver, Booking, Trip, Payment, Notification) + hạ tầng Kafka, Redis, PostgreSQL, MongoDB + 2 mock provider
-> **Nguồn nghiệp vụ:** `srs_v13.md` (SRS v1.3) và phiếu chấm 30 tiêu chí (PC1–PC30)
+> **Nguồn nghiệp vụ:** `srs.md` (SRS v1.3.1) và phiếu chấm 30 tiêu chí (PC1–PC30)
 > **Giao tiếp:** REST/HTTPS (Client → Gateway) · **Internal REST** (đồng bộ nội bộ, FR-S06) · Kafka (bất đồng bộ)
-> **Ngày:** 01/10/2026 · **Thay đổi so với v14:** xem [mục 12.3](#123-thay-đổi-v14--v15)
+> **Ngày:** 01/10/2026 · **Thay đổi so với v15:** xem [mục 12.4](#124-thay-đổi-v15--v151)
 
 > **Ghi chú thuật ngữ:** "IPC" là *Inter-Process Communication*: cách service này gọi service khác. Trong hệ thống này IPC đồng bộ là **Internal REST** (`/internal/**`), IPC bất đồng bộ là **Kafka**.
 
@@ -45,7 +45,7 @@
 | `mock-payment-provider` | Node.js | Giả lập cổng thanh toán, tự gửi callback | ✗ |
 | `mock-map-provider` | Node.js | Giả lập geocode/route (distance, ETA) | ✗ |
 
-`backoffice-service` (Employee, Incident, Board, Audit) thuộc giai đoạn **P2**, không nằm trong 30 tiêu chí; chưa dựng ở P1.
+Bảy service nghiệp vụ ở bảng trên là **toàn bộ ranh giới vật lý P1** ([1.6](#16-ranh-giới-vật-lý-7-service)). `backoffice-service` (Employee, Incident, Board, Audit) thuộc giai đoạn **P2**, không nằm trong 30 tiêu chí, nằm ngoài ranh giới 7 service và chưa dựng ở P1.
 
 ### 1.2 Sơ đồ kiến trúc
 
@@ -109,9 +109,9 @@ flowchart TB
 | Định dạng | JSON `camelCase` ở API, `snake_case` ở DB; thời gian ISO-8601 UTC; tiền là số nguyên VND; ID là UUID |
 | Lỗi | `{ "code", "message", "requestId" }` ([9.5](#95-hợp-đồng-api-chung)) |
 
-### 1.4 Đối chiếu SRS v1.3
+### 1.4 Đối chiếu SRS v1.3.1
 
-| SRS v1.3 §14 | Thiết kế này |
+| SRS v1.3.1 §14–15 | Thiết kế này |
 |---|---|
 | `identity-service` | `identity-service` |
 | `customer-service` | `customer-service` |
@@ -120,7 +120,7 @@ flowchart TB
 | `trip-service` (gồm Review) | `trip-service` |
 | `payment-service` | `payment-service` |
 | `notification-service` | `notification-service` |
-| `backoffice-service` (P2) | chưa dựng ở P1 |
+| `backoffice-service` (P2, ngoài ranh giới 7 service) | chưa dựng ở P1 |
 | `mock-payment-provider`, `mock-map-provider` | có, mục [10.4](#104-mock-provider) |
 
 ### 1.5 Phạm vi triển khai
@@ -129,6 +129,38 @@ flowchart TB
 |---|---|
 | **P1** | Mọi thứ cần cho PC1–PC30. Thành phần P1 được đánh dấu mặc định; thứ gì thuộc P2 được ghi rõ **(P2)** |
 | **P2** | `backoffice-service`, quản lý account/role bởi Admin, `refresh_tokens`/logout, CRUD `payment_methods`, `customer_activity`, Employee/Incident/Board |
+
+### 1.6 Ranh giới vật lý 7 service
+
+Đây là bất biến kiến trúc của P1. SRS §15, tài liệu này và audit phải khớp bảng sau. Cột "Mã BC" là mã Bounded Context mà audit dùng để đối chiếu.
+
+| Service | Bounded Context | Mã BC | Trách nhiệm |
+|---|---|---|---|
+| `identity-service` | Identity | BC01 | Account, Authentication, RBAC |
+| `customer-service` | Customer | BC02 | Customer profile |
+| `driver-service` | Driver / Fleet | BC03 | Driver, Vehicle, Availability, Location |
+| `booking-service` | Booking + Dispatch/Assignment | BC04, BC05 | Booking, Dispatch, Offer, Assignment |
+| `trip-service` | Trip Operations + Fare + Feedback | BC06, BC08 | Trip, Tracking, Fare, Review |
+| `payment-service` | Billing / Payment | BC07 | Payment, callback Payment Provider |
+| `notification-service` | Notification | BC09 | Notification, Kafka consumer/producer, delivery |
+
+BC08 (Feedback/Review) thuộc `trip-service` theo SRS §15.1 và quyết định #9 ở [12.1](#121-quyết-định-đã-chốt). Phần Operations/Incident/Reporting/Audit (P2) thuộc `backoffice-service` (P2) và không nằm trong bảng này.
+
+**Quy tắc sở hữu**
+
+1. Dispatch/Assignment thuộc `booking-service`: Driver accept Offer → `booking-service` hoàn tất Assignment → gọi `POST /internal/trips`.
+2. Fare thuộc `trip-service`: tính và khóa lúc tạo Trip ([5.5](#55-trip-service)). `payment-service` không tính Fare.
+3. `payment-service` chỉ đọc `Trip.fare` qua `GET /internal/trips/{id}` sau khi Trip `COMPLETED`.
+
+```text
+booking-service  (Booking, Dispatch, Offer, Assignment)
+      │  Driver accept → POST /internal/trips   (event: booking.assigned, trip.assigned)
+      ▼
+trip-service     (Trip, Tracking, Fare)
+      │  Trip COMPLETED  (event: trip.completed; Trip.fare đọc qua GET /internal/trips/{id})
+      ▼
+payment-service  (Payment: amount = Trip.fare)
+```
 
 ---
 
@@ -1923,7 +1955,7 @@ cab-system/
 │                                #   crypto, sanitize, validation, errors, pagination, logger
 ├── postman/                     # collection + environment, chạy theo thứ tự PC1–PC30
 ├── tests/                       # unit, integration, e2e (smoke theo từng PC)
-├── docs/                        # srs_v13.md, microservice_design_v15.md, sơ đồ kiến trúc, ERD
+├── docs/                        # srs.md, microservice_design.md, sơ đồ kiến trúc, ERD
 ├── scripts/                     # init-kafka-topics, gen-env, reencrypt, seed
 ├── docker-compose.yml
 ├── .env.example                 # chỉ giá trị giữ chỗ; được commit
@@ -2078,6 +2110,8 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 8 | Booking và Trip tự gọi Map Provider qua adapter; Driver không phụ thuộc Map Provider |
 | 9 | Review thuộc `trip-service` |
 | 10 | Mỗi service một database riêng (có profile `slim` gộp instance nếu cần) |
+| 11 | Ranh giới vật lý P1 là đúng 7 service ([1.6](#16-ranh-giới-vật-lý-7-service)); `backoffice-service` là P2 và nằm ngoài ranh giới |
+| 12 | Dispatch/Assignment thuộc `booking-service`, Fare thuộc `trip-service`; `payment-service` không tính Fare |
 
 ### 12.2 Sơ đồ kiến trúc (hình) cần cập nhật
 
@@ -2107,3 +2141,14 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | Mã hóa | `BYTEA` → `TEXT` định dạng `enc:v1:<keyId>:…`; tách pepper (9.2) |
 | Mới | Gateway chi tiết + bảng route (5.0), cross-cutting: validation/chống injection, hợp đồng API, health (9.4–9.6), cấu trúc project, Compose, biến môi trường, mock provider, seed (mục 10), ma trận kiểm chứng PC1–PC30 (mục 11) |
 | Kafka | Bỏ event `payment.held/captured/released/payout_*`; thêm `payment.completed/failed`; bỏ consumer Payment; số partition giảm cho môi trường Compose |
+
+### 12.4 Thay đổi v15 → v15.1
+
+Đồng bộ với SRS v1.3.1. **Không** đổi nghiệp vụ, API, event hay schema.
+
+| Hạng mục | Nội dung |
+|---|---|
+| Ranh giới | Thêm [1.6](#16-ranh-giới-vật-lý-7-service): bảng 7 service kèm Bounded Context, mã BC và quy tắc sở hữu (Dispatch/Assignment, Fare, Review). |
+| Phạm vi | `backoffice-service` được ghi rõ là P2, ngoài ranh giới 7 service (1.1, 1.4). |
+| Quyết định | Thêm quyết định #11, #12 ở [12.1](#121-quyết-định-đã-chốt). |
+| Tham chiếu | Nguồn nghiệp vụ đổi thành `srs.md` (SRS v1.3.1); sửa tên file ở cây thư mục `docs/` (10.1). |

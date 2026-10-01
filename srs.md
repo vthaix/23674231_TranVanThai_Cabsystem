@@ -1,7 +1,7 @@
 # SOFTWARE REQUIREMENTS SPECIFICATION
 # CAB SYSTEM
 
-**Phiên bản:** 1.3 (01/10/2026) — xem [mục 19](#19-lịch-sử-thay-đổi)
+**Phiên bản:** 1.3.1 (01/10/2026) — xem [mục 19](#19-lịch-sử-thay-đổi)
 
 ---
 
@@ -275,7 +275,7 @@ Domain Service
       ↓
 Kafka Topic
       ↓
-Notification Service
+notification-service
       ↓
 Notification DB
       ↓
@@ -319,7 +319,7 @@ Trip COMPLETED
     ↓
 Customer: POST /payments (Idempotency-Key)
     ↓
-Payment Service: kiểm tra Trip COMPLETED + đúng Customer, amount = Trip.fare
+payment-service: kiểm tra Trip COMPLETED + đúng Customer, amount = Trip.fare
     ↓
 Payment PENDING ──▶ Payment Provider (tạo transaction → providerTransactionId)
     ↓
@@ -837,14 +837,16 @@ Audit Log tối thiểu có:
 | Topic | Producer | Consumer |
 |---|---|---|
 | `identity.events` | identity-service | notification-service |
-| `booking.events` | booking-service | notification-service, driver-service, customer-service, backoffice-service |
-| `trip.events` | trip-service | booking-service, driver-service, customer-service, notification-service, backoffice-service |
-| `driver.events` | driver-service | notification-service, booking-service, backoffice-service |
+| `booking.events` | booking-service | notification-service, driver-service, customer-service, backoffice-service (P2) |
+| `trip.events` | trip-service | booking-service, driver-service, customer-service, notification-service, backoffice-service (P2) |
+| `driver.events` | driver-service | notification-service, booking-service, backoffice-service (P2) |
 | `driver.location` | driver-service | trip-service |
-| `payment.events` | payment-service | trip-service, customer-service, notification-service, backoffice-service |
-| `incident.events` | backoffice-service | notification-service |
+| `payment.events` | payment-service | trip-service, customer-service, notification-service, backoffice-service (P2) |
+| `incident.events` (P2) | backoffice-service (P2) | notification-service |
 | `notification.commands` | domain services | notification-service |
 | `notification.dlq` | notification-service | operator/admin |
+
+Consumer/producer ghi **(P2)** chỉ có hiệu lực khi dựng `backoffice-service`; ở P1 các topic vận hành bình thường không có `backoffice-service`.
 
 ## 12.1.1 Partition key và consumer group
 
@@ -888,7 +890,7 @@ Booking / Trip / Driver / Payment / Incident
                     ↓
                    Kafka
                     ↓
-          Notification Service
+          notification-service
                     ↓
           Idempotency / Retry
                     ↓
@@ -1069,13 +1071,14 @@ Môi trường Compose tối thiểu gồm:
 | `trip-service` | Trip, Fare, tracking, Review | ✗ |
 | `payment-service` | Payment, callback | ✗ |
 | `notification-service` | Notification + Kafka consumer/producer | ✗ |
-| `backoffice-service` | Employee Operations, Incident, Reporting, Audit (giai đoạn P2) | ✗ |
 | `kafka` | Event streaming | ✗ |
 | `redis` | OTP, rate limit, GEO/reservation, realtime data | ✗ |
 | `identity-db`, `customer-db`, `driver-db`, `booking-db`, `trip-db`, `payment-db` | PostgreSQL, mỗi service một instance | ✗ |
 | `notification-db` | MongoDB | ✗ |
 | `mock-payment-provider` | Payment Provider cho môi trường test | ✗ |
 | `mock-map-provider` | Map Provider cho môi trường test | ✗ |
+
+Bảy service nghiệp vụ trên là **toàn bộ ranh giới vật lý P1** (chi tiết ở [mục 15](#15-microservice-ownership)). `backoffice-service` (Employee Operations, Incident, Reporting, Audit) thuộc giai đoạn P2, **không** có trong Compose tối thiểu P1 và không nằm trong ranh giới 7 service.
 
 Các service nghiệp vụ không publish port ra host; client chỉ truy cập Gateway. Database được sở hữu theo service, không dùng shared domain database làm source of truth.
 
@@ -1107,16 +1110,37 @@ Internal REST dùng prefix `/internal`, phải có service credential và chỉ 
 
 # 15. Microservice Ownership
 
-| Service | Trách nhiệm |
-|---|---|
-| `identity-service` | Account, authentication, RBAC |
-| `customer-service` | Customer profile, phương thức thanh toán |
-| `driver-service` | Driver profile, Vehicle, availability, driver location, OTP, reservation |
-| `booking-service` | Booking, Dispatch, Offer |
-| `trip-service` | Trip, Fare, tracking, Review |
-| `payment-service` | Payment, callback Payment Provider |
-| `notification-service` | Notification DB, Kafka consumer/producer |
-| `backoffice-service` (P2) | Operations, Incident, Reporting, Dashboard, Audit |
+## 15.1 Ranh giới vật lý P1: đúng 7 service
+
+| Service | Bounded Context | Trách nhiệm |
+|---|---|---|
+| `identity-service` | Identity | Account, authentication, RBAC |
+| `customer-service` | Customer | Customer profile, phương thức thanh toán |
+| `driver-service` | Driver / Fleet | Driver profile, Vehicle, availability, driver location, OTP, reservation |
+| `booking-service` | Booking + Dispatch/Assignment | Booking, Dispatch, Offer, Assignment (nhận chuyến) |
+| `trip-service` | Trip Operations + Fare + Feedback | Trip, tracking, Fare, Review |
+| `payment-service` | Billing / Payment | Payment, callback Payment Provider |
+| `notification-service` | Notification | Notification DB, Kafka consumer/producer, delivery |
+
+`backoffice-service` (Operations, Incident, Reporting, Dashboard, Audit) là **P2**, nằm ngoài ranh giới P1 ở bảng trên. Tài liệu kiểm tra (audit) không được coi sự vắng mặt của service này là lỗi ở P1.
+
+## 15.2 Quy tắc sở hữu giữa các service
+
+1. **Dispatch/Assignment thuộc `booking-service`.** Khi Driver chấp nhận Offer, `booking-service` hoàn tất Assignment rồi gọi `trip-service` tạo Trip qua Internal REST.
+2. **Fare thuộc `trip-service`.** `trip-service` tính và khóa Fare khi tạo Trip; `payment-service` chỉ đọc `Trip.fare`, không tính Fare.
+3. **Review thuộc `trip-service`.**
+4. **`payment-service` chỉ tạo Payment sau khi Trip `COMPLETED`** và `amount = Trip.fare`; client không gửi `amount`.
+5. **Một service không ghi vào dữ liệu của service khác**; chỉ gọi Internal REST hoặc phát event để chủ sở hữu tự đổi trạng thái.
+
+```text
+booking-service  (Booking, Dispatch, Offer, Assignment)
+      │  Driver accept → Internal REST: tạo Trip
+      ▼
+trip-service     (Trip, Tracking, Fare)
+      │  Trip COMPLETED, Trip.fare
+      ▼
+payment-service  (Payment)   ← đọc Trip.fare, không tính Fare
+```
 
 External systems:
 
@@ -1342,11 +1366,22 @@ Employee phải được kiểm tra thêm bằng permission cụ thể; `OPERATI
 
 # 19. Lịch sử thay đổi
 
+## v1.3.1 (01/10/2026)
+
+Đồng bộ tài liệu với ranh giới vật lý 7 service. **Không** thay đổi FR, UC, BR, NFR hay phiếu chấm.
+
+| Nội dung | Thay đổi |
+|---|---|
+| Kiến trúc (15) | Thêm 15.1 (bảng 7 service kèm Bounded Context) và 15.2 (quy tắc sở hữu: Dispatch/Assignment ở `booking-service`, Fare và Review ở `trip-service`, `payment-service` không tính Fare). |
+| Deployment (14) | Bỏ `backoffice-service` khỏi bảng Compose tối thiểu; ghi rõ là P2, ngoài ranh giới 7 service. |
+| Kafka (12.1) | Đánh dấu **(P2)** các consumer/producer thuộc `backoffice-service`. |
+| Workflow (6.5, 6.7, 12.3) | Dùng đúng tên `notification-service`, `payment-service` trong sơ đồ. |
+
 ## v1.3 (01/10/2026)
 
 | Nội dung | Thay đổi |
 |---|---|
-| Kiến trúc | Tách `people-fleet-service` thành `customer-service` + `driver-service`, `ride-service` thành `booking-service` + `trip-service`, `billing-feedback-service` thành `payment-service` (Review chuyển sang `trip-service`) để khớp sơ đồ kiến trúc 7 service. `backoffice-service` thuộc giai đoạn P2. |
+| Kiến trúc | Chốt kiến trúc 7 service (identity, customer, driver, booking, trip, payment, notification) để khớp sơ đồ kiến trúc; Review thuộc `trip-service`. `backoffice-service` thuộc giai đoạn P2. |
 | Deployment | Mỗi service một database riêng (6 PostgreSQL + 1 MongoDB); bổ sung `mocks/`, cột "publish port" và phạm vi P1/P2 (14.2). |
 | Phạm vi | Làm rõ **không** có hoa hồng, payout cho Driver, hold và refund (5.2, BR-F05). |
 | Thanh toán | Làm rõ vòng đời Payment (6.7), hợp đồng Provider và callback (FR-P03–FR-P05), timeout `PENDING`, ràng buộc một Payment hiệu lực cho mỗi Trip (BR-F06, BR-F07). |
