@@ -8,6 +8,7 @@ RUN cd services/driver-service && npm install --omit=dev
 
 COPY services/driver-service ./services/driver-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/driver-service
 

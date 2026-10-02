@@ -1,0 +1,606 @@
+openapi: 3.0.3
+info:
+  title: CAB Booking Service
+  version: 1.0.0
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
+    /internal/** operations are service-to-service only.
+servers:
+- url: http://localhost:8000/api/v1
+  description: Gateway public API
+- url: http://localhost:3003
+  description: booking-service direct/internal testing when reachable
+tags:
+- name: Public
+  description: Client-facing API through Gateway
+- name: Internal
+  description: Service-to-service API; never expose through Gateway
+- name: Operational
+  description: Liveness/readiness endpoints
+paths:
+  /health:
+    get:
+      tags:
+      - Operational
+      summary: Liveness
+      operationId: getCABBookingServiceHealth
+      servers:
+      - url: http://localhost:3003
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Operational
+      summary: Readiness
+      operationId: getCABBookingServiceReady
+      servers:
+      - url: http://localhost:3003
+      responses:
+        '200':
+          description: Dependencies required by the service are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /bookings:
+    get:
+      tags:
+      - Public
+      summary: List current Customer bookings
+      operationId: listBookings
+      servers: &id001
+      - url: http://localhost:8000/api/v1
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Newest bookings first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - Public
+      summary: Create a Booking
+      description: Creates SEARCHING booking and returns immediately; matching runs asynchronously.
+      operationId: createBooking
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created in SEARCHING
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /bookings/{id}/cancel:
+    post:
+      tags:
+      - Public
+      summary: Cancel SEARCHING Booking
+      operationId: cancelBooking
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Booking canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /offers:
+    get:
+      tags:
+      - Public
+      summary: List current Driver pending Offers
+      operationId: listOffers
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Pending unexpired Offers for authenticated Driver
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OffersResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /offers/{id}/accept:
+    post:
+      tags:
+      - Public
+      summary: Accept an Offer
+      operationId: acceptOffer
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Offer accepted; assignment saga returns tripId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptOfferResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /offers/{id}/reject:
+    post:
+      tags:
+      - Public
+      summary: Reject an Offer
+      operationId: rejectOffer
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectOfferRequest'
+      responses:
+        '200':
+          description: Offer rejected and dispatch may continue
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      additionalProperties: true
+    ReadyResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+    Pagination:
+      type: object
+      required:
+      - page
+      - limit
+      - total
+      - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    LocationInput:
+      type: object
+      required:
+      - address
+      properties:
+        address:
+          type: string
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+      additionalProperties: false
+      description: Address is required; lat/lng may be omitted and resolved through Map Provider.
+    CreateBookingRequest:
+      type: object
+      required:
+      - pickup
+      - destination
+      - vehicleType
+      properties:
+        pickup:
+          $ref: '#/components/schemas/LocationInput'
+        destination:
+          $ref: '#/components/schemas/LocationInput'
+        vehicleType:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+        note:
+          type: string
+          maxLength: 255
+      additionalProperties: false
+    Booking:
+      type: object
+      required:
+      - id
+      - customerId
+      - pickupAddress
+      - pickupLat
+      - pickupLng
+      - destinationAddress
+      - destinationLat
+      - destinationLng
+      - vehicleType
+      - status
+      - attemptCount
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        destinationAddress:
+          type: string
+        destinationLat:
+          type: number
+        destinationLng:
+          type: number
+        vehicleType:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+        note:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - SEARCHING
+          - ASSIGNED
+          - NO_DRIVER_FOUND
+          - COMPLETED
+          - CANCELED
+        attemptCount:
+          type: integer
+        currentDriverId:
+          type: string
+          format: uuid
+          nullable: true
+        tripId:
+          type: string
+          format: uuid
+          nullable: true
+        cancelReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    BookingsResponse:
+      type: object
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      additionalProperties: false
+    CancelRequest:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    Offer:
+      type: object
+      required:
+      - id
+      - bookingId
+      - driverId
+      - attemptNo
+      - status
+      - expiresAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        bookingId:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        attemptNo:
+          type: integer
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REJECTED
+          - EXPIRED
+          - CANCELED
+        expiresAt:
+          type: string
+          format: date-time
+        pickupAddress:
+          type: string
+        distanceToPickupM:
+          type: integer
+          nullable: true
+      additionalProperties: false
+    OffersResponse:
+      type: object
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offer'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      additionalProperties: false
+    RejectOfferRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      additionalProperties: false
+    AcceptOfferResponse:
+      type: object
+      required:
+      - tripId
+      properties:
+        tripId:
+          type: string
+          format: uuid
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication/service credential failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Role, permission or ownership denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Business state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Idempotency-Key reused with a different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Retry delay in seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Required downstream service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema:
+        type: string
+      description: Optional client request id; Gateway preserves a valid value or generates one.
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+      description: Required for POST /bookings and POST /payments; retained for 24 hours.
+    Signature:
+      in: header
+      name: X-Signature
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 signature of the raw callback body.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT, HS256, TTL 15 minutes.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Short-lived internal JWT with iss/aud; caller must be allowed for the endpoint.

@@ -1,0 +1,1091 @@
+openapi: 3.0.3
+info:
+  title: CAB Driver Service
+  version: 1.0.0
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
+    /internal/** operations are service-to-service only.
+servers:
+- url: http://localhost:8000/api/v1
+  description: Gateway public API
+- url: http://localhost:3002
+  description: driver-service direct/internal testing when reachable
+tags:
+- name: Public
+  description: Client-facing API through Gateway
+- name: Internal
+  description: Service-to-service API; never expose through Gateway
+- name: Operational
+  description: Liveness/readiness endpoints
+paths:
+  /health:
+    get:
+      tags:
+      - Operational
+      summary: Liveness
+      operationId: getCABDriverServiceHealth
+      servers:
+      - url: http://localhost:3002
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Operational
+      summary: Readiness
+      operationId: getCABDriverServiceReady
+      servers:
+      - url: http://localhost:3002
+      responses:
+        '200':
+          description: Dependencies required by the service are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /drivers/otp/request:
+    post:
+      tags:
+      - Public
+      summary: Request Driver registration OTP
+      operationId: requestDriverOtp
+      servers: &id001
+      - url: http://localhost:8000/api/v1
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+      responses:
+        '200':
+          description: OTP generated; test environment writes OTP to service log
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /drivers/otp/verify:
+    post:
+      tags:
+      - Public
+      summary: Verify Driver OTP
+      operationId: verifyDriverOtp
+      servers: *id001
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+      responses:
+        '200':
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /drivers/register:
+    post:
+      tags:
+      - Public
+      summary: Submit Driver profile and Vehicle
+      operationId: registerDriver
+      servers: *id001
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverRegisterRequest'
+      responses:
+        '201':
+          description: Driver profile created in PENDING_APPROVAL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /drivers/{id}:
+    get:
+      tags:
+      - Public
+      summary: Get Driver profile
+      operationId: getDriver
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Driver profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /drivers/nearby:
+    get:
+      tags:
+      - Public
+      summary: Find nearby Drivers
+      operationId: findNearbyDrivers
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: query
+        name: lat
+        required: true
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - in: query
+        name: lng
+        required: true
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - in: query
+        name: radius
+        required: false
+        schema:
+          type: number
+          default: 1000
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+          - BUSY
+          default: ONLINE
+      - in: query
+        name: vehicleType
+        required: false
+        schema:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Drivers sorted by distanceM ascending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearbyDriversResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /drivers/me/location:
+    put:
+      tags:
+      - Public
+      summary: Update current Driver location
+      operationId: updateDriverLocation
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdate'
+      responses:
+        '200':
+          description: Latest location recorded
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /drivers/me/availability:
+    put:
+      tags:
+      - Public
+      summary: Switch Driver ONLINE/OFFLINE
+      operationId: updateDriverAvailability
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvailabilityUpdate'
+      responses:
+        '200':
+          description: Availability updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/drivers:
+    get:
+      tags:
+      - Public
+      summary: List Driver applications
+      operationId: listAdminDrivers
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - REJECTED
+          - OFFLINE
+          - ONLINE
+          - BUSY
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Driver application list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/drivers/{id}:
+    get:
+      tags:
+      - Public
+      summary: Get Driver application detail
+      operationId: getAdminDriver
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Driver application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/drivers/{id}/approve:
+    post:
+      tags:
+      - Public
+      summary: Approve Driver application
+      operationId: approveDriver
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Driver moved PENDING_APPROVAL -> OFFLINE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDecisionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/drivers/{id}/reject:
+    post:
+      tags:
+      - Public
+      summary: Reject Driver application
+      operationId: rejectDriver
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectDriverRequest'
+      responses:
+        '200':
+          description: Driver moved to REJECTED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDecisionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/drivers/nearby:
+    get:
+      tags:
+      - Internal
+      summary: Find eligible nearby Drivers for dispatch
+      operationId: internalNearbyDrivers
+      servers: &id002
+      - url: http://localhost:3002
+      security:
+      - serviceToken: []
+      parameters:
+      - in: query
+        name: lat
+        required: true
+        schema:
+          type: number
+      - in: query
+        name: lng
+        required: true
+        schema:
+          type: number
+      - in: query
+        name: radius
+        required: false
+        schema:
+          type: number
+      - in: query
+        name: vehicleType
+        required: true
+        schema:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+      - in: query
+        name: excludeIds
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+        style: form
+        explode: false
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Eligible ONLINE drivers; excludes reserved Drivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NearbyDriver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /internal/drivers/{id}/reservations:
+    post:
+      tags:
+      - Internal
+      summary: Reserve a Driver for an Offer
+      operationId: reserveDriver
+      servers: *id002
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationRequest'
+      responses:
+        default:
+          description: Reservation result; exact success status/body is not fixed in the documents.
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /internal/drivers/{id}/reservations/{bookingId}:
+    delete:
+      tags:
+      - Internal
+      summary: Release Driver reservation
+      operationId: releaseDriverReservation
+      servers: *id002
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - in: path
+        name: bookingId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        default:
+          description: Idempotent reservation release; exact success status/body is not fixed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /internal/drivers/{id}/busy:
+    post:
+      tags:
+      - Internal
+      summary: Move Driver ONLINE -> BUSY
+      operationId: markDriverBusy
+      servers: *id002
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusyRequest'
+      responses:
+        default:
+          description: Driver BUSY transition result; exact success status/body is not fixed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/drivers/{id}/summary:
+    get:
+      tags:
+      - Internal
+      summary: Get Driver display snapshot
+      operationId: getDriverSummary
+      servers: *id002
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Driver/vehicle summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      additionalProperties: true
+    ReadyResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+    Pagination:
+      type: object
+      required:
+      - page
+      - limit
+      - total
+      - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    VehicleInput:
+      type: object
+      required:
+      - vehicleType
+      - plateNumber
+      - brand
+      - model
+      - color
+      - manufactureYear
+      - seatCount
+      properties:
+        vehicleType:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+        plateNumber:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+        manufactureYear:
+          type: integer
+        seatCount:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    OtpRequest:
+      type: object
+      required:
+      - phone
+      properties:
+        phone:
+          type: string
+      additionalProperties: false
+    OtpVerifyRequest:
+      type: object
+      required:
+      - phone
+      - otp
+      properties:
+        phone:
+          type: string
+        otp:
+          type: string
+          pattern: ^[0-9]{6}$
+      additionalProperties: false
+    OtpVerifyResponse:
+      type: object
+      required:
+      - registrationToken
+      properties:
+        registrationToken:
+          type: string
+      additionalProperties: false
+    DriverRegisterRequest:
+      type: object
+      required:
+      - registrationToken
+      - phone
+      - password
+      - fullName
+      - dateOfBirth
+      - nationalId
+      - licenseNumber
+      - licenseClass
+      - licenseExpiryDate
+      - vehicle
+      properties:
+        registrationToken:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+          minLength: 8
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        dateOfBirth:
+          type: string
+          format: date
+        nationalId:
+          type: string
+        licenseNumber:
+          type: string
+        licenseClass:
+          type: string
+        licenseExpiryDate:
+          type: string
+          format: date
+        vehicle:
+          $ref: '#/components/schemas/VehicleInput'
+      additionalProperties: false
+    DriverRegisterResponse:
+      type: object
+      required:
+      - id
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+      additionalProperties: false
+    DriverProfile:
+      type: object
+      required:
+      - id
+      - fullName
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          description: Masked in profile responses.
+        dateOfBirth:
+          type: string
+          format: date
+        nationalId:
+          type: string
+          description: Masked.
+        licenseNumber:
+          type: string
+          description: Masked.
+        licenseClass:
+          type: string
+        licenseExpiryDate:
+          type: string
+          format: date
+        avatarUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - REJECTED
+          - OFFLINE
+          - ONLINE
+          - BUSY
+        rejectedReason:
+          type: string
+          nullable: true
+        ratingAvg:
+          type: number
+        completedTrips:
+          type: integer
+        currentTripId:
+          type: string
+          format: uuid
+          nullable: true
+        vehicle:
+          $ref: '#/components/schemas/VehicleInput'
+      additionalProperties: false
+    NearbyDriver:
+      type: object
+      required:
+      - id
+      - fullName
+      - status
+      - vehicleType
+      - lat
+      - lng
+      - distanceM
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        status:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+          - BUSY
+        vehicleType:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        distanceM:
+          type: number
+      additionalProperties: false
+    NearbyDriversResponse:
+      type: object
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NearbyDriver'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      additionalProperties: false
+    LocationUpdate:
+      type: object
+      required:
+      - lat
+      - lng
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+      additionalProperties: false
+    AvailabilityUpdate:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - ONLINE
+          - OFFLINE
+      additionalProperties: false
+    RejectDriverRequest:
+      type: object
+      required:
+      - rejectReason
+      properties:
+        rejectReason:
+          type: string
+      additionalProperties: false
+    DriverDecisionResponse:
+      type: object
+      required:
+      - id
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - OFFLINE
+          - REJECTED
+      additionalProperties: false
+    DriverListResponse:
+      type: object
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverProfile'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      additionalProperties: false
+    ReservationRequest:
+      type: object
+      required:
+      - bookingId
+      - ttlSec
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+        ttlSec:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    BusyRequest:
+      type: object
+      required:
+      - tripId
+      properties:
+        tripId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    DriverSummary:
+      type: object
+      required:
+      - fullName
+      - ratingAvg
+      - vehicle
+      properties:
+        fullName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        ratingAvg:
+          type: number
+        vehicle:
+          type: object
+          required:
+          - vehicleType
+          - plateNumber
+          - brand
+          - model
+          - color
+          properties:
+            vehicleType:
+              type: string
+              enum:
+              - BIKE
+              - SEDAN
+              - SUV
+            plateNumber:
+              type: string
+            brand:
+              type: string
+            model:
+              type: string
+            color:
+              type: string
+          additionalProperties: false
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication/service credential failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Role, permission or ownership denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Business state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Idempotency-Key reused with a different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Retry delay in seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Required downstream service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema:
+        type: string
+      description: Optional client request id; Gateway preserves a valid value or generates one.
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+      description: Required for POST /bookings and POST /payments; retained for 24 hours.
+    Signature:
+      in: header
+      name: X-Signature
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 signature of the raw callback body.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT, HS256, TTL 15 minutes.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Short-lived internal JWT with iss/aud; caller must be allowed for the endpoint.

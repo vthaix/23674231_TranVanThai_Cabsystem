@@ -1,0 +1,342 @@
+openapi: 3.0.3
+info:
+  title: CAB Customer Service
+  version: 1.0.0
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
+    /internal/** operations are service-to-service only.
+servers:
+- url: http://localhost:8000/api/v1
+  description: Gateway public API
+- url: http://localhost:3001
+  description: customer-service direct/internal testing when reachable
+tags:
+- name: Public
+  description: Client-facing API through Gateway
+- name: Internal
+  description: Service-to-service API; never expose through Gateway
+- name: Operational
+  description: Liveness/readiness endpoints
+paths:
+  /health:
+    get:
+      tags:
+      - Operational
+      summary: Liveness
+      operationId: getCABCustomerServiceHealth
+      servers:
+      - url: http://localhost:3001
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Operational
+      summary: Readiness
+      operationId: getCABCustomerServiceReady
+      servers:
+      - url: http://localhost:3001
+      responses:
+        '200':
+          description: Dependencies required by the service are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /customers/{id}:
+    get:
+      tags:
+      - Public
+      summary: Get Customer profile
+      operationId: getCustomer
+      servers:
+      - url: http://localhost:8000/api/v1
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Customer profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /internal/customers:
+    post:
+      tags:
+      - Internal
+      summary: Create Customer profile
+      operationId: createCustomerProfile
+      servers:
+      - url: http://localhost:3001
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '201':
+          description: Customer profile created or existing profile returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      additionalProperties: true
+    ReadyResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+    Pagination:
+      type: object
+      required:
+      - page
+      - limit
+      - total
+      - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    CustomerProfile:
+      type: object
+      required:
+      - id
+      - fullName
+      - email
+      - phone
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          description: Plain for owner; masked for authorized non-owner.
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        gender:
+          type: string
+          enum:
+          - MALE
+          - FEMALE
+          - OTHER
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+      additionalProperties: false
+    CreateCustomerRequest:
+      type: object
+      required:
+      - id
+      - fullName
+      - email
+      - phone
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication/service credential failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Role, permission or ownership denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Business state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Idempotency-Key reused with a different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Retry delay in seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Required downstream service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema:
+        type: string
+      description: Optional client request id; Gateway preserves a valid value or generates one.
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+      description: Required for POST /bookings and POST /payments; retained for 24 hours.
+    Signature:
+      in: header
+      name: X-Signature
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 signature of the raw callback body.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT, HS256, TTL 15 minutes.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Short-lived internal JWT with iss/aud; caller must be allowed for the endpoint.

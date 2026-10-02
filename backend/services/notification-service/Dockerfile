@@ -8,6 +8,7 @@ RUN cd services/notification-service && npm install --omit=dev
 
 COPY services/notification-service ./services/notification-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/notification-service
 

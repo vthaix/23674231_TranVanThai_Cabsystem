@@ -8,6 +8,7 @@ RUN cd services/payment-service && npm install --omit=dev
 
 COPY services/payment-service ./services/payment-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/payment-service
 

@@ -8,6 +8,7 @@ RUN cd services/booking-service && npm install --omit=dev
 
 COPY services/booking-service ./services/booking-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/booking-service
 

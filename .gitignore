@@ -1,7 +1,6 @@
 .DS_Store
 .env
-in_process.md
-practice.md
+.gitignore
 phieucham.md
 
 

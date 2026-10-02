@@ -1,0 +1,354 @@
+openapi: 3.0.3
+info:
+  title: CAB Notification Service
+  version: 1.0.0
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
+    /internal/** operations are service-to-service only.
+servers:
+- url: http://localhost:8000/api/v1
+  description: Gateway public API
+- url: http://localhost:3006
+  description: notification-service direct/internal testing when reachable
+tags:
+- name: Public
+  description: Client-facing API through Gateway
+- name: Internal
+  description: Service-to-service API; never expose through Gateway
+- name: Operational
+  description: Liveness/readiness endpoints
+paths:
+  /health:
+    get:
+      tags:
+      - Operational
+      summary: Liveness
+      operationId: getCABNotificationServiceHealth
+      servers:
+      - url: http://localhost:3006
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Operational
+      summary: Readiness
+      operationId: getCABNotificationServiceReady
+      servers:
+      - url: http://localhost:3006
+      responses:
+        '200':
+          description: Dependencies required by the service are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /notifications:
+    get:
+      tags:
+      - Public
+      summary: List notifications for authenticated user
+      operationId: listNotifications
+      servers: &id001
+      - url: http://localhost:8000/api/v1
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: query
+        name: unread
+        required: false
+        schema:
+          type: boolean
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Notifications filtered by recipientId from JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /notifications/{id}/read:
+    patch:
+      tags:
+      - Public
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Notification marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      additionalProperties: true
+    ReadyResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+    Pagination:
+      type: object
+      required:
+      - page
+      - limit
+      - total
+      - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    Notification:
+      type: object
+      required:
+      - id
+      - recipientId
+      - recipientRole
+      - eventId
+      - eventType
+      - title
+      - body
+      - locale
+      - channels
+      - isRead
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipientId:
+          type: string
+          format: uuid
+        recipientRole:
+          type: string
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        templateCode:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        locale:
+          type: string
+          enum:
+          - vi
+          - en
+        data:
+          type: object
+          additionalProperties: true
+        channels:
+          type: array
+          items:
+            type: string
+            enum:
+            - IN_APP
+            - PUSH
+            - EMAIL
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    NotificationsResponse:
+      type: object
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication/service credential failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Role, permission or ownership denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Business state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Idempotency-Key reused with a different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Retry delay in seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Required downstream service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema:
+        type: string
+      description: Optional client request id; Gateway preserves a valid value or generates one.
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+      description: Required for POST /bookings and POST /payments; retained for 24 hours.
+    Signature:
+      in: header
+      name: X-Signature
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 signature of the raw callback body.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT, HS256, TTL 15 minutes.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Short-lived internal JWT with iss/aud; caller must be allowed for the endpoint.

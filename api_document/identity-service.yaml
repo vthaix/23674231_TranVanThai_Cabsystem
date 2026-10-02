@@ -1,0 +1,428 @@
+openapi: 3.0.3
+info:
+  title: CAB Identity Service
+  version: 1.0.0
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
+    /internal/** operations are service-to-service only.
+servers:
+- url: http://localhost:8000/api/v1
+  description: Gateway public API
+- url: http://localhost:3000
+  description: identity-service direct/internal testing when reachable
+tags:
+- name: Public
+  description: Client-facing API through Gateway
+- name: Internal
+  description: Service-to-service API; never expose through Gateway
+- name: Operational
+  description: Liveness/readiness endpoints
+paths:
+  /health:
+    get:
+      tags:
+      - Operational
+      summary: Liveness
+      operationId: getCABIdentityServiceHealth
+      servers:
+      - url: http://localhost:3000
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+      - Operational
+      summary: Readiness
+      operationId: getCABIdentityServiceReady
+      servers:
+      - url: http://localhost:3000
+      responses:
+        '200':
+          description: Dependencies required by the service are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/register:
+    post:
+      tags:
+      - Public
+      summary: Register a Customer account
+      operationId: registerCustomer
+      servers:
+      - url: http://localhost:8000/api/v1
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account and Customer profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/login:
+    post:
+      tags:
+      - Public
+      summary: Login and receive a JWT
+      operationId: login
+      servers:
+      - url: http://localhost:8000/api/v1
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated; response contains JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /internal/accounts:
+    post:
+      tags:
+      - Internal
+      summary: Create Driver account
+      operationId: createDriverAccount
+      servers:
+      - url: http://localhost:3000
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDriverAccountRequest'
+      responses:
+        '201':
+          description: Driver account created; idempotent by accountId
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/roles/{role}/permissions:
+    get:
+      tags:
+      - Internal
+      summary: Get permissions for a role
+      operationId: getRolePermissions
+      servers:
+      - url: http://localhost:3000
+      security:
+      - serviceToken: []
+      parameters:
+      - in: path
+        name: role
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Permissions for Gateway RBAC
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      additionalProperties: true
+    ReadyResponse:
+      type: object
+      required:
+      - status
+      - service
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+    Pagination:
+      type: object
+      required:
+      - page
+      - limit
+      - total
+      - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    RegisterRequest:
+      type: object
+      required:
+      - fullName
+      - email
+      - phone
+      - password
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+          minLength: 8
+      additionalProperties: false
+    RegisterResponse:
+      type: object
+      required:
+      - accountId
+      properties:
+        accountId:
+          type: string
+          format: uuid
+      additionalProperties: false
+    LoginRequest:
+      oneOf:
+      - type: object
+        required:
+        - email
+        - password
+        properties:
+          email:
+            type: string
+            format: email
+          password:
+            type: string
+        additionalProperties: false
+      - type: object
+        required:
+        - phone
+        - password
+        properties:
+          phone:
+            type: string
+          password:
+            type: string
+        additionalProperties: false
+    LoginResponse:
+      type: object
+      description: SRS requires the response to contain a JWT, but the exact JSON property name is not specified. Keep this
+        shape unresolved until implementation fixes the field name.
+      additionalProperties: true
+      x-unresolved: JWT response property name
+    CreateDriverAccountRequest:
+      type: object
+      required:
+      - accountId
+      - phone
+      - password
+      - displayName
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+      additionalProperties: false
+    PermissionsResponse:
+      type: object
+      description: Gateway loads role permissions; the exact response envelope is not fixed in the documents.
+      additionalProperties: true
+      x-unresolved: Exact permission response envelope
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication/service credential failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Role, permission or ownership denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Business state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unprocessable:
+      description: Idempotency-Key reused with a different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Retry delay in seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Required downstream service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    RequestId:
+      in: header
+      name: X-Request-Id
+      required: false
+      schema:
+        type: string
+      description: Optional client request id; Gateway preserves a valid value or generates one.
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+      description: Required for POST /bookings and POST /payments; retained for 24 hours.
+    Signature:
+      in: header
+      name: X-Signature
+      required: true
+      schema:
+        type: string
+      description: HMAC-SHA256 signature of the raw callback body.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT, HS256, TTL 15 minutes.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Short-lived internal JWT with iss/aud; caller must be allowed for the endpoint.

@@ -31,6 +31,7 @@ services:
       PORT: 3000
       SERVICE_NAME: identity-service
       NODE_ENV: development
+      SEED_ON_START: ${SEED_ON_START:-true}
       DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@identity-db:5432/identity_db
       KAFKA_BROKERS: kafka:9092
     networks:
@@ -51,6 +52,7 @@ services:
       PORT: 3001
       SERVICE_NAME: customer-service
       NODE_ENV: development
+      SEED_ON_START: ${SEED_ON_START:-true}
       DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@customer-db:5432/customer_db
     networks:
       - cab-internal
@@ -163,6 +165,53 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+
+  mock-payment-provider:
+    build:
+      context: .
+      dockerfile: mocks/mock-payment-provider/Dockerfile
+    container_name: cab-mock-payment-provider
+    environment:
+      PORT: 4001
+      PAYMENT_CALLBACK_SECRET: ${PAYMENT_CALLBACK_SECRET:-dev-callback-secret-key-32b!}
+      MOCK_CALLBACK_DELAY_MS: ${MOCK_CALLBACK_DELAY_MS:-1000}
+    networks:
+      - cab-internal
+    restart: unless-stopped
+
+  mock-map-provider:
+    build:
+      context: .
+      dockerfile: mocks/mock-map-provider/Dockerfile
+    container_name: cab-mock-map-provider
+    environment:
+      PORT: 4002
+    networks:
+      - cab-internal
+    restart: unless-stopped
+
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: cab-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - cab-internal
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: |
+      "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic identity.events --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic driver.events --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic driver.location --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic booking.events --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic trip.events --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payment.events --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic notification.commands --replication-factor 1 --partitions 3
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic notification.dlq --replication-factor 1 --partitions 1
+      echo 'Kafka topics created'
+      "
+
 
   # =========================
   # POSTGRESQL

@@ -8,6 +8,7 @@ RUN cd services/trip-service && npm install --omit=dev
 
 COPY services/trip-service ./services/trip-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/trip-service
 

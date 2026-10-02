@@ -8,6 +8,7 @@ RUN cd services/identity-service && npm install --omit=dev
 
 COPY services/identity-service ./services/identity-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/identity-service
 

@@ -8,6 +8,7 @@ RUN cd services/customer-service && npm install --omit=dev
 
 COPY services/customer-service ./services/customer-service
 COPY shared ./shared
+RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/customer-service
 

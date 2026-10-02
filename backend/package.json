@@ -13,6 +13,7 @@
   },
   "scripts": {
     "test": "npm run test --workspaces --if-present",
+    "smoke:pc6-pc30": "node smoke/pc6-pc30.mjs",
     "dev": "echo \"Use docker compose for the full system\""
   },
   "dependencies": {
