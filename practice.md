@@ -26,6 +26,8 @@ npm run smoke:pc6-pc30
 
 Kết quả cần thấy là `25/25 criteria passed`. Script tạo dữ liệu test riêng cho mỗi lần chạy và không xóa volume. Chi tiết ở `smoke/README.md`.
 
+PC2 (kiểm tra `.gitignore` và `.env` **trên GitHub**) chưa được ghi là đã đạt trong tài liệu này vì chưa đối chiếu repository trên GitHub; chỉ kiểm tra file tại máy không đủ để kết luận phần “trên GitHub”.
+
 # KỊCH BẢN BÁO CÁO CÁC TIÊU CHÍ ĐÃ PASS
 
 ## PC1 – Source Code Architecture
@@ -37,7 +39,7 @@ Kết quả cần thấy là `25/25 criteria passed`. Script tạo dữ liệu t
 **CLI:**
 
 ```bash
-find services -maxdepth 2 -type f \( -name "package.json" -o -name "index.js" \) | sort
+rg --files services | rg '/(package.json|src/index.js)$' | sort
 ```
 
 **Giải thích ngắn:**
@@ -47,6 +49,61 @@ find services -maxdepth 2 -type f \( -name "package.json" -o -name "index.js" \)
 **Kết luận:**
 
 “PC1 đạt.”
+
+---
+
+## PC3 – Nhiệm vụ của Gateway
+
+**Thông báo:**
+
+“Em chuyển sang tiêu chí PC3 – Gateway.”
+
+**CLI/Postman:**
+
+```bash
+curl -i http://localhost:8000/health
+curl -i 'http://localhost:8000/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1'
+curl -i http://localhost:8000/api/v1/bookings
+```
+
+**Cần thấy:** `/health` trả HTTP 200; `/api/v1/drivers/nearby` trả dữ liệu từ driver-service qua Gateway; `/api/v1/bookings` không có Bearer token trả HTTP 401. Ở PC27–PC29 sẽ kiểm tra thêm Gateway xác minh JWT, chặn Customer gọi API Driver/Admin (403) và rate limit (429).
+
+**Giải thích:**
+
+“Gateway là điểm vào public của hệ thống. Nó định tuyến `/api/v1/auth`, `/customers`, `/drivers`, `/bookings`, `/offers`, `/trips`, `/payments`, `/notifications` tới service tương ứng; đồng thời gắn request ID, xác minh token, kiểm tra quyền và giới hạn tần suất request.”
+
+**Kết luận:**
+
+“PC3 đạt khi route qua Gateway hoạt động và các lớp kiểm soát ở PC27–PC29 trả đúng mã lỗi.”
+
+---
+
+## PC4 – IPC giữa các microservice
+
+**Thông báo:**
+
+“Em chuyển sang tiêu chí PC4 – Inter-Process Communication.”
+
+**Cách tự kiểm tra:**
+
+1. Làm PC9: đăng ký Customer ở Gateway. Identity-service gọi `POST /internal/customers` của customer-service để tạo profile. PC11 phải đọc được profile cùng ID; đây là IPC đồng bộ bằng HTTP nội bộ và service token.
+2. Làm PC15–PC16: booking-service gọi driver-service tìm tài xế và giữ chỗ, rồi gọi `POST /internal/trips` của trip-service khi Driver nhận offer. PC16 phải trả `tripId`, PC17 phải đọc được trip đó.
+3. Làm PC19: payment-service gọi `GET /internal/trips/:id` để kiểm tra trip và `POST /internal/trips/:id/payment-status` sau callback. Kết quả trip đổi `paymentStatus` thành `PAID`.
+4. Làm PC18/PC22: các service ghi outbox, relay publish event lên Kafka, notification-service consume rồi tạo notification. Kiểm tra `GET /api/v1/notifications` bằng token người nhận.
+
+**CLI xem bằng chứng Kafka:**
+
+```bash
+docker compose logs --tail=30 booking-service trip-service driver-service notification-service
+```
+
+**Giải thích:**
+
+“Các lệnh cần kết quả tức thời dùng HTTP nội bộ và service JWT. Những thay đổi trạng thái cần thông báo dùng outbox → Kafka topic → notification-service. Client bên ngoài vẫn gọi qua Gateway.”
+
+**Kết luận:**
+
+“PC4 đạt khi luồng xuyên service tạo đúng profile/trip/payment và notification nhận được event.”
 
 ---
 
