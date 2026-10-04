@@ -1,4 +1,4 @@
-const { decrypt } = require("../../../../shared/src/crypto/index");
+const { decrypt, encrypt, hashPhone } = require("../../../../shared/src/crypto/index");
 const customerRepository = require("../repositories/customer.repository");
 const { maskPhone } = require("../utils/maskPhone");
 
@@ -35,6 +35,7 @@ async function getCustomerById(id, user) {
     avatarUrl: customer.avatar_url,
     status: customer.status,
     createdAt: customer.created_at,
+    updatedAt: customer.updated_at,
   };
 }
 
@@ -42,9 +43,16 @@ async function createCustomerProfile(data) {
   const { id } = data;
   if (await customerRepository.existsById(id)) return { id };
 
+  if (data.phone && hashPhone(data.phone) !== data.phoneHash) {
+    throw Object.assign(new Error("Phone hash does not match phone"), { status: 400, code: "VALIDATION_ERROR" });
+  }
+
   try {
-    // Identity supplies a phone hash only; the plaintext phone is unavailable here.
-    await customerRepository.createCustomer({ ...data, email: data.email.toLowerCase() });
+    await customerRepository.createCustomer({
+      ...data,
+      phoneEnc: data.phone ? encrypt(data.phone) : null,
+      email: data.email.toLowerCase()
+    });
   } catch (err) {
     if (err.code !== "23505") throw err;
   }
@@ -52,4 +60,22 @@ async function createCustomerProfile(data) {
   return { id };
 }
 
-module.exports = { getCustomerById, createCustomerProfile };
+async function listCustomers({ page, limit, offset }) {
+  const [customers, total] = await Promise.all([
+    customerRepository.listCustomers({ limit, offset }),
+    customerRepository.countCustomers()
+  ]);
+
+  return {
+    data: customers.map(customer => ({
+      id: customer.id,
+      fullName: customer.full_name,
+      email: customer.email,
+      status: customer.status,
+      createdAt: customer.created_at
+    })),
+    pagination: { page, limit, total }
+  };
+}
+
+module.exports = { getCustomerById, createCustomerProfile, listCustomers };

@@ -19,6 +19,18 @@ function compose(args, input) {
   return r.stdout.trim();
 }
 
+function dbScalar(service, sql, id) {
+  const script = `
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    client.connect()
+      .then(() => client.query(process.argv[1], [process.argv[2]]))
+      .then(result => { console.log(result.rows[0]?.value ?? ''); return client.end(); })
+      .catch(error => { console.error(error.message); process.exitCode = 1; });
+  `;
+  return compose(['exec', '-T', `${service}-service`, 'node', '-e', script, sql, id]);
+}
+
 async function call(method, path, body, token, extra = {}) {
   const headers = {
     'x-forwarded-for': `cab-smoke-${runId}-${++requestNo}`,
@@ -81,17 +93,18 @@ function bookingPayload(lat = 10.7901, lng = 106.7101) {
 }
 
 async function makeDriver(suffix) {
-  const phone = `+849${String(BigInt(`0x${runId}`) % 100000000n).padStart(8, '0')}${suffix}`;
+  const phone = `09${String(BigInt(`0x${runId}`) % 10000000n).padStart(7, '0')}${suffix}`;
+  const password = `SmokeDriver@${runId}${suffix}`;
   const otp = status(await call('POST', '/api/v1/drivers/otp/request', { phone }), 200)._dev_otp;
   assert.match(otp, /^\d{6}$/);
   const verified = status(await call('POST', '/api/v1/drivers/otp/verify', { phone, otp }), 200);
   const profile = status(await call('POST', '/api/v1/drivers/register', {
-    registrationToken: verified.registrationToken, phone, fullName: `Smoke Driver ${runId}${suffix}`,
+    registrationToken: verified.registrationToken, phone, password, fullName: `Smoke Driver ${runId}${suffix}`,
     nationalId: `0${runId}${suffix}`.slice(0, 12), licenseNumber: `SMOKE-${runId}-${suffix}`,
     licenseClass: 'A1', licenseExpiryDate: '2035-01-01',
     vehicle: { vehicleType: 'BIKE', plateNumber: `SM-${runId}-${suffix}`, brand: 'Honda', model: 'Wave' }
   }), 201);
-  return { ...profile, phone };
+  return { ...profile, phone, password };
 }
 
 await check(6, 'health, ready, seven services', async () => {
@@ -111,16 +124,21 @@ await check(7, 'Kafka publish and consume', async () => {
   assert(message.includes(`smoke-${runId}`));
 });
 
-await check(8, 'only gateway exposes a host port', async () => {
+await check(8, 'only gateway exposes the HTTP API port', async () => {
   const config = JSON.parse(compose(['config', '--format', 'json']));
-  const exposed = Object.entries(config.services).filter(([, svc]) => svc.ports?.length).map(([name]) => name);
-  assert.deepEqual(exposed, ['gateway']);
+  const apiServices = ['gateway', 'identity-service', 'customer-service', 'driver-service',
+    'booking-service', 'trip-service', 'payment-service', 'notification-service'];
+  for (const name of apiServices) {
+    const ports = config.services[name]?.ports || [];
+    assert.equal(ports.length, name === 'gateway' ? 1 : 0, `${name} host ports`);
+  }
+  assert.equal(config.services.gateway.ports[0].published, '8000');
 });
 
 await check(9, 'register customer', async () => {
   customer = status(await call('POST', '/api/v1/auth/register', {
     fullName: `Smoke Customer ${runId}`, email: `smoke-${runId}@example.test`,
-    phone: `+848${String(BigInt(`0x${runId}`) % 100000000n).padStart(8, '0')}`,
+    phone: `08${String(BigInt(`0x${runId}`) % 100000000n).padStart(8, '0')}`,
     password: 'SmokePass@123!'
   }), 201);
   assert.equal(customer.status, 'ACTIVE');
@@ -135,11 +153,23 @@ await check(10, 'customer and admin login', async () => {
   }), 200);
   assert.equal(admin.role, 'ADMIN');
   adminToken = admin.token;
+  const adminMe = status(await call('GET', '/api/v1/admin/me', undefined, adminToken), 200);
+  assert.equal(adminMe.id, admin.accountId);
+  assert.equal(adminMe.role, 'ADMIN');
+  assert.equal(adminMe.password_hash, undefined);
+  status(await call('GET', '/api/v1/admin/me'), 401);
+  status(await call('GET', '/api/v1/admin/me', undefined, customerToken), 403);
 });
 
 await check(11, 'customer profile via JWT', async () => {
   const profile = status(await call('GET', `/api/v1/customers/${customer.id}`, undefined, customerToken), 200);
   assert.equal(profile.id, customer.id);
+  const own = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200);
+  assert.equal(own.id, customer.id);
+  assert.equal(own.phone, `08${String(BigInt(`0x${runId}`) % 100000000n).padStart(8, '0')}`);
+  assert.equal(own.phone_hash, undefined);
+  status(await call('GET', '/api/v1/customers/me'), 401);
+  status(await call('GET', '/api/v1/customers/me', undefined, adminToken), 403);
 });
 
 await check(12, 'driver profile and masked phone', async () => {
@@ -149,7 +179,7 @@ await check(12, 'driver profile and masked phone', async () => {
 });
 
 await check(13, 'five seeded drivers, 1 km radius and paging', async () => {
-  const list = status(await call('GET', '/api/v1/admin/drivers?limit=50', undefined, adminToken), 200);
+  const list = status(await call('GET', '/api/v1/drivers?limit=50', undefined, adminToken), 200);
   assert(list.pagination.total >= 5);
   const page1 = status(await call('GET', '/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1&page=1'), 200);
   const page2 = status(await call('GET', '/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1&page=2'), 200);
@@ -177,14 +207,33 @@ await check(14, 'five customer bookings with paging', async () => {
 await check(21, 'driver OTP and registration', async () => {
   driver = await makeDriver('1');
   assert.equal(driver.status, 'PENDING_APPROVAL');
+  status(await call('POST', '/api/v1/auth/login', { phone: driver.phone, password: driver.password }), 401);
 });
 
 await check(22, 'admin approves driver', async () => {
-  const pending = status(await call('GET', '/api/v1/admin/drivers?status=PENDING_APPROVAL', undefined, adminToken), 200);
+  const pending = status(await call('GET', '/api/v1/drivers?status=PENDING_APPROVAL', undefined, adminToken), 200);
   assert(pending.data.some(d => d.id === driver.id));
-  const approved = status(await call('POST', `/api/v1/admin/drivers/${driver.id}/approve`, {}, adminToken), 200);
+  status(await call('GET', '/api/v1/drivers', undefined, customerToken), 403);
+  status(await call('GET', `/api/v1/drivers/${driver.id}/application`, undefined, customerToken), 403);
+  status(await call('POST', `/api/v1/drivers/${driver.id}/approve`, {}, customerToken), 403);
+  status(await call('POST', `/api/v1/drivers/${driver.id}/reject`, { reason: 'Not authorized' }, customerToken), 403);
+  const application = status(await call('GET', `/api/v1/drivers/${driver.id}/application`, undefined, adminToken), 200);
+  assert.equal(application.id, driver.id);
+  const approved = status(await call('POST', `/api/v1/drivers/${driver.id}/approve`, {}, adminToken), 200);
   assert.equal(approved.status, 'OFFLINE');
-  driverToken = status(await call('POST', '/api/v1/auth/login', { phone: driver.phone, password: 'DriverPass@123' }), 200).token;
+  driverToken = status(await call('POST', '/api/v1/auth/login', { phone: driver.phone, password: driver.password }), 200).token;
+  const ownDriver = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200);
+  assert.equal(ownDriver.id, driver.id);
+  assert.equal(ownDriver.phone, driver.phone);
+  assert(ownDriver.nationalId && ownDriver.licenseNumber);
+  assert.equal(ownDriver.phone_hash, undefined);
+  status(await call('GET', '/api/v1/drivers/me'), 401);
+  status(await call('GET', '/api/v1/drivers/me', undefined, customerToken), 403);
+  status(await call('GET', '/api/v1/drivers/me', undefined, adminToken), 403);
+  const rejectedDriver = await makeDriver('3');
+  status(await call('POST', `/api/v1/drivers/${rejectedDriver.id}/reject`, { reason: 'Smoke rejection' }, adminToken), 200);
+  status(await call('POST', '/api/v1/auth/login', { phone: rejectedDriver.phone, password: rejectedDriver.password }), 401);
+  assert.equal(dbScalar('identity', 'SELECT id AS value FROM accounts WHERE id = $1', rejectedDriver.id), '');
   let notified = false;
   for (let i = 0; i < 10; i++) {
     const notifications = status(await call('GET', '/api/v1/notifications', undefined, driverToken), 200);
@@ -269,9 +318,9 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
   assert.equal(listed.data.find(x => x.id === b.id)?.status, 'CANCELED');
 
   const cancelDriver = await makeDriver('2');
-  status(await call('POST', `/api/v1/admin/drivers/${cancelDriver.id}/approve`, {}, adminToken), 200);
+  status(await call('POST', `/api/v1/drivers/${cancelDriver.id}/approve`, {}, adminToken), 200);
   const cancelToken = status(await call('POST', '/api/v1/auth/login', {
-    phone: cancelDriver.phone, password: 'DriverPass@123'
+    phone: cancelDriver.phone, password: cancelDriver.password
   }), 200).token;
   status(await call('PUT', '/api/v1/drivers/me/location', { latitude: 10.8001, longitude: 106.7201 }, cancelToken), 200);
   status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'ONLINE' }, cancelToken), 200);
@@ -299,11 +348,10 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
 });
 
 await check(24, 'password hash and encrypted sensitive columns at rest', async () => {
-  const passwordHash = compose(['exec', '-T', 'identity-db', 'psql', '-U', 'identity', '-d', 'identity_db', '-At', '-c',
-    `SELECT password_hash FROM accounts WHERE id = '${customer.id}'`]);
+  const passwordHash = dbScalar('identity', 'SELECT password_hash AS value FROM accounts WHERE id = $1', customer.id);
   assert(passwordHash.startsWith('$2'), 'password must be bcrypt hashed');
-  const sensitive = compose(['exec', '-T', 'driver-db', 'psql', '-U', 'driver', '-d', 'driver_db', '-At', '-c',
-    `SELECT phone_enc || '|' || national_id_enc || '|' || license_number_enc FROM drivers WHERE id = '${driver.id}'`]);
+  const sensitive = dbScalar('driver',
+    "SELECT phone_enc || '|' || national_id_enc || '|' || license_number_enc AS value FROM drivers WHERE id = $1", driver.id);
   const columns = sensitive.split('|');
   assert.equal(columns.length, 3);
   assert(columns.every(x => x.startsWith('enc:v1:') && !x.includes(driver.phone)));
@@ -329,11 +377,13 @@ await check(27, 'JWT payload tampering returns 401', async () => {
   const parts = customerToken.split('.');
   const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
   parts[1] = Buffer.from(JSON.stringify({ ...payload, role: 'ADMIN' })).toString('base64url');
-  status(await call('GET', '/api/v1/admin/drivers', undefined, parts.join('.')), 401);
+  status(await call('GET', '/api/v1/drivers', undefined, parts.join('.')), 401);
 });
 
 await check(28, 'customer cannot use driver-only API', async () => {
   status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'ONLINE' }, customerToken), 403);
+  status(await call('GET', '/api/v1/drivers', undefined, customerToken), 403);
+  status(await call('GET', '/api/v1/customers', undefined, customerToken), 403);
 });
 
 await check(29, 'request flood receives 429', async () => {

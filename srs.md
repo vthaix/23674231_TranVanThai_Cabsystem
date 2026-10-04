@@ -394,7 +394,7 @@ Môi trường test phải seed ít nhất một Account cho Admin, Board và t�
 | `licenseNumber`, `licenseClass`, `licenseExpiryDate` | bắt buộc; bằng lái hết hạn bị từ chối |
 | `vehicle` | bắt buộc: `vehicleType`, `plateNumber` (unique), `brand`, `model`, `color`, `manufactureYear`, `seatCount` |
 
-Kết quả: Account (role `DRIVER`) và hồ sơ Driver `PENDING_APPROVAL`. Driver chưa được duyệt không thể `ONLINE`.
+Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driver `PENDING_APPROVAL`. Driver chưa được duyệt không thể đăng nhập hoặc chuyển `ONLINE`; duyệt thì Account `ACTIVE`, từ chối thì Account bị xoá.
 
 # 7. State Machine
 
@@ -537,8 +537,8 @@ PC1, PC2 và PC4 là các tiêu chí kỹ thuật/quality attribute nên đượ
 | Mã | Yêu cầu | PC# |
 |---|---|:-:|
 | FR-A01 | Administrator xem danh sách hồ sơ Driver chờ duyệt | 22 |
-| FR-A02 | Administrator duyệt hồ sơ Driver; Driver chuyển từ `PENDING_APPROVAL` sang `OFFLINE`, ghi Audit và phát `driver.approved` | 22 |
-| FR-A03 | Administrator từ chối hồ sơ Driver, ghi `rejectReason`, phát `driver.rejected` và ghi Audit; Driver chuyển `REJECTED` | 22 |
+| FR-A02 | Administrator duyệt hồ sơ Driver; Driver chuyển từ `PENDING_APPROVAL` sang `OFFLINE`, kích hoạt Account, ghi Audit và phát `driver.approved` | 22 |
+| FR-A03 | Administrator từ chối hồ sơ Driver, ghi `rejectReason`, phát `driver.rejected` và ghi Audit; Driver chuyển `REJECTED`, Account bị xoá | 22 |
 | FR-A04 | Administrator khóa/mở khóa Account |  |
 | FR-A05 | Administrator quản lý trạng thái Account |  |
 | FR-A06 | Administrator gán/quản lý Role và Permission |  |
@@ -1246,7 +1246,7 @@ Các giá trị là mặc định cho môi trường test; có thể cấu hình
 | 19 | `POST /payments`, `POST /payments/callback`, `GET /payments/{id}` |
 | 20 | `POST /trips/{id}/reviews` |
 | 21 | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register` |
-| 22 | `GET /admin/drivers?status=PENDING_APPROVAL`, `GET /admin/drivers/{id}`, `POST /admin/drivers/{id}/approve`, `POST /admin/drivers/{id}/reject` |
+| 22 | `GET /drivers?status=PENDING_APPROVAL`, `GET /drivers/{id}/application`, `POST /drivers/{id}/approve`, `POST /drivers/{id}/reject` |
 | 23 | `PUT /drivers/me/availability` |
 | bổ sung | `GET /trips/{id}/location`, `GET /notifications`, `PATCH /notifications/{id}/read` |
 
@@ -1273,8 +1273,10 @@ Các giá trị là mặc định cho môi trường test; có thể cấu hình
 | `POST /bookings` | ✓ | ✗ | ✗ | ✗ | ✗ |
 | `POST /offers/{id}/accept` | ✗ | own | ✗ | ✗ | ✗ |
 | `PATCH /trips/{id}/status` | ✗ | own | ✗ | ✗ | ✗ |
-| `GET /admin/drivers` | ✗ | ✗ | ✗ | ✓ | ✗ |
-| `POST /admin/drivers/{id}/approve` | ✗ | ✗ | ✗ | ✓ | ✗ |
+| `GET /drivers` | ✗ | ✗ | ✗ | ✓ | ✗ |
+| `GET /drivers/{id}/application` | ✗ | ✗ | ✗ | ✓ | ✗ |
+| `POST /drivers/{id}/approve` | ✗ | ✗ | ✗ | ✓ | ✗ |
+| `POST /drivers/{id}/reject` | ✗ | ✗ | ✗ | ✓ | ✗ |
 | `GET /reports/*` | ✗ | ✗ | ✗ | ✗ | ✓ |
 
 Employee phải được kiểm tra thêm bằng permission cụ thể; `OPERATIONS_STAFF` không mặc nhiên có quyền Finance/Admin.

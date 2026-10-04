@@ -9,7 +9,7 @@ function validateRegistration({ fullName, email, phone, password }) {
     errors.push("email must be a valid email address");
   }
   if (!phone || !isValidPhone(phone)) {
-    errors.push("phone must be a valid E.164 phone number (e.g. +84901234567)");
+    errors.push("phone must contain exactly 10 digits");
   }
   if (!isValidPassword(password)) {
     errors.push("password must be at least 8 characters");

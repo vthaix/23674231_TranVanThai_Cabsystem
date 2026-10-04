@@ -39,16 +39,17 @@ async function postDriversRegister(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-async function getAdminDrivers(req, res) {
-  const result = await service.getAdminDrivers({
-    headers: req.headers,
-    body: req.body,
-    params: req.params,
+async function getDrivers(req, res) {
+  const result = await service.getDrivers({
     query: req.query,
     user: req.user,
-    requestId: req.requestId,
-    rawBody: req.rawBody
+    requestId: req.requestId
   });
+  return res.status(result.status).json(result.body);
+}
+
+async function getDriversMe(req, res) {
+  const result = await service.getDriversMe({ user: req.user, requestId: req.requestId });
   return res.status(result.status).json(result.body);
 }
 
@@ -208,4 +209,4 @@ async function getInternalDriversIdSummary(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getAdminDrivers, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };
+module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };

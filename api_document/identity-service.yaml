@@ -109,6 +109,27 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /admin/me:
+    get:
+      tags: [Public]
+      summary: Get logged-in Admin account profile
+      operationId: getAdminMe
+      servers:
+      - url: http://localhost:8000/api/v1
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Admin account fields excluding credentials and hashes
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /internal/accounts:
     post:
       tags:
@@ -129,13 +150,47 @@ paths:
               $ref: '#/components/schemas/CreateDriverAccountRequest'
       responses:
         '201':
-          description: Driver account created; idempotent by accountId
+          description: Driver account created in PENDING; activated after approval
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /internal/accounts/{id}/activate:
+    post:
+      tags: [Internal]
+      summary: Activate approved Driver account
+      operationId: activateDriverAccount
+      servers:
+      - url: http://localhost:3000
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Driver account ACTIVE
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /internal/accounts/{id}:
+    delete:
+      tags: [Internal]
+      summary: Delete rejected Driver account
+      operationId: deleteDriverAccount
+      servers:
+      - url: http://localhost:3000
+      security:
+      - serviceToken: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Driver account deleted or already absent
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /internal/roles/{role}/permissions:
     get:
       tags:
@@ -246,6 +301,7 @@ components:
           format: email
         phone:
           type: string
+          pattern: '^[0-9]{10}$'
         password:
           type: string
           minLength: 8
@@ -279,6 +335,7 @@ components:
         properties:
           phone:
             type: string
+            pattern: '^[0-9]{10}$'
           password:
             type: string
         additionalProperties: false
@@ -301,6 +358,7 @@ components:
           format: uuid
         phone:
           type: string
+          pattern: '^[0-9]{10}$'
         email:
           type: string
           format: email

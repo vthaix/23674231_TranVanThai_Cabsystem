@@ -128,6 +128,42 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /drivers:
+    get:
+      tags:
+      - Public
+      summary: List drivers (ADMIN only)
+      operationId: listDrivers
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum: [PENDING_APPROVAL, REJECTED, OFFLINE, ONLINE, BUSY]
+      - $ref: '#/components/parameters/Page'
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paginated driver list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /drivers/{id}:
     get:
       tags:
@@ -218,6 +254,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /drivers/me:
+    get:
+      tags: [Public]
+      summary: Get logged-in Driver profile
+      operationId: getDriverMe
+      servers: *id001
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Driver profile including own phone, documents, vehicle and location
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /drivers/me/location:
     put:
       tags:
@@ -272,44 +330,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
-  /admin/drivers:
-    get:
-      tags:
-      - Public
-      summary: List Driver applications
-      operationId: listAdminDrivers
-      servers: *id001
-      security:
-      - bearerAuth: []
-      parameters:
-      - in: query
-        name: status
-        required: false
-        schema:
-          type: string
-          enum:
-          - PENDING_APPROVAL
-          - REJECTED
-          - OFFLINE
-          - ONLINE
-          - BUSY
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Limit'
-      - $ref: '#/components/parameters/RequestId'
-      responses:
-        '200':
-          description: Driver application list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DriverListResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /admin/drivers/{id}:
+  /drivers/{id}/application:
     get:
       tags:
       - Public
@@ -334,7 +355,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /admin/drivers/{id}/approve:
+  /drivers/{id}/approve:
     post:
       tags:
       - Public
@@ -361,7 +382,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /admin/drivers/{id}/reject:
+  /drivers/{id}/reject:
     post:
       tags:
       - Public
@@ -669,6 +690,7 @@ components:
       properties:
         phone:
           type: string
+          pattern: '^[0-9]{10}$'
       additionalProperties: false
     OtpVerifyRequest:
       type: object
@@ -678,6 +700,7 @@ components:
       properties:
         phone:
           type: string
+          pattern: '^[0-9]{10}$'
         otp:
           type: string
           pattern: ^[0-9]{6}$
@@ -708,9 +731,11 @@ components:
           type: string
         phone:
           type: string
+          pattern: '^[0-9]{10}$'
         password:
           type: string
           minLength: 8
+          maxLength: 128
         fullName:
           type: string
         email:

@@ -18,6 +18,8 @@ Tất cả request Postman bên dưới ghi URL đầy đủ của Gateway `http
 
 **Cách nhập request trong Postman:** chọn đúng method và URL ở từng PC; với JSON chọn **Body → raw → JSON** (Postman sẽ gửi `Content-Type: application/json`). Với request cần token, chọn **Authorization → Bearer Token** và nhập biến như `{{customerToken}}`; hoặc thêm header `Authorization: Bearer {{customerToken}}`. GET không có body. Mọi URL công khai bên dưới đi qua Gateway; đường `/internal/...` chỉ dành cho service trong Docker network, không gửi trực tiếp từ Postman trên host. Tạo environment các biến `otp`, `registrationToken`, `customerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `offerId`, `tripId`, `paymentId`, `providerTransactionId`, `paymentAmount`, `cancelBookingId`, `cancelTripId`. Khi có response, sao chép đúng trường được hướng dẫn vào biến tương ứng. Giữa các lần demo nên đổi email, phone, CCCD, biển số và `Idempotency-Key` để tránh trùng dữ liệu.
 
+**Số điện thoại:** nhập chuỗi đúng 10 chữ số, ví dụ `0912345001`; không thêm `+84`, khoảng trắng hoặc dấu phân cách. Quy tắc này áp dụng cho đăng ký, OTP và đăng nhập bằng số điện thoại.
+
 Kiểm tra Gateway và 7 service:
 
 ```bash
@@ -280,7 +282,7 @@ Thứ tự thử thuận tiện: PC9–PC14 → PC21–PC23 → PC15–PC20 → 
 {
   "fullName": "Khach Hang Demo",
   "email": "khachdemo01@example.com",
-  "phone": "+84912345001",
+  "phone": "0912345001",
   "password": "DemoPass@123"
 }
 ```
@@ -316,6 +318,8 @@ pm.environment.set("customerId", pm.response.json().id);
 
 Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin vào `adminToken`. Có thể dùng script Tests `pm.environment.set("customerToken", pm.response.json().token)` hoặc đổi tên biến thành `adminToken` trong request Admin.
 
+**Xem tài khoản Admin đang đăng nhập:** `GET http://localhost:8000/api/v1/admin/me` với `Bearer {{adminToken}}`, không body. Response có `id`, `email`, `displayName`, `role: "ADMIN"`, `status` và các mốc thời gian. Không có token trả HTTP 401; token Customer/Driver trả HTTP 403. API không trả mật khẩu hoặc hash.
+
 **Kết luận:** “PC10 đạt khi token hợp lệ được cấp cho tài khoản đang hoạt động.”
 
 ---
@@ -323,6 +327,8 @@ Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin
 ## PC11 – Lấy thông tin khách hàng theo ID
 
 **Postman:** `GET http://localhost:8000/api/v1/customers/{{customerId}}` với `Bearer {{customerToken}}`.
+
+**Hồ sơ của chính Customer:** `GET http://localhost:8000/api/v1/customers/me` với `Bearer {{customerToken}}`, không cần truyền ID. Response trả hồ sơ có `fullName`, `email`, `phone`, `dateOfBirth`, `gender`, `avatarUrl`, `status`, `createdAt`, `updatedAt`. Khách hàng đăng ký mới có `phone` từ dữ liệu được mã hóa trong customer-service; hồ sơ cũ từng tạo khi hệ thống chỉ lưu phone hash có thể trả `phone: null`. Token Admin/Driver không dùng được route `/me` của Customer (HTTP 403).
 
 **Cần thấy:** HTTP 200; `id`, `fullName`, `email` đúng khách hàng PC9. Nếu không có token: HTTP 401; nếu token Customer khác xem ID này: HTTP 403. Service chỉ trả hồ sơ của chính Customer, trừ vai trò nhân viên/admin được phép.
 
@@ -386,14 +392,15 @@ Chọn số điện thoại, CCCD và biển số chưa từng dùng. PC21 hiệ
 
 **Postman:**
 
-1. `POST http://localhost:8000/api/v1/drivers/otp/request`, không Bearer, JSON `{ "phone": "+84912345002" }` → HTTP 200; lưu `_dev_otp` vào biến `otp`.
-2. `POST http://localhost:8000/api/v1/drivers/otp/verify`, không Bearer, JSON `{ "phone": "+84912345002", "otp": "{{otp}}" }` → HTTP 200; lưu `registrationToken`.
+1. `POST http://localhost:8000/api/v1/drivers/otp/request`, không Bearer, JSON `{ "phone": "0912345002" }` → HTTP 200; lưu `_dev_otp` vào biến `otp`.
+2. `POST http://localhost:8000/api/v1/drivers/otp/verify`, không Bearer, JSON `{ "phone": "0912345002", "otp": "{{otp}}" }` → HTTP 200; lưu `registrationToken`.
 3. `POST http://localhost:8000/api/v1/drivers/register`:
 
 ```json
 {
   "registrationToken": "{{registrationToken}}",
-  "phone": "+84912345002",
+  "phone": "0912345002",
+  "password": "TaiXeDemo@123",
   "fullName": "Tai Xe Demo",
   "nationalId": "012345678902",
   "licenseNumber": "GPLX-DEMO-02",
@@ -408,7 +415,7 @@ Chọn số điện thoại, CCCD và biển số chưa từng dùng. PC21 hiệ
 }
 ```
 
-**Cần thấy:** HTTP 201, `status: "PENDING_APPROVAL"`; lưu `id` vào `driverId`. Dữ liệu nhạy cảm được mã hóa khi lưu. Tài khoản Driver được tạo ở identity-service với password demo mặc định `DriverPass@123`.
+**Cần thấy:** HTTP 201, `status: "PENDING_APPROVAL"`; lưu `id` vào `driverId`. Mật khẩu do tài xế nhập phải dài 8–128 ký tự và được lưu dạng bcrypt hash ở identity-service. Tài khoản đang `PENDING`, chưa thể đăng nhập; thử đăng nhập bằng số điện thoại và mật khẩu trên trước khi duyệt sẽ nhận HTTP 401. Hồ sơ Driver vẫn chờ duyệt. Số điện thoại, CCCD và GPLX được mã hóa khi lưu. Thiếu mật khẩu hoặc registration token OTP hợp lệ trả HTTP 400.
 
 Ba request trên dùng `Content-Type: application/json`. Trong môi trường development có thể dùng script Tests ở request OTP: `pm.environment.set("otp", pm.response.json()._dev_otp)`; ở request verify: `pm.environment.set("registrationToken", pm.response.json().registrationToken)`; ở request register: `pm.environment.set("driverId", pm.response.json().id)`.
 
@@ -423,14 +430,16 @@ Ba request trên dùng `Content-Type: application/json`. Trong môi trường de
 1. `GET http://localhost:8000/api/v1/drivers?status=PENDING_APPROVAL` với `Bearer {{adminToken}}`; tìm `{{driverId}}`.
 2. `GET http://localhost:8000/api/v1/drivers/{{driverId}}/application` với `Bearer {{adminToken}}` để xem chi tiết; không body.
 3. `POST http://localhost:8000/api/v1/drivers/{{driverId}}/approve` với `Bearer {{adminToken}}`, body `{}`.
-4. `POST http://localhost:8000/api/v1/auth/login`, không Bearer, JSON `{ "phone": "+84912345002", "password": "DriverPass@123" }`; lưu `token` vào `driverToken`.
+4. `POST http://localhost:8000/api/v1/auth/login`, không Bearer, JSON `{ "phone": "0912345002", "password": "TaiXeDemo@123" }`; lưu `token` vào `driverToken`.
 5. `GET http://localhost:8000/api/v1/notifications?limit=20` với `Bearer {{driverToken}}`; không body.
 
-**Cần thấy:** bước 3 trả `status: "OFFLINE"`; notification có `eventType: "driver.approved"` và `body` chứa `driverId` (có thể chờ 1–2 giây để Kafka xử lý). `APPROVED` là kết quả duyệt, còn `OFFLINE` là trạng thái tài xế đã được duyệt nhưng chưa bật nhận chuyến; chỉ từ `OFFLINE` tài xế mới có thể chuyển sang `ONLINE`. Muốn thử nhánh từ chối, đăng ký hồ sơ mới rồi gọi `POST http://localhost:8000/api/v1/drivers/{{driverIdMoi}}/reject` với `Bearer {{adminToken}}`, JSON `{ "reason": "Ho so khong hop le" }`; kết quả là `REJECTED`.
+**Hồ sơ của chính Driver:** Sau bước đăng nhập, gọi `GET http://localhost:8000/api/v1/drivers/me` với `Bearer {{driverToken}}`, không body. Response có thông tin cá nhân, số điện thoại, CCCD, GPLX, trạng thái, xe và vị trí gần nhất (nếu có). Token Admin/Customer trả HTTP 403; không có token trả HTTP 401.
+
+**Cần thấy:** bước 3 trả `status: "OFFLINE"` và kích hoạt tài khoản Driver ở identity-service; lúc này mới đăng nhập được bằng mật khẩu đã nhập ở PC21. Notification có `eventType: "driver.approved"` và `body` chứa `driverId` (có thể chờ 1–2 giây để Kafka xử lý). `APPROVED` là kết quả duyệt, còn `OFFLINE` là trạng thái tài xế đã được duyệt nhưng chưa bật nhận chuyến; chỉ từ `OFFLINE` tài xế mới có thể chuyển sang `ONLINE`. Muốn thử nhánh từ chối, đăng ký hồ sơ mới rồi gọi `POST http://localhost:8000/api/v1/drivers/{{driverIdMoi}}/reject` với `Bearer {{adminToken}}`, JSON `{ "reason": "Ho so khong hop le" }`; hồ sơ thành `REJECTED`, tài khoản ở identity-service bị xoá và không thể đăng nhập.
 
 Các thao tác quản trị ở bước 1–3 và nhánh từ chối yêu cầu token `ADMIN`: thiếu token trả HTTP 401; dùng `{{customerToken}}` trả HTTP 403. `GET http://localhost:8000/api/v1/drivers/{{driverId}}` vẫn là API hồ sơ thông thường của PC12; xem hồ sơ để duyệt dùng `GET http://localhost:8000/api/v1/drivers/{{driverId}}/application`.
 
-**Kết luận:** “PC22 đạt khi Admin duyệt/từ chối đúng trạng thái và Driver nhận kết quả.”
+**Kết luận:** “PC22 đạt khi hồ sơ được duyệt thì tài khoản tài xế đăng nhập được, còn hồ sơ bị từ chối thì tài khoản bị huỷ và đăng nhập thất bại.”
 
 ---
 

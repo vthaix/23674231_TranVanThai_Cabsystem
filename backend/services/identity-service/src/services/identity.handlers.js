@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { hashPhone } = require("../../../../shared/src/crypto/index");
 const { generateToken } = require("../../../../shared/src/auth/jwt");
-const { isValidEmail } = require("../../../../shared/src/validation/index");
+const { isValidEmail, isValidPhone, isValidPassword } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME } = require("../config");
 const { notifyCustomerService } = require("../clients/customer.client");
 const { validateRegistration } = require("../services/identity.service");
@@ -49,7 +49,7 @@ async function postAuthRegister(input) {
     await repository.commit(client);
 
     // Call customer-service to create profile
-    const customerOk = await notifyCustomerService(accountId, fullName.trim(), normalizedEmail, phoneHashVal, requestId);
+    const customerOk = await notifyCustomerService(accountId, fullName.trim(), normalizedEmail, phone.trim(), phoneHashVal, requestId);
 
     if (!customerOk) {
       // Rollback: delete PENDING account
@@ -105,6 +105,9 @@ async function postAuthLogin(input) {
   }
   if (!email && !phone) {
     return errorResult(400, "VALIDATION_ERROR", "email or phone is required", requestId);
+  }
+  if (phone !== undefined && !isValidPhone(phone)) {
+    return errorResult(400, "VALIDATION_ERROR", "phone must contain exactly 10 digits", requestId);
   }
 
   const client = await pool.connect();
@@ -168,17 +171,43 @@ async function postAuthLogin(input) {
   }
 }
 
+async function getAdminMe(input) {
+  const requestId = input.requestId;
+  if (input.user.role !== "ADMIN") {
+    return errorResult(403, "FORBIDDEN", "Admin access required", requestId);
+  }
+  try {
+    const account = await accountRepository.findPublicById(input.user.sub);
+    if (!account || account.status !== "ACTIVE" || account.role_code !== "ADMIN") {
+      return errorResult(403, "FORBIDDEN", "Active admin account required", requestId);
+    }
+    return response(200, {
+      id: account.id,
+      email: account.email,
+      displayName: account.display_name,
+      role: account.role_code,
+      status: account.status,
+      lastLoginAt: account.last_login_at,
+      createdAt: account.created_at,
+      updatedAt: account.updated_at
+    });
+  } catch (err) {
+    console.error("[identity/admin/me]", err.message);
+    return errorResult(500, "INTERNAL_ERROR", "Failed to get admin profile", requestId);
+  }
+}
+
 async function postInternalAccounts(input) {
   const requestId = input.headers["x-request-id"] || crypto.randomUUID();
 
   const targetId = input.body.accountId || input.body.id;
   const { phone, email } = input.body;
   const targetName = input.body.displayName || input.body.fullName || "Driver";
-  const targetPassword = input.body.password || "DriverPass@123";
-  const targetRole = input.body.role || "DRIVER";
+  const targetPassword = input.body.password;
+  const targetRole = "DRIVER";
 
-  if (!targetId || !phone) {
-    return errorResult(400, "VALIDATION_ERROR", "accountId/id and phone required", requestId);
+  if (!targetId || !isValidPhone(phone) || !isValidPassword(targetPassword)) {
+    return errorResult(400, "VALIDATION_ERROR", "accountId/id, 10-digit phone and password (8-128 characters) required", requestId);
   }
 
   const phoneHashVal = hashPhone(phone.trim());
@@ -189,7 +218,11 @@ async function postInternalAccounts(input) {
     // Idempotency: return existing if targetId already exists
     const existing = await repository.findAccounts2(client, [targetId]);
     if (existing.rows.length > 0) {
-      return response(201, { id: targetId, status: "ACTIVE" });
+      const account = existing.rows[0];
+      if (account.phone_hash !== phoneHashVal || account.role_code !== "DRIVER") {
+        return errorResult(409, "ACCOUNT_CONFLICT", "Account ID already belongs to another user", requestId);
+      }
+      return response(201, { id: targetId, status: account.status });
     }
 
     // Check phone uniqueness
@@ -203,7 +236,7 @@ async function postInternalAccounts(input) {
     await repository.insertAccountRoles2(client, [targetId, targetRole]);
     await repository.commit(client);
 
-    return response(201, { id: targetId, status: "ACTIVE" });
+    return response(201, { id: targetId, status: "PENDING" });
   } catch (err) {
     await repository.rollback(client).catch(() => {});
     if (err.code === "23505") {
@@ -213,6 +246,31 @@ async function postInternalAccounts(input) {
     return errorResult(500, "INTERNAL_ERROR", "Failed to create account", requestId);
   } finally {
     client.release();
+  }
+}
+
+async function postInternalAccountsIdActivate(input) {
+  const requestId = input.requestId;
+  try {
+    const result = await repository.activateDriverAccount(pool, input.params.id);
+    if (result.rowCount === 0) {
+      return errorResult(404, "NOT_FOUND", "Pending driver account not found", requestId);
+    }
+    return response(200, { id: input.params.id, status: "ACTIVE" });
+  } catch (err) {
+    console.error("[identity/internal/activate]", err.message);
+    return errorResult(500, "INTERNAL_ERROR", "Failed to activate driver account", requestId);
+  }
+}
+
+async function deleteInternalAccountsId(input) {
+  const requestId = input.requestId;
+  try {
+    const result = await repository.deleteDriverAccount(pool, input.params.id);
+    return response(200, { id: input.params.id, deleted: result.rowCount > 0 });
+  } catch (err) {
+    console.error("[identity/internal/delete]", err.message);
+    return errorResult(500, "INTERNAL_ERROR", "Failed to delete driver account", requestId);
   }
 }
 
@@ -231,4 +289,4 @@ async function getInternalRolesRolePermissions(input) {
   }
 }
 
-module.exports = { postAuthRegister, postAuthLogin, postInternalAccounts, getInternalRolesRolePermissions };
+module.exports = { postAuthRegister, postAuthLogin, getAdminMe, postInternalAccounts, postInternalAccountsIdActivate, deleteInternalAccountsId, getInternalRolesRolePermissions };

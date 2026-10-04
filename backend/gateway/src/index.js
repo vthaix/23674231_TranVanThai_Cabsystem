@@ -118,10 +118,9 @@ function rateLimiter(req, res, next) {
 // =========================
 const routeMap = [
   { prefix: "/auth", service: "identity-service" },
+  { prefix: "/admin/me", service: "identity-service" },
   { prefix: "/customers", service: "customer-service" },
   { prefix: "/drivers", service: "driver-service" },
-  { prefix: "/admin/drivers", service: "driver-service" },
-  { prefix: "/admin", service: "driver-service" },
   { prefix: "/bookings", service: "booking-service" },
   { prefix: "/booking", service: "booking-service", rewrite: "/bookings" },
   { prefix: "/offers", service: "booking-service" },
@@ -192,13 +191,12 @@ app.use("/api/v1", rateLimiter, async (req, res) => {
 
   // 2. RBAC check (PC28)
   // Customer role cannot call driver-only routes:
-  // /drivers/me/**, /offers/**, /admin/**
+  // /drivers/me/**, /offers/**
   const pathname = req.path;
   if (user && user.role === "CUSTOMER") {
     if (
       pathname.startsWith("/drivers/me") ||
-      pathname.startsWith("/offers") ||
-      pathname.startsWith("/admin")
+      pathname.startsWith("/offers")
     ) {
       return res.status(403).json({
         code: "FORBIDDEN",

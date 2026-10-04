@@ -49,6 +49,36 @@ paths:
                 $ref: '#/components/schemas/ReadyResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /customers:
+    get:
+      tags:
+      - Public
+      summary: List customers (ADMIN only)
+      operationId: listCustomers
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paginated customer list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /customers/{id}:
     get:
       tags:
@@ -65,6 +95,26 @@ paths:
       responses:
         '200':
           description: Customer profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /customers/me:
+    get:
+      tags: [Public]
+      summary: Get logged-in Customer profile
+      operationId: getCustomerMe
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Customer profile including own phone when available
           content:
             application/json:
               schema:
@@ -189,6 +239,7 @@ components:
           format: email
         phone:
           type: string
+          nullable: true
           description: Plain for owner; masked for authorized non-owner.
         dateOfBirth:
           type: string
@@ -209,14 +260,45 @@ components:
           enum:
           - ACTIVE
           - INACTIVE
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       additionalProperties: false
+    CustomerListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, fullName, email, status, createdAt]
+            properties:
+              id:
+                type: string
+                format: uuid
+              fullName:
+                type: string
+              email:
+                type: string
+                format: email
+              status:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+        pagination:
+          $ref: '#/components/schemas/Pagination'
     CreateCustomerRequest:
       type: object
       required:
       - id
       - fullName
       - email
-      - phone
+      - phoneHash
       properties:
         id:
           type: string
@@ -227,6 +309,9 @@ components:
           type: string
           format: email
         phone:
+          type: string
+          description: Plain phone sent over internal REST and encrypted at rest.
+        phoneHash:
           type: string
       additionalProperties: false
   responses:

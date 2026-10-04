@@ -17,10 +17,10 @@ Compared against the repository state read on 2026-10-02. Current service `src/i
 | driver-service | GET | `/drivers/nearby` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
 | driver-service | PUT | `/drivers/me/location` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
 | driver-service | PUT | `/drivers/me/availability` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
-| driver-service | GET | `/admin/drivers` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
-| driver-service | GET | `/admin/drivers/{id}` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
-| driver-service | POST | `/admin/drivers/{id}/approve` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
-| driver-service | POST | `/admin/drivers/{id}/reject` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
+| driver-service | GET | `/drivers` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
+| driver-service | GET | `/drivers/{id}/application` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
+| driver-service | POST | `/drivers/{id}/approve` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
+| driver-service | POST | `/drivers/{id}/reject` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
 | driver-service | GET | `/internal/drivers/nearby` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
 | driver-service | POST | `/internal/drivers/{id}/reservations` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |
 | driver-service | DELETE | `/internal/drivers/{id}/reservations/{bookingId}` | DOCUMENTED_BUT_NOT_IMPLEMENTED | Contract exists in SRS/microservice design; no matching business route found in current service entry point. |

@@ -3,11 +3,11 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { getRedisClient } = require("../db/redis");
 const { encrypt, decrypt, hashPhone, hashNationalId } = require("../../../../shared/src/crypto/index");
-const { verifyServiceToken, generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { isValidPhone } = require("../../../../shared/src/validation/index");
-const { SERVICE_NAME } = require("../config");
+const { isValidPhone, isValidPassword } = require("../../../../shared/src/validation/index");
 const { maskPhone } = require("../utils/maskPhone");
 const { inMemStore, haversineDistanceMeters } = require("../services/driver.service");
+const { parsePagination } = require("../../../../shared/src/pagination");
+const identityClient = require("../clients/identity.client");
 
 function response(status, body) { return { status, body }; }
 function errorResult(status, code, message, requestId) {
@@ -18,7 +18,7 @@ async function postDriversOtpRequest(input) {
   const requestId = input.headers["x-request-id"] || crypto.randomUUID();
   const { phone } = input.body;
   if (!phone || !isValidPhone(phone)) {
-    return errorResult(400, "VALIDATION_ERROR", "Valid phone number required in format +84...", requestId);
+    return errorResult(400, "VALIDATION_ERROR", "phone must contain exactly 10 digits", requestId);
   }
 
   const phoneH = hashPhone(phone);
@@ -53,8 +53,8 @@ async function postDriversOtpRequest(input) {
 async function postDriversOtpVerify(input) {
   const requestId = input.headers["x-request-id"] || crypto.randomUUID();
   const { phone, otp } = input.body;
-  if (!phone || !otp) {
-    return errorResult(400, "VALIDATION_ERROR", "phone and otp required", requestId);
+  if (!isValidPhone(phone) || !otp) {
+    return errorResult(400, "VALIDATION_ERROR", "phone must contain exactly 10 digits and otp is required", requestId);
   }
 
   const phoneH = hashPhone(phone);
@@ -108,6 +108,7 @@ async function postDriversRegister(input) {
     registrationToken,
     fullName,
     phone,
+    password,
     nationalId,
     dateOfBirth,
     licenseNumber,
@@ -116,24 +117,24 @@ async function postDriversRegister(input) {
     vehicle
   } = input.body;
 
-  // Validate registrationToken
-  let verifiedPhone = phone;
-  if (registrationToken) {
-    const redis = getRedisClient();
-    let regPhone = null;
-    if (redis && redis.isOpen) {
-      try {
-        regPhone = await redis.get(`regtoken:${registrationToken}`);
-      } catch {}
-    }
-    if (!regPhone && inMemStore.tokens.has(registrationToken)) {
-      const mem = inMemStore.tokens.get(registrationToken);
-      if (mem.expiresAt > Date.now()) regPhone = mem.phone;
-    }
-    if (regPhone) verifiedPhone = regPhone;
+  if (!isValidPassword(password)) {
+    return errorResult(400, "VALIDATION_ERROR", "password must be 8-128 characters", requestId);
   }
 
-  if (!verifiedPhone || !fullName || !nationalId || !licenseNumber || !licenseClass || !licenseExpiryDate) {
+  const redis = getRedisClient();
+  let verifiedPhone = null;
+  if (registrationToken && redis && redis.isOpen) {
+    try { verifiedPhone = await redis.get(`regtoken:${registrationToken}`); } catch {}
+  }
+  if (!verifiedPhone && registrationToken && inMemStore.tokens.has(registrationToken)) {
+    const mem = inMemStore.tokens.get(registrationToken);
+    if (mem.expiresAt > Date.now()) verifiedPhone = mem.phone;
+  }
+  if (!verifiedPhone || verifiedPhone !== phone) {
+    return errorResult(400, "INVALID_REGISTRATION_TOKEN", "Valid OTP registration token for this phone is required", requestId);
+  }
+
+  if (!fullName || !nationalId || !licenseNumber || !licenseClass || !licenseExpiryDate) {
     return errorResult(400, "VALIDATION_ERROR", "Missing required driver fields", requestId);
   }
 
@@ -155,37 +156,28 @@ async function postDriversRegister(input) {
     seatCount: Number(vehicle?.seatCount || (vType === "BIKE" ? 1 : 4))
   };
 
-  const driverId = input.body.id || crypto.randomUUID();
+  const driverId = crypto.randomUUID();
   const phoneH = hashPhone(verifiedPhone);
   const phoneEnc = encrypt(verifiedPhone);
   const nationalIdH = hashNationalId(nationalId);
   const nationalIdEnc = encrypt(nationalId);
   const licenseEnc = encrypt(licenseNumber);
 
-  // Call Identity Service to create account (internal REST)
+  // Create a disabled account until an admin approves the driver profile.
   try {
-    const identityUrl = process.env.IDENTITY_SERVICE_URL || "http://identity-service:3000";
-    const svcToken = generateServiceToken(SERVICE_NAME, "identity-service");
-    await fetch(`${identityUrl}/internal/accounts`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-service-token": svcToken,
-        "x-request-id": requestId,
-      },
-      body: JSON.stringify({
-        id: driverId,
-        phone: verifiedPhone,
-        phoneHash: phoneH,
-        role: "DRIVER",
-      }),
-    });
-  } catch (e) {
-    console.warn("[driver/register] Identity service call warning:", e.message);
+    await identityClient.createDriverAccount({
+      id: driverId,
+      phone: verifiedPhone,
+      password,
+      displayName: fullName.trim()
+    }, requestId);
+  } catch (err) {
+    return errorResult(err.status || 503, err.code || "DEPENDENCY_ERROR", err.message, requestId);
   }
 
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await repository.begin(client);
 
     // Insert driver in PENDING_APPROVAL
@@ -211,6 +203,11 @@ async function postDriversRegister(input) {
 
     await repository.commit(client);
 
+    if (redis && redis.isOpen) {
+      try { await redis.del(`regtoken:${registrationToken}`); } catch {}
+    }
+    inMemStore.tokens.delete(registrationToken);
+
     return response(201, {
       id: driverId,
       fullName,
@@ -219,29 +216,97 @@ async function postDriversRegister(input) {
       requestId
     });
   } catch (err) {
-    await repository.rollback(client);
+    if (client) await repository.rollback(client).catch(() => {});
+    await identityClient.deleteDriverAccount(driverId, requestId).catch(error => {
+      console.error("[driver/register/cleanup]", error.message);
+    });
     console.error("[driver/register]", err.message);
     if (err.code === "23505") {
       return errorResult(409, "ALREADY_EXISTS", "Driver phone or national ID already registered", requestId);
     }
     return errorResult(500, "INTERNAL_ERROR", "Registration failed", requestId);
   } finally {
-    client.release();
+    client?.release();
   }
 }
 
-async function getAdminDrivers(input) {
-  const { role } = input.user;
+async function getDrivers(input) {
+  if (input.user.role !== "ADMIN") {
+    return errorResult(403, "FORBIDDEN", "Admin access required", input.requestId);
+  }
+  return listDrivers(input);
+}
+
+async function getDriversMe(input) {
   const requestId = input.requestId;
-  if (!["ADMIN", "EMPLOYEE", "OPERATIONS_STAFF"].includes(role)) {
-    return errorResult(403, "FORBIDDEN", "Admin access required", requestId);
+  if (input.user.role !== "DRIVER") {
+    return errorResult(403, "FORBIDDEN", "Driver access required", requestId);
   }
 
-  const { status, page = 1, limit = 20 } = input.query;
-  const offset = (Number(page) - 1) * Number(limit);
+  try {
+    const { rows } = await repository.findDriverMe(pool, input.user.sub);
+    if (rows.length === 0) return errorResult(404, "NOT_FOUND", "Driver profile not found", requestId);
+    const d = rows[0];
+    const decryptField = value => {
+      if (!value) return null;
+      try { return decrypt(value); } catch { return null; }
+    };
+
+    return response(200, {
+      id: d.id,
+      fullName: d.full_name,
+      phone: decryptField(d.phone_enc),
+      email: d.email,
+      nationalId: decryptField(d.national_id_enc),
+      dateOfBirth: d.date_of_birth,
+      licenseNumber: decryptField(d.license_number_enc),
+      licenseClass: d.license_class,
+      licenseExpiryDate: d.license_expiry_date,
+      avatarUrl: d.avatar_url,
+      status: d.status,
+      ratingAvg: Number(d.rating_avg),
+      ratingCount: d.rating_count,
+      completedTrips: d.completed_trips,
+      currentTripId: d.current_trip_id,
+      rejectedReason: d.rejected_reason,
+      reviewedAt: d.reviewed_at,
+      lastOnlineAt: d.last_online_at,
+      vehicle: d.plate_number ? {
+        vehicleType: d.vehicle_type,
+        plateNumber: d.plate_number,
+        brand: d.brand,
+        model: d.model,
+        color: d.color,
+        manufactureYear: d.manufacture_year,
+        seatCount: d.seat_count
+      } : null,
+      location: d.latitude === null ? null : {
+        latitude: Number(d.latitude),
+        longitude: Number(d.longitude),
+        heading: d.heading === null ? null : Number(d.heading),
+        speedKmh: d.speed_kmh === null ? null : Number(d.speed_kmh),
+        recordedAt: d.location_recorded_at
+      },
+      createdAt: d.created_at,
+      updatedAt: d.updated_at
+    });
+  } catch (err) {
+    console.error("[drivers/me]", err.message);
+    return errorResult(500, "INTERNAL_ERROR", "Failed to get driver profile", requestId);
+  }
+}
+
+async function listDrivers(input) {
+  const requestId = input.requestId;
+  const { status } = input.query;
+  const pagination = parsePagination(input.query);
+  if (!pagination || (status && !["PENDING_APPROVAL", "REJECTED", "OFFLINE", "ONLINE", "BUSY"].includes(status))) {
+    return errorResult(400, "VALIDATION_ERROR", "Invalid status, page or limit (limit must be 1-100)", requestId);
+  }
+  const { page, limit, offset } = pagination;
 
   try {
-    const { rows } = await repository.listAdminDrivers(pool, { status, limit: Number(limit), offset });
+    const { rows } = await repository.listAdminDrivers(pool, { status, limit, offset });
     const countRes = await repository.countAdminDrivers(pool, status);
     const total = Number(countRes.rows[0].count);
 
@@ -270,8 +335,8 @@ async function getAdminDrivers(input) {
     return response(200, {
       data,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page,
+        limit,
         total
       }
     });
@@ -284,7 +349,7 @@ async function getAdminDrivers(input) {
 async function getAdminDriversId(input) {
   const { role } = input.user;
   const requestId = input.requestId;
-  if (!["ADMIN", "EMPLOYEE", "OPERATIONS_STAFF"].includes(role)) {
+  if (role !== "ADMIN") {
     return errorResult(403, "FORBIDDEN", "Admin access required", requestId);
   }
 
@@ -322,12 +387,13 @@ async function getAdminDriversId(input) {
 async function postAdminDriversIdApprove(input) {
   const { sub: actorId, role } = input.user;
   const requestId = input.requestId;
-  if (!["ADMIN", "EMPLOYEE", "OPERATIONS_STAFF"].includes(role)) {
+  if (role !== "ADMIN") {
     return errorResult(403, "FORBIDDEN", "Admin access required", requestId);
   }
 
   const { id } = input.params;
   const client = await pool.connect();
+  let committed = false;
   try {
     await repository.begin(client);
     const { rows } = await repository.findDrivers2(client, [id]);
@@ -336,6 +402,11 @@ async function postAdminDriversIdApprove(input) {
       return errorResult(404, "NOT_FOUND", "Driver not found", requestId);
     }
     const driver = rows[0];
+    if (driver.status === "OFFLINE" && driver.reviewed_at) {
+      await repository.rollback(client);
+      await identityClient.activateDriverAccount(id, requestId);
+      return response(200, { id, status: "OFFLINE", message: "Driver approved successfully and set to OFFLINE", requestId });
+    }
     if (driver.status !== "PENDING_APPROVAL") {
       await repository.rollback(client);
       return errorResult(409, "INVALID_STATE", `Cannot approve driver in status ${driver.status}`, requestId);
@@ -353,6 +424,8 @@ async function postAdminDriversIdApprove(input) {
     await repository.insertOutboxEvents2(client, [id, JSON.stringify({ driverId: id, status: "OFFLINE", approvedBy: actorId }), requestId]);
 
     await repository.commit(client);
+    committed = true;
+    await identityClient.activateDriverAccount(id, requestId);
 
     return response(200, {
       id,
@@ -361,8 +434,9 @@ async function postAdminDriversIdApprove(input) {
       requestId
     });
   } catch (err) {
-    await repository.rollback(client);
+    if (!committed) await repository.rollback(client).catch(() => {});
     console.error("[admin/approve]", err.message);
+    if (err.status) return errorResult(err.status, err.code, err.message, requestId);
     return errorResult(500, "INTERNAL_ERROR", "Approval failed", requestId);
   } finally {
     client.release();
@@ -372,7 +446,7 @@ async function postAdminDriversIdApprove(input) {
 async function postAdminDriversIdReject(input) {
   const { sub: actorId, role } = input.user;
   const requestId = input.requestId;
-  if (!["ADMIN", "EMPLOYEE", "OPERATIONS_STAFF"].includes(role)) {
+  if (role !== "ADMIN") {
     return errorResult(403, "FORBIDDEN", "Admin access required", requestId);
   }
 
@@ -383,6 +457,7 @@ async function postAdminDriversIdReject(input) {
   }
 
   const client = await pool.connect();
+  let committed = false;
   try {
     await repository.begin(client);
     const { rows } = await repository.findDrivers2(client, [id]);
@@ -391,6 +466,11 @@ async function postAdminDriversIdReject(input) {
       return errorResult(404, "NOT_FOUND", "Driver not found", requestId);
     }
     const driver = rows[0];
+    if (driver.status === "REJECTED") {
+      await repository.rollback(client);
+      await identityClient.deleteDriverAccount(id, requestId);
+      return response(200, { id, status: "REJECTED", reason: driver.rejected_reason, message: "Driver application rejected", requestId });
+    }
     if (driver.status !== "PENDING_APPROVAL") {
       await repository.rollback(client);
       return errorResult(409, "INVALID_STATE", `Cannot reject driver in status ${driver.status}`, requestId);
@@ -405,6 +485,8 @@ async function postAdminDriversIdReject(input) {
     await repository.insertOutboxEvents3(client, [id, JSON.stringify({ driverId: id, status: "REJECTED", reason, rejectedBy: actorId }), requestId]);
 
     await repository.commit(client);
+    committed = true;
+    await identityClient.deleteDriverAccount(id, requestId);
 
     return response(200, {
       id,
@@ -414,8 +496,9 @@ async function postAdminDriversIdReject(input) {
       requestId
     });
   } catch (err) {
-    await repository.rollback(client);
+    if (!committed) await repository.rollback(client).catch(() => {});
     console.error("[admin/reject]", err.message);
+    if (err.status) return errorResult(err.status, err.code, err.message, requestId);
     return errorResult(500, "INTERNAL_ERROR", "Rejection failed", requestId);
   } finally {
     client.release();
@@ -819,4 +902,4 @@ async function getInternalDriversIdSummary(input) {
   }
 }
 
-module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getAdminDrivers, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };
+module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };

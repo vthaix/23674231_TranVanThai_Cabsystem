@@ -103,12 +103,12 @@ async function seed() {
 
     // Internal accounts (admin, board, employees)
     const internalAccounts = [
-      { id: SEED_IDS.admin, email: "admin@cabsystem.com", phone: "+84900000001", name: "System Admin", role: "ADMIN" },
-      { id: SEED_IDS.board, email: "board@cabsystem.com", phone: "+84900000002", name: "Board Director", role: "BOARD" },
-      { id: SEED_IDS.ops_staff, email: "ops@cabsystem.com", phone: "+84900000003", name: "Operations Staff", role: "OPERATIONS_STAFF" },
-      { id: SEED_IDS.user_staff, email: "userstaff@cabsystem.com", phone: "+84900000004", name: "User Staff", role: "USER_STAFF" },
-      { id: SEED_IDS.finance_staff, email: "finance@cabsystem.com", phone: "+84900000005", name: "Finance Staff", role: "FINANCE_STAFF" },
-      { id: SEED_IDS.supervisor, email: "supervisor@cabsystem.com", phone: "+84900000006", name: "Supervisor", role: "SUPERVISOR" },
+      { id: SEED_IDS.admin, email: "admin@cabsystem.com", phone: "0900000001", name: "System Admin", role: "ADMIN" },
+      { id: SEED_IDS.board, email: "board@cabsystem.com", phone: "0900000002", name: "Board Director", role: "BOARD" },
+      { id: SEED_IDS.ops_staff, email: "ops@cabsystem.com", phone: "0900000003", name: "Operations Staff", role: "OPERATIONS_STAFF" },
+      { id: SEED_IDS.user_staff, email: "userstaff@cabsystem.com", phone: "0900000004", name: "User Staff", role: "USER_STAFF" },
+      { id: SEED_IDS.finance_staff, email: "finance@cabsystem.com", phone: "0900000005", name: "Finance Staff", role: "FINANCE_STAFF" },
+      { id: SEED_IDS.supervisor, email: "supervisor@cabsystem.com", phone: "0900000006", name: "Supervisor", role: "SUPERVISOR" },
     ];
 
     for (const acc of internalAccounts) {
@@ -127,8 +127,8 @@ async function seed() {
 
     // Customer accounts
     const customers = [
-      { id: SEED_IDS.customer1, email: "customer1@example.com", phone: "+84901000001", name: "Nguyen Van A" },
-      { id: SEED_IDS.customer2, email: "customer2@example.com", phone: "+84901000002", name: "Tran Thi B" },
+      { id: SEED_IDS.customer1, email: "customer1@example.com", phone: "0901000001", name: "Nguyen Van A" },
+      { id: SEED_IDS.customer2, email: "customer2@example.com", phone: "0901000002", name: "Tran Thi B" },
     ];
 
     for (const c of customers) {
@@ -147,11 +147,11 @@ async function seed() {
 
     // Driver accounts (approved, so ACTIVE)
     const drivers = [
-      { id: SEED_IDS.driver1, phone: "+84902000001", name: "Driver One" },
-      { id: SEED_IDS.driver2, phone: "+84902000002", name: "Driver Two" },
-      { id: SEED_IDS.driver3, phone: "+84902000003", name: "Driver Three" },
-      { id: SEED_IDS.driver4, phone: "+84902000004", name: "Driver Four" },
-      { id: SEED_IDS.driver5, phone: "+84902000005", name: "Driver Five" },
+      { id: SEED_IDS.driver1, phone: "0902000001", name: "Driver One" },
+      { id: SEED_IDS.driver2, phone: "0902000002", name: "Driver Two" },
+      { id: SEED_IDS.driver3, phone: "0902000003", name: "Driver Three" },
+      { id: SEED_IDS.driver4, phone: "0902000004", name: "Driver Four" },
+      { id: SEED_IDS.driver5, phone: "0902000005", name: "Driver Five" },
     ];
 
     for (const d of drivers) {

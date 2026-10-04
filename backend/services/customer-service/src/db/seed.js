@@ -17,15 +17,15 @@ async function seed() {
         id: SEED_IDS.customer1,
         fullName: "Nguyen Van A",
         email: "customer1@example.com",
-        phone: "+84901000001",
-        phoneHash: require("../../../../shared/src/crypto/index").hashPhone("+84901000001"),
+        phone: "0901000001",
+        phoneHash: require("../../../../shared/src/crypto/index").hashPhone("0901000001"),
       },
       {
         id: SEED_IDS.customer2,
         fullName: "Tran Thi B",
         email: "customer2@example.com",
-        phone: "+84901000002",
-        phoneHash: require("../../../../shared/src/crypto/index").hashPhone("+84901000002"),
+        phone: "0901000002",
+        phoneHash: require("../../../../shared/src/crypto/index").hashPhone("0901000002"),
       },
     ];
 

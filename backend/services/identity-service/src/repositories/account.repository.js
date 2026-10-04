@@ -16,6 +16,18 @@ async function findByPhoneHash(client, phoneHash) {
   return rows[0];
 }
 
+async function findPublicById(id) {
+  const { rows } = await pool.query(
+    `SELECT a.id, a.email, a.display_name, a.status, a.last_login_at,
+            a.created_at, a.updated_at, ar.role_code
+     FROM accounts a
+     JOIN account_roles ar ON ar.account_id = a.id AND ar.is_primary = TRUE
+     WHERE a.id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
 async function findPermissions(role) {
   const { rows } = await pool.query(
     "SELECT permission_code FROM role_permissions WHERE role_code = $1",
@@ -24,4 +36,4 @@ async function findPermissions(role) {
   return rows;
 }
 
-module.exports = { findByEmail, findByPhoneHash, findPermissions };
+module.exports = { findByEmail, findByPhoneHash, findPublicById, findPermissions };

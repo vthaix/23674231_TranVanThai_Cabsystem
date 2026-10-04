@@ -338,7 +338,7 @@ Cột, kiểu, ràng buộc và index chi tiết ở [mục 8](#8-thiết-kế-d
 | `GET /drivers/{id}` | driver | `DRIVER` (own), `CUSTOMER` (own-in-trip), `EMPLOYEE`, `ADMIN` | |
 | `PUT /drivers/me/location`, `PUT /drivers/me/availability` | driver | `DRIVER` | |
 | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register` | driver | public | giới hạn 10/phút/IP |
-| `GET /admin/drivers`, `GET /admin/drivers/{id}`, `POST /admin/drivers/{id}/approve`, `POST /admin/drivers/{id}/reject` | driver | `ADMIN` | |
+| `GET /drivers`, `GET /drivers/{id}/application`, `POST /drivers/{id}/approve`, `POST /drivers/{id}/reject` | driver | `ADMIN` | |
 | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel` | booking | `CUSTOMER` | `POST /bookings`: 10/phút/user |
 | `GET /offers`, `POST /offers/{id}/accept`, `POST /offers/{id}/reject` | booking | `DRIVER` | |
 | `GET /trips/{id}`, `GET /trips/{id}/location` | trip | `CUSTOMER` (own), `DRIVER` (own), `EMPLOYEE` | |
@@ -361,7 +361,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Account, đăng ký/đăng nhập, cấp JWT, role và permission |
 | **b. API qua Gateway** | `POST /auth/register`, `POST /auth/login` |
-| **c. Internal REST cung cấp** | `POST /internal/accounts` (cho Driver), `GET /internal/roles/{role}/permissions` (cho Gateway) |
+| **c. Internal REST cung cấp** | `POST /internal/accounts`, `POST /internal/accounts/{id}/activate`, `DELETE /internal/accounts/{id}` (cho Driver), `GET /internal/roles/{role}/permissions` (cho Gateway) |
 | **d. Gọi đi** | `POST /internal/customers` (Customer) |
 | **e. Kafka** | Publish `identity.events`: `account.registered`, `account.locked`, `account.unlocked`, `account.role_changed`. Không subscribe |
 | **f. Bảng** | Xem [4.3](#43-bảngcollection-của-từng-service) và [8.5.1](#851-identity_db) |
@@ -374,7 +374,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 4. Sai mật khẩu liên tiếp 5 lần → khóa 15 phút (`failed_login_count`, `locked_until`).
 5. JWT `HS256`, TTL 15 phút, claims `sub` (= accountId), `role`, `iat`, `exp`, `jti`. Role lấy từ DB, không lấy từ body.
 6. **Saga đăng ký:** tạo Account `PENDING` → `POST /internal/customers` (idempotent theo `id`) → Account `ACTIVE` + outbox `account.registered`. Customer lỗi → xóa Account `PENDING`. Job dọn Account `PENDING` quá 10 phút: gọi lại Customer; thành công thì `ACTIVE`, lỗi thì xóa.
-7. `POST /internal/accounts` (Driver gọi) tạo Account `ACTIVE` role `DRIVER`, idempotent theo `accountId`; trùng phone/email → `409`.
+7. `POST /internal/accounts` (Driver gọi) tạo Account `PENDING` role `DRIVER` với mật khẩu do tài xế nhập, idempotent theo `accountId`; trùng phone/email → `409`. Sau khi admin duyệt, Driver gọi `POST /internal/accounts/{id}/activate` để chuyển sang `ACTIVE`; nếu từ chối, gọi `DELETE /internal/accounts/{id}` để huỷ tài khoản.
 8. Seed: 8 role, permission, Admin, Board, Employee từng role, Customer và Driver mẫu ([10.5](#105-seed-dữ-liệu)).
 9. **(P2)** Admin khóa/mở khóa account, gán role, refresh token và logout; mọi thao tác ghi `audit_logs`.
 
@@ -405,7 +405,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 | Mục | Nội dung |
 |---|---|
 | **a. Trách nhiệm** | Hồ sơ Driver, Vehicle, OTP và onboarding, duyệt hồ sơ, availability, vị trí, giữ chỗ (reservation) |
-| **b. API qua Gateway** | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register`, `GET /drivers/{id}`, `GET /drivers/nearby`, `PUT /drivers/me/location`, `PUT /drivers/me/availability`, `GET /admin/drivers`, `GET /admin/drivers/{id}`, `POST /admin/drivers/{id}/approve`, `POST /admin/drivers/{id}/reject` |
+| **b. API qua Gateway** | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register`, `GET /drivers/{id}`, `GET /drivers/nearby`, `PUT /drivers/me/location`, `PUT /drivers/me/availability`, `GET /drivers`, `GET /drivers/{id}/application`, `POST /drivers/{id}/approve`, `POST /drivers/{id}/reject` |
 | **c. Internal REST cung cấp** | `GET /internal/drivers/nearby`, `POST /internal/drivers/{id}/reservations`, `DELETE /internal/drivers/{id}/reservations/{bookingId}`, `POST /internal/drivers/{id}/busy`, `GET /internal/drivers/{id}/summary` |
 | **d. Gọi đi** | `POST /internal/accounts` (Identity) |
 | **e. Kafka** | Publish `driver.events` (`driver.registered`, `driver.approved`, `driver.rejected`, `driver.online`, `driver.offline`, `driver.busy`) và `driver.location`. Subscribe `trip.events` (`trip.completed`/`trip.canceled` → `ONLINE`; `trip.reviewed` → rating), `booking.events` (`booking.canceled` → nhả reservation) |
@@ -414,8 +414,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 **Quy tắc**
 
 1. **OTP (PC21):** 6 chữ số, TTL 300 giây, lưu **hash** trong Redis; sai quá 5 lần → khóa 15 phút; đúng → `registrationToken` (15 phút, dùng một lần, chỉ bị đánh dấu đã dùng sau khi transaction lưu hồ sơ commit). Môi trường test: OTP được ghi ra log của service (không gửi SMS thật).
-2. **Đăng ký:** Driver sinh `driverId` trước → `POST /internal/accounts` (idempotent theo `accountId`) → transaction lưu `drivers`, `vehicles` ở `PENDING_APPROVAL` + outbox `driver.registered`. Lưu hồ sơ lỗi thì retry cùng `driverId`, không sinh Account mồ côi. Trường bắt buộc theo SRS 6.9.4; bằng lái hết hạn bị từ chối (`400`).
-3. **Duyệt (PC22):** chỉ `ADMIN`; `PENDING_APPROVAL → OFFLINE` (duyệt, ghi `reviewed_by`, `reviewed_at`) hoặc `→ REJECTED` (bắt buộc `rejected_reason`); ghi `audit_logs`; outbox `driver.approved`/`driver.rejected`.
+2. **Đăng ký:** Driver sinh `driverId` trước → `POST /internal/accounts` để tạo Account `PENDING` → transaction lưu `drivers`, `vehicles` ở `PENDING_APPROVAL` + outbox `driver.registered`. Nếu transaction lưu hồ sơ lỗi, gọi Identity xoá Account vừa tạo; client có thể thử đăng ký lại. Trường bắt buộc theo SRS 6.9.4; bằng lái hết hạn bị từ chối (`400`).
+3. **Duyệt (PC22):** chỉ `ADMIN`; `PENDING_APPROVAL → OFFLINE` (duyệt, ghi `reviewed_by`, `reviewed_at` và kích hoạt tài khoản Identity) hoặc `→ REJECTED` (bắt buộc `rejected_reason`, xoá tài khoản Identity); ghi `audit_logs`; outbox `driver.approved`/`driver.rejected`.
 4. **Availability (PC23):** chỉ Driver đã duyệt; `OFFLINE ↔ ONLINE`; `BUSY` không được chuyển `OFFLINE` (`409`); chuyển `ONLINE` yêu cầu đã có vị trí hợp lệ; mọi thay đổi ghi `driver_status_history` + outbox.
 5. **Vị trí (PC13):** `PUT /drivers/me/location` kiểm tra `lat ∈ [-90,90]`, `lng ∈ [-180,180]` (sai → `400`); ghi `driver:geo` (Redis `GEOADD`) và upsert `driver_locations` (mỗi tài xế một dòng). Chỉ khi Driver đang `BUSY` mới phát `driver.location_updated` (kèm `tripId`) để Trip theo dõi.
 6. **GEO index:** nạp lại từ `driver_locations` khi service khởi động (mất Redis không mất dữ liệu). Chứa mọi Driver đã duyệt có vị trí.
@@ -606,17 +606,19 @@ sequenceDiagram
     DR-->>D: registrationToken (15 phút, dùng một lần)
     D->>GW: POST /drivers/register
     GW->>DR: forward
-    DR->>ID: POST /internal/accounts (accountId = driverId)
+    DR->>ID: POST /internal/accounts (PENDING, password do Driver nhập)
     ID-->>DR: 201
     DR->>DR: TX drivers, vehicles PENDING_APPROVAL + outbox driver.registered
     DR-->>D: 201 PENDING_APPROVAL
-    AD->>GW: POST /admin/drivers/id/approve
+    AD->>GW: POST /drivers/id/approve
     GW->>DR: forward
     DR->>DR: TX status OFFLINE + audit_logs + outbox driver.approved
+    DR->>ID: POST /internal/accounts/id/activate
+    ID-->>DR: ACTIVE
     DR-)KF: driver.approved
 ```
 
-Driver sinh `driverId` trước và `POST /internal/accounts` idempotent theo `accountId`, nên lưu hồ sơ lỗi chỉ cần retry cùng `driverId`.
+Driver sinh `driverId` trước khi gọi Identity. Nếu lưu hồ sơ lỗi, Driver gọi Identity xoá Account `PENDING` để tránh tài khoản mồ côi.
 
 ### 6.2 Đặt xe → tài xế nhận chuyến (PC15, PC16)
 
@@ -2081,7 +2083,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 19 | Thanh toán online | `POST /payments` → callback → `GET /payments/{id}` | payment, trip | `PENDING` → callback hợp lệ → `COMPLETED`; Trip `PAID` |
 | 20 | Đánh giá | `POST /trips/{id}/reviews` | trip | Review lưu và gắn với Trip |
 | 21 | Đăng ký Driver | `POST /drivers/otp/request` → `verify` → `register` | driver, identity | Hồ sơ `PENDING_APPROVAL` |
-| 22 | Duyệt Driver | `GET /admin/drivers`, `POST /admin/drivers/{id}/approve` hoặc `/reject` | driver | Trạng thái cập nhật, Driver nhận Notification |
+| 22 | Duyệt Driver | `GET /drivers`, `POST /drivers/{id}/approve` hoặc `/reject` | driver, identity | Duyệt kích hoạt Account; từ chối xoá Account |
 | 23 | Online/Offline | `PUT /drivers/me/availability` | driver | Trạng thái đổi và được ghi nhận |
 | 24 | Mã hóa dữ liệu | Truy vấn trực tiếp DB | identity, customer, driver | `password_hash` bcrypt, `*_enc` có `enc:v1:<keyId>:…`, không có plaintext |
 | 25 | SQL injection | `POST /auth/login` với `' OR 1=1 --` | gateway, identity | `400`/`401`, không đăng nhập, không lộ DB |

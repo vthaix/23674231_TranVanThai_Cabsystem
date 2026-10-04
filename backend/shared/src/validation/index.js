@@ -12,13 +12,11 @@ function isValidEmail(email) {
 }
 
 /**
- * Validates phone number in E.164 format or common Vietnamese format
+ * A phone number is exactly 10 digits, with no country prefix or separators.
  */
 function isValidPhone(phone) {
   if (typeof phone !== "string") return false;
-  // E.164: +[country code][number], up to 15 digits total
-  const e164Regex = /^\+[1-9]\d{6,14}$/;
-  return e164Regex.test(phone);
+  return /^\d{10}$/.test(phone);
 }
 
 /**

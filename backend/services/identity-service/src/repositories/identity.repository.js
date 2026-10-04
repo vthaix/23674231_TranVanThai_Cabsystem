@@ -51,7 +51,9 @@ function updateAccounts4(db, params) {
 }
 
 function findAccounts2(db, params) {
-  return db.query("SELECT id FROM accounts WHERE id = $1", params);
+  return db.query(`SELECT a.id, a.phone_hash, a.status, ar.role_code
+    FROM accounts a JOIN account_roles ar ON ar.account_id = a.id AND ar.is_primary = TRUE
+    WHERE a.id = $1`, params);
 }
 
 function findAccounts3(db, params) {
@@ -60,11 +62,25 @@ function findAccounts3(db, params) {
 
 function insertAccounts2(db, params) {
   return db.query(`INSERT INTO accounts (id, email, phone_hash, password_hash, display_name, status)
-       VALUES ($1, $2, $3, $4, $5, 'ACTIVE')`, params);
+       VALUES ($1, $2, $3, $4, $5, 'PENDING')`, params);
+}
+
+function activateDriverAccount(db, id) {
+  return db.query(`UPDATE accounts SET status = 'ACTIVE', updated_at = NOW()
+    WHERE id = $1 AND status IN ('PENDING', 'ACTIVE')
+      AND EXISTS (SELECT 1 FROM account_roles WHERE account_id = $1 AND role_code = 'DRIVER')
+    RETURNING id`, [id]);
+}
+
+function deleteDriverAccount(db, id) {
+  return db.query(`DELETE FROM accounts
+    WHERE id = $1 AND EXISTS (
+      SELECT 1 FROM account_roles WHERE account_id = $1 AND role_code = 'DRIVER'
+    ) RETURNING id`, [id]);
 }
 
 function insertAccountRoles2(db, params) {
   return db.query(`INSERT INTO account_roles (account_id, role_code, is_primary) VALUES ($1, $2, TRUE)`, params);
 }
 
-module.exports = { begin, findAccounts, rollback, insertAccounts, insertAccountRoles, commit, deleteAccounts, updateAccounts, insertOutboxEvents, updateAccounts2, updateAccounts3, updateAccounts4, findAccounts2, findAccounts3, insertAccounts2, insertAccountRoles2 };
+module.exports = { begin, findAccounts, rollback, insertAccounts, insertAccountRoles, commit, deleteAccounts, updateAccounts, insertOutboxEvents, updateAccounts2, updateAccounts3, updateAccounts4, findAccounts2, findAccounts3, insertAccounts2, insertAccountRoles2, activateDriverAccount, deleteDriverAccount };

@@ -54,6 +54,22 @@ function findDrivers(db, params) {
     `, params);
 }
 
+function findDriverMe(db, id) {
+  return db.query(`
+    SELECT d.*, v.vehicle_type, v.plate_number, v.brand, v.model, v.color,
+           v.manufacture_year, v.seat_count,
+           l.latitude, l.longitude, l.heading, l.speed_kmh, l.recorded_at AS location_recorded_at
+    FROM drivers d
+    LEFT JOIN LATERAL (
+      SELECT vehicle_type, plate_number, brand, model, color, manufacture_year, seat_count
+      FROM vehicles WHERE driver_id = d.id AND is_active = true
+      ORDER BY created_at DESC, id DESC LIMIT 1
+    ) v ON true
+    LEFT JOIN driver_locations l ON l.driver_id = d.id
+    WHERE d.id = $1
+  `, [id]);
+}
+
 function findDrivers2(db, params) {
   return db.query("SELECT * FROM drivers WHERE id = $1 FOR UPDATE", params);
 }
@@ -203,14 +219,20 @@ function listAdminDrivers(db, { status, limit, offset }) {
   let query = `
     SELECT d.*, v.vehicle_type, v.plate_number, v.brand, v.model, v.color
     FROM drivers d
-    LEFT JOIN vehicles v ON d.id = v.driver_id AND v.is_active = true
+    LEFT JOIN LATERAL (
+      SELECT vehicle_type, plate_number, brand, model, color
+      FROM vehicles
+      WHERE driver_id = d.id AND is_active = true
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) v ON true
   `;
   const params = [];
   if (status) {
     params.push(status);
     query += ` WHERE d.status = $${params.length}`;
   }
-  query += ` ORDER BY d.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  query += ` ORDER BY d.created_at DESC, d.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
   params.push(limit, offset);
   return db.query(query, params);
 }
@@ -258,4 +280,4 @@ function listDispatchCandidates(db, vehicleType) {
   return db.query(query, params);
 }
 
-module.exports = { begin, insertDrivers, insertVehicles, insertOutboxEvents, commit, rollback, findDrivers, findDrivers2, updateDrivers, insertDriverStatusHistory, insertAuditLogs, insertOutboxEvents2, updateDrivers2, insertDriverStatusHistory2, insertAuditLogs2, insertOutboxEvents3, findDriverLocations, insertDriverLocations, updateDrivers3, insertDriverStatusHistory3, insertOutboxEvents4, insertDriverLocations2, updateDrivers4, insertDriverStatusHistory4, findDrivers3, listAdminDrivers, countAdminDrivers, listNearbyDrivers, listDispatchCandidates };
+module.exports = { begin, insertDrivers, insertVehicles, insertOutboxEvents, commit, rollback, findDrivers, findDriverMe, findDrivers2, updateDrivers, insertDriverStatusHistory, insertAuditLogs, insertOutboxEvents2, updateDrivers2, insertDriverStatusHistory2, insertAuditLogs2, insertOutboxEvents3, findDriverLocations, insertDriverLocations, updateDrivers3, insertDriverStatusHistory3, insertOutboxEvents4, insertDriverLocations2, updateDrivers4, insertDriverStatusHistory4, findDrivers3, listAdminDrivers, countAdminDrivers, listNearbyDrivers, listDispatchCandidates };
