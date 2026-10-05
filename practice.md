@@ -64,11 +64,9 @@ rg --files services | rg '/(package.json|src/index.js)$' | sort
 
 ## PC3 – Nhiệm vụ của Gateway
 
-**Thông báo:**
+**Hiểu đơn giản:** Gateway là cửa vào chung ở `localhost:8000`. Nó chuyển request đến đúng service, kiểm tra token/quyền và giới hạn tần suất gọi API. Client không cần biết cổng nội bộ của từng service.
 
-“Em chuyển sang tiêu chí PC3 – Gateway.”
-
-**CLI/Postman:**
+**Cách test (Terminal, chạy trong `backend/` sau khi `docker compose up -d --build`):**
 
 ```bash
 curl -i http://localhost:8000/health
@@ -76,80 +74,54 @@ curl -i 'http://localhost:8000/api/v1/drivers/nearby?lat=10.776889&lng=106.70080
 curl -i http://localhost:8000/api/v1/bookings
 ```
 
-**Postman:** gửi lần lượt `GET http://localhost:8000/health`, `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1` và `GET http://localhost:8000/api/v1/bookings` (không Authorization, không body). Đây là ba request cụ thể để thấy Gateway trả health, chuyển tiếp route và chặn route cần đăng nhập.
+**Trong Postman:** tạo ba request `GET` với đúng URL trên; để trống Authorization và Body.
 
-**Cần thấy:** `/health` trả HTTP 200; `/api/v1/drivers/nearby` trả dữ liệu từ driver-service qua Gateway; `/api/v1/bookings` không có Bearer token trả HTTP 401. Ở PC27–PC29 sẽ kiểm tra thêm Gateway xác minh JWT, chặn Customer gọi API Driver/Admin (403) và rate limit (429).
+**Cần thấy:** lần lượt HTTP `200` với `service: "gateway"`; HTTP `200` với dữ liệu tìm tài xế từ driver-service (mảng có thể rỗng); HTTP `401` vì `/bookings` cần đăng nhập. Nếu request thứ hai trả `401`/`403`, kiểm tra lại route và token; nếu `502`/`503`, kiểm tra container service bằng `docker compose ps` và `docker compose logs --tail=30 driver-service`.
 
-**Giải thích:**
-
-“Gateway là điểm vào public của hệ thống. Nó định tuyến `/api/v1/auth`, `/customers`, `/drivers`, `/bookings`, `/offers`, `/trips`, `/payments`, `/notifications` tới service tương ứng; đồng thời gắn request ID, xác minh token, kiểm tra quyền và giới hạn tần suất request.”
-
-**Kết luận:**
-
-“PC3 đạt khi route qua Gateway hoạt động và các lớp kiểm soát ở PC27–PC29 trả đúng mã lỗi.”
+**Cách nói khi demo:** “Cả ba request đều đi vào cổng 8000. Gateway tự trả health, chuyển `/drivers/nearby` sang driver-service và từ chối truy cập booking khi chưa đăng nhập. PC27–PC29 kiểm tra sâu hơn chữ ký JWT, quyền và rate limit.”
 
 ---
 
 ## PC4 – IPC giữa các microservice
 
-**Thông báo:**
+**IPC là gì?** IPC (*Inter-Process Communication*) nghĩa là hai chương trình/service trao đổi dữ liệu với nhau. Ở đây có hai cách: **HTTP nội bộ** khi service A cần câu trả lời ngay từ service B; **Kafka** khi A phát sự kiện và B xử lý sau. Ví dụ PC4 dễ nhất là identity-service gọi customer-service bằng HTTP khi đăng ký khách hàng. PC7 kiểm tra riêng Kafka.
 
-“Em chuyển sang tiêu chí PC4 – Inter-Process Communication.”
+**Cách test IPC bằng Postman (mỗi lần chạy dùng email và số điện thoại mới):**
 
-**Cách tự kiểm tra:**
+1. `POST http://localhost:8000/api/v1/auth/register`, Body → raw → JSON: `{ "fullName": "Khach Test IPC", "email": "ipc001@example.com", "phone": "0912345001", "password": "Test@123456" }`. Cần HTTP `201`; lưu `id` trong response thành `customerId`. Nếu `409`, đổi email và phone rồi thử lại.
+2. `POST http://localhost:8000/api/v1/auth/login`, JSON: `{ "email": "ipc001@example.com", "password": "Test@123456" }` (dùng email vừa đăng ký). Cần HTTP `200`; lưu `token` thành `customerToken`.
+3. `GET http://localhost:8000/api/v1/customers/{{customerId}}`, Authorization → Bearer Token → `{{customerToken}}`, không có Body. Cần HTTP `200`, `id` trùng `customerId`, `fullName` và `email` trùng bước 1.
 
-1. Làm PC9: đăng ký Customer ở Gateway. Identity-service gọi `POST /internal/customers` của customer-service để tạo profile. PC11 phải đọc được profile cùng ID; đây là IPC đồng bộ bằng HTTP nội bộ và service token.
-2. Làm PC15–PC16: booking-service gọi driver-service tìm tài xế và giữ chỗ, rồi gọi `POST /internal/trips` của trip-service khi Driver nhận offer. PC16 phải trả `tripId`, PC17 phải đọc được trip đó.
-3. Làm PC19: payment-service gọi `GET /internal/trips/:id` để kiểm tra trip và `POST /internal/trips/:id/payment-status` sau callback. Kết quả trip đổi `paymentStatus` thành `PAID`.
-4. Làm PC18/PC22: các service ghi outbox, relay publish event lên Kafka, notification-service consume rồi tạo notification. Kiểm tra `GET http://localhost:8000/api/v1/notifications` bằng token người nhận.
+**Vì sao đây là bằng chứng IPC?** Request đăng ký chỉ đi vào identity-service. Trong quá trình xử lý, identity-service gọi `POST /internal/customers` của customer-service bằng service token để tạo profile; bước 3 đọc được profile đó từ customer-service. Nếu customer-service không tạo được profile, đăng ký trả lỗi `503` thay vì `201`. Muốn đối chiếu mã nguồn, xem `services/identity-service/src/clients/customer.client.js` và `services/customer-service/src/routes/internal.routes.js`.
 
-**Chuỗi API Postman để chứng minh IPC:** `POST http://localhost:8000/api/v1/auth/register` với JSON của PC9 → `GET http://localhost:8000/api/v1/customers/{{customerId}}` với Bearer `{{customerToken}}` sau PC10; `POST http://localhost:8000/api/v1/bookings` với JSON và header ở PC15 → `POST http://localhost:8000/api/v1/offers/{{offerId}}/accept` với Bearer `{{driverToken}}`, body `{}` → `GET http://localhost:8000/api/v1/trips/{{tripId}}` với Bearer `{{customerToken}}`; `POST http://localhost:8000/api/v1/payments` với JSON ở PC19 → callback mock → `GET http://localhost:8000/api/v1/trips/{{tripId}}` thấy `paymentStatus: "PAID"`; sau PC18 gọi `GET http://localhost:8000/api/v1/notifications` bằng từng token. Dữ liệu, mã HTTP và biến lưu được ghi ở các PC tương ứng.
-
-**CLI xem bằng chứng Kafka:**
+**Xem log khi lỗi:**
 
 ```bash
-docker compose logs --tail=30 booking-service trip-service driver-service notification-service
+docker compose logs --tail=50 identity-service customer-service
 ```
 
-**Giải thích:**
-
-“Các lệnh cần kết quả tức thời dùng HTTP nội bộ và service JWT. Những thay đổi trạng thái cần thông báo dùng outbox → Kafka topic → notification-service. Client bên ngoài vẫn gọi qua Gateway.”
-
-**Kết luận:**
-
-“PC4 đạt khi luồng xuyên service tạo đúng profile/trip/payment và notification nhận được event.”
+**Cách nói khi demo:** “Đăng ký ở identity-service tạo đồng thời profile ở customer-service qua HTTP nội bộ. Cùng một ID đọc được ở cả hai bước. Các luồng IPC khác: booking ↔ driver/trip và payment ↔ trip; event thông báo đi qua Kafka ở PC7.”
 
 ---
 
 ## PC5 – Docker Compose / Containers
 
-**Thông báo:**
-
-“Em chuyển sang tiêu chí PC5 – Docker Compose và Containers.”
-
-**CLI:**
+**Cách test (trong `backend/`):**
 
 ```bash
-docker compose ps
+docker compose ps -a
+curl -i http://localhost:8000/health/services
 ```
 
-**Giải thích:**
+**Cần thấy:** `docker compose ps -a` liệt kê Gateway, 7 service, Kafka, Redis, MongoDB, 2 mock provider; container `kafka-init` có thể đã `Exited (0)` vì nó chỉ tạo topic rồi kết thúc. API `/health/services` trả HTTP `200` và 7 service có `status: "up"`. Nếu service `down`, xem `docker compose logs --tail=50 <tên-service>`.
 
-“Docker Compose khởi động Gateway, 7 service, MongoDB, Kafka, Redis và mock provider. Sáu PostgreSQL database chạy trên máy Mac, ngoài Compose; các service kết nối tới `host.docker.internal:5432`. Kiểm tra `http://localhost:8000/health/services` để xác nhận cả 7 service đều `up`.”
-
-**Kết luận:**
-
-“PC5 đạt.”
+**Cách nói khi demo:** “Compose chạy các service và hạ tầng liên quan. Sáu PostgreSQL database nằm trên máy Mac, ngoài Compose; service kết nối qua `host.docker.internal:5432`.”
 
 ---
 
 ## PC6 – Health Check
 
-**Thông báo:**
-
-“Em chuyển sang tiêu chí PC6 – Health Check.”
-
-**CLI:**
+**Cách test (trong Terminal hoặc tạo ba request GET tương ứng trong Postman; không cần token/body):**
 
 ```bash
 curl -i http://localhost:8000/health
@@ -157,114 +129,77 @@ curl -i http://localhost:8000/ready
 curl -i http://localhost:8000/health/services
 ```
 
-**Postman:** ba request `GET http://localhost:8000/health`, `GET http://localhost:8000/ready`, `GET http://localhost:8000/health/services`; không token, không body. Lần lượt kiểm tra `status: "ok"`, `status: "ready"`, và mảng `services` gồm 7 phần tử có `status: "up"`.
+**Cần thấy:** `/health` trả HTTP `200`, `status: "ok"`; `/ready` trả HTTP `200`, `status: "ready"`; `/health/services` trả HTTP `200`, `status: "ok"` và mảng `services` có 7 phần tử đều `up`. Nếu service nào `down`, endpoint cuối trả `503` và chỉ rõ service đó. Lưu ý `/ready` hiện chỉ báo Gateway đã khởi động; `/health/services` mới hỏi health của cả 7 service.
 
-**Giải thích:**
-
-“Gateway cung cấp health check và readiness check. Endpoint health services kiểm tra trực tiếp trạng thái của 7 microservice phía sau Gateway.”
-
-**Khi thấy HTTP 200:**
-
-“Các endpoint trả về HTTP 200, các service backend đều ở trạng thái up.”
-
-**Kết luận:**
-
-“PC6 đạt.”
+**Cách nói khi demo:** “Gateway đang chạy, sẵn sàng nhận request; endpoint tổng hợp xác nhận cả 7 service phía sau đang up.”
 
 ---
 
 ## PC7 – Kafka / Asynchronous Communication
 
-**Thông báo:**
+**Hiểu đơn giản:** Service phát một *event* vào Kafka topic (hàng đợi); service khác đọc event sau đó. Người gửi không phải chờ người nhận xử lý xong. `notification-service` dùng consumer group `notification-service` để đọc các topic nghiệp vụ.
 
-“Em chuyển sang tiêu chí PC7 – Kafka.”
-
-**CLI:**
+**Bước 1 — kiểm tra Kafka và topic (Terminal trong `backend/`):**
 
 ```bash
+docker compose ps kafka notification-service
 docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server kafka:9092 \
+  --bootstrap-server localhost:9092 \
   --list
 ```
 
-**Giải thích:**
+**Cần thấy:** Kafka `Up (healthy)` và danh sách có `booking.events`, `trip.events`, `driver.events`, `payment.events`. Có topic **chưa chứng minh** message đã được gửi và đọc.
 
-“Kafka đang được sử dụng cho giao tiếp bất đồng bộ giữa các service. Topic booking.events đã được tạo.”
-
-**Tiếp tục kiểm tra consumer:**
+**Bước 2 — xem consumer của ứng dụng:**
 
 ```bash
 docker compose exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server kafka:9092 \
+  --bootstrap-server localhost:9092 \
   --describe \
   --group notification-service
+docker compose logs --tail=50 notification-service
 ```
 
-**Giải thích:**
+**Cần thấy:** group `notification-service` có các topic đã subscribe; log có `notification-service kafka subscribed to events`. Nếu group chưa xuất hiện, kiểm tra log lỗi kết nối Kafka; tạo event nghiệp vụ rồi xem lại.
 
-“Notification-service sử dụng consumer group notification-service để nhận event từ Kafka.”
+**Bước 3 — tự gửi và đọc một message thử (chạy cùng một cửa sổ Terminal, trong `backend/`):**
 
-**Kiểm tra publish và consume thực tế:** Chạy `npm run smoke:pc6-pc30`; dòng `PASS PC7 Kafka publish and consume` chứng minh script đã tạo topic test, publish một message và đọc lại đúng message đó. Với dữ liệu nghiệp vụ, sau khi hủy trip ở PC18, kiểm tra `GET http://localhost:8000/api/v1/notifications` cho cả hai token.
+```bash
+PC7_TOPIC="pc7-demo-$(date +%s)"
+docker compose exec -T kafka /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 --create --topic "$PC7_TOPIC" \
+  --partitions 1 --replication-factor 1
+printf 'hello-pc7\n' | docker compose exec -T kafka \
+  /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 --topic "$PC7_TOPIC"
+docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic "$PC7_TOPIC" \
+  --from-beginning --max-messages 1 --timeout-ms 10000
+```
 
-**Postman kiểm tra Kafka qua API nghiệp vụ:** sau khi hủy trip ở PC18, gọi `GET http://localhost:8000/api/v1/notifications?limit=20` với Bearer `{{customerToken}}`, rồi gọi cùng URL với Bearer `{{driverToken}}` của tài xế nhận trip bị hủy. Không có JSON body. Mỗi response HTTP 200 có `data` chứa `eventType: "trip.canceled"` và `body` liên quan `{{cancelTripId}}`; đợi vài giây và gọi lại nếu relay/consumer chưa xử lý. Việc kiểm tra publish/consume message độc lập vẫn cần CLI hoặc smoke script ở trên.
+**Cần thấy:** lệnh cuối in `hello-pc7`. Topic `pc7-demo-...` là topic thử riêng, không phải topic nghiệp vụ. Muốn chạy tự động thay bước này, dùng `npm run smoke:pc6-pc30` và tìm `PASS PC7 Kafka publish and consume`; script còn chạy PC6–PC30, tạo dữ liệu test mới và không xóa dữ liệu cũ.
 
-**Giải thích kết quả:**
+**Bằng chứng end-to-end nghiệp vụ (sau khi làm PC18):** `docker compose logs --tail=50 notification-service` cần có dòng `[NOTIFICATION KAFKA] consumed ... eventType=trip.canceled`. Trong Postman, `GET http://localhost:8000/api/v1/notifications?limit=20` với Bearer `{{customerToken}}` và token Driver của trip đã hủy; response HTTP `200` có `data` chứa thông báo `trip.canceled` liên quan `{{cancelTripId}}`. Event có thể cần vài giây mới xuất hiện. Đây là kiểm tra cả producer → Kafka → consumer → dữ liệu thông báo; bài thử topic riêng ở bước 3 chỉ kiểm tra broker.
 
-“Outbox của booking, trip và driver được chuyển lên các topic Kafka; notification-service consume và tạo notification. Lệnh CLI trên cho thấy topic và consumer group, còn script PC7 kiểm tra publish/consume bằng một message thật.”
-
-**Kết luận:**
-
-“PC7 đạt.”
+**Cách nói khi demo:** “Topic và consumer group cho thấy cấu hình; message `hello-pc7` đọc lại được chứng minh broker gửi/đọc được; notification của trip đã hủy chứng minh ứng dụng thực sự xử lý event.”
 
 ---
 
 ## PC8 – Gateway-only Access
 
-**Thông báo:**
-
-“Em chuyển sang tiêu chí PC8 – Gateway-only Access.”
-
-**CLI:**
+**Cách test (trong `backend/`):**
 
 ```bash
 docker compose ps
-```
-
-**Giải thích:**
-
-“Trong Docker Compose, chỉ Gateway publish cổng HTTP của API (`8000`) ra host. Các microservice backend chỉ dùng cổng nội bộ trong Docker network. MongoDB mở riêng cổng `27017` trên `127.0.0.1` để quản trị cơ sở dữ liệu; đó không phải cổng API.”
-
-**Kiểm tra trực tiếp từ host:**
-
-```bash
-curl -i http://localhost:3000/health
-curl -i http://localhost:3001/health
-curl -i http://localhost:3002/health
-curl -i http://localhost:3003/health
-curl -i http://localhost:3004/health
-curl -i http://localhost:3005/health
-curl -i http://localhost:3006/health
-```
-
-**Giải thích:**
-
-“Các port 3000 đến 3006 không publish ra host nên client bên ngoài không truy cập trực tiếp được vào microservice.”
-
-**Sau đó kiểm tra Gateway:**
-
-```bash
 curl -i http://localhost:8000/health
+curl -i --max-time 3 http://localhost:3000/health
 ```
 
-**Postman:** `GET http://localhost:8000/health` (không token, không body) phải HTTP 200. Postman trên host không gọi được `http://localhost:3000`–`3006`; xác nhận các port không được publish bằng `docker compose ps` ở trên.
+**Cần thấy:** `localhost:8000/health` trả HTTP `200`. `localhost:3000/health` từ máy host báo không kết nối được (curl thường trả mã `7`), vì cổng identity-service không publish. Trong cột `PORTS` của `docker compose ps`, Gateway có `0.0.0.0:8000->8000/tcp` hoặc tương đương; 7 service không có ánh xạ host kiểu `3000:3000` đến `3006:3006`. Nếu máy đang có chương trình khác dùng cổng 3000, lệnh curl có thể trả nội dung của chương trình đó; **cột PORTS của Compose** mới là bằng chứng quyết định.
 
-**Giải thích:**
+**Postman:** `GET http://localhost:8000/health` không token/body phải HTTP `200`. API của 7 service đi qua Gateway. MongoDB có cổng `127.0.0.1:27017` để quản trị DB; đó không phải cổng HTTP API.
 
-“Gateway là entry point được publish ra ngoài, còn các service backend chỉ giao tiếp trong mạng nội bộ Docker.”
-
-**Kết luận:**
-
-“PC8 đạt.”
+**Cách nói khi demo:** “Compose chỉ publish cổng HTTP API của Gateway. Các service dùng mạng nội bộ Docker, nên client phải gọi API qua `localhost:8000`.”
 
 ---
 
