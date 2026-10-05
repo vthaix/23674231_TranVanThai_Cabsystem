@@ -125,6 +125,7 @@ const SEED_BOOKINGS = [
 ];
 
 async function seed(bookings = SEED_BOOKINGS) {
+  if (process.env.SEED_ON_START === "false") return;
   const client = await pool.connect();
   try {
     for (const b of bookings) {

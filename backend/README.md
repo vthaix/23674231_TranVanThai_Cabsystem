@@ -29,3 +29,18 @@ docker compose exec -T driver-service node -e "const { Client } = require('pg');
 The passwords are in `backend/.env`. In pgAdmin, register a server with host `localhost`, port `5432`, and a matching database/user. The Docker services use `host.docker.internal` instead of `localhost` because they run inside containers.
 
 Existing PostgreSQL Docker volumes are not used by this Compose file. Keep them until you have verified the local databases and made a backup of the local PostgreSQL cluster.
+
+## Requested demo dataset
+
+The current Compose default is `SEED_ON_START=false`, so restarting services does not restore the older sample rows. To recreate the requested dataset, stop the application services while keeping Redis and MongoDB running, then run the reset script from `backend/`:
+
+```sh
+docker compose stop gateway identity-service customer-service driver-service booking-service trip-service payment-service notification-service
+node scripts/reset-requested-demo-data.js
+docker compose up -d --build
+node scripts/verify-requested-demo-data.js
+```
+
+The reset script clears all application tables in the six PostgreSQL databases and all notification collections in MongoDB, then creates 1 admin (`admin@gmail.com`), 5 customers, 10 drivers, 45 bookings, 25 completed trips with reviews, 25 payments, and 2 pending offers. Each customer has one booking in each of `SEARCHING`, `ASSIGNED`, `NO_DRIVER_FOUND`, and `CANCELED`, plus five `COMPLETED` bookings linked to the five completed trips. All accounts use password `12345678`. Driver phone `0391234568` appeared twice in the supplied list; the duplicate was removed.
+
+The reset script also clears Redis, rebuilds its driver GEO index, and reserves the two drivers with pending offers.

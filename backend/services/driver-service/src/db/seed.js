@@ -185,6 +185,7 @@ const SEED_DRIVERS = [
 ];
 
 async function seed(drivers = SEED_DRIVERS) {
+  if (process.env.SEED_ON_START === "false") return;
   const client = await pool.connect();
   try {
     const redis = getRedisClient();

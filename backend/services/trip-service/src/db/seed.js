@@ -112,6 +112,7 @@ const SEED_TRIPS = [
 ];
 
 async function seed() {
+  if (process.env.SEED_ON_START === "false") return;
   const client = await pool.connect();
   try {
     // 1. Seed Fare Rules
