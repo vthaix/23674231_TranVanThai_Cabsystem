@@ -145,6 +145,31 @@ curl -i http://localhost:8000/health/services
 
 **Hiểu đơn giản:** Service phát một *event* vào Kafka topic (hàng đợi); service khác đọc event sau đó. Người gửi không phải chờ người nhận xử lý xong. `notification-service` dùng consumer group `notification-service` để đọc các topic nghiệp vụ.
 
+**Cách test chỉ bằng Postman (dễ trình bày nhất):** cần có `{{customerToken}}` từ PC9–PC10. Không cần tạo Driver hay chạy PC18.
+
+1. Gửi `POST http://localhost:8000/api/v1/bookings` với Authorization → Bearer Token → `{{customerToken}}`, header `Idempotency-Key: pc7-booking-001` và Body → raw → JSON:
+
+   ```json
+   {
+     "pickupAddress": "Diem don test Kafka",
+     "pickupLat": 10.7901,
+     "pickupLng": 106.7101,
+     "destinationAddress": "Diem den test Kafka",
+     "destinationLat": 10.8001,
+     "destinationLng": 106.7201,
+     "vehicleType": "BIKE"
+   }
+   ```
+
+   Cần HTTP `201`; lưu `id` trong response thành `pc7BookingId`. Mỗi lần chạy lại, đổi `Idempotency-Key` (ví dụ `pc7-booking-002`), vì dùng lại key sẽ trả booking cũ và không tạo event mới.
+2. Gửi `GET http://localhost:8000/api/v1/notifications?limit=20` với cùng Bearer `{{customerToken}}`, không có Body. Tìm phần tử trong `data` có `eventType: "booking.created"` và trường `body` chứa `pc7BookingId`. Nếu chưa thấy, đợi vài giây rồi gửi lại GET.
+
+**Vì sao cách này kiểm tra được Kafka?** Booking-service ghi event `booking.created` vào outbox, relay gửi lên topic `booking.events`, notification-service đọc event rồi tạo thông báo cho Customer. GET cuối đọc thông báo từ notification-service. HTTP `201` ở bước 1 **chưa đủ**; phải thấy đúng `pc7BookingId` trong thông báo ở bước 2. Postman kiểm tra được luồng nghiệp vụ này, nhưng không hiển thị trực tiếp trạng thái broker/topic/consumer group.
+
+**Cách nói khi demo:** “Em tạo booking qua Gateway; booking-service phát event lên Kafka. Notification-service nhận event, nên API thông báo của Customer xuất hiện `booking.created` với đúng booking ID vừa tạo.”
+
+**Nếu cần kiểm tra trực tiếp broker/topic/consumer bằng Terminal:**
+
 **Bước 1 — kiểm tra Kafka và topic (Terminal trong `backend/`):**
 
 ```bash
