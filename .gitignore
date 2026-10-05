@@ -1,6 +1,5 @@
 .DS_Store
 .env
-.gitignore
+.env.*
+!.env.example
 phieucham.md
-
-

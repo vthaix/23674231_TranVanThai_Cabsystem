@@ -49,12 +49,18 @@ PC2 (kiểm tra `.gitignore` và `.env` **trên GitHub**) chưa được ghi là
 **CLI:**
 
 ```bash
-rg --files services | rg '/(package.json|src/index.js)$' | sort
+cd backend
+find services -type d -name node_modules -prune -o \
+  -type f \( -name package.json -o -name index.js \) -print \
+  | grep -E '^services/[^/]+/(package.json|src/index.js)$' \
+  | sort
 ```
+
+Chạy từ thư mục gốc dự án; kết quả cần có 14 dòng, tương ứng 7 service × 2 file. Sau đó chạy `ls` để chỉ thêm `gateway/`, `shared/`, `mocks/` và `docker-compose.yml` trong `backend/`.
 
 **Giải thích ngắn:**
 
-“Project hiện có 7 microservice gồm identity, customer, driver, booking, trip, payment và notification. Mỗi service đều có package.json và entry point index.js, source code không để rỗng.”
+“Project hiện có 7 microservice gồm identity, customer, driver, booking, trip, payment và notification. Mỗi service đều có package.json và entry point index.js. Gateway là cửa vào API, shared chứa mã dùng chung, mocks mô phỏng nhà cung cấp ngoài và Docker Compose ghép các thành phần để chạy hệ thống.”
 
 **Kết luận:**
 
