@@ -2,6 +2,34 @@ const { pool } = require("./postgres");
 const { encrypt, hashPhone, hashNationalId } = require("../../../../shared/src/crypto/index");
 const { getRedisClient } = require("./redis");
 
+// Five online drivers for PC13: all are within 1 km of (10.7, 106.7).
+const PC13_NEARBY_DRIVERS = [
+  { id: "00000000-0000-0000-0000-000000000021", fullName: "Tài xế mẫu PC13 1", phone: "0907777001", nationalId: "001133445501", lat: 10.700000, lng: 106.700000, plateNumber: "59P-130.01" },
+  { id: "00000000-0000-0000-0000-000000000022", fullName: "Tài xế mẫu PC13 2", phone: "0907777002", nationalId: "001133445502", lat: 10.701000, lng: 106.700500, plateNumber: "59P-130.02" },
+  { id: "00000000-0000-0000-0000-000000000023", fullName: "Tài xế mẫu PC13 3", phone: "0907777003", nationalId: "001133445503", lat: 10.699000, lng: 106.699500, plateNumber: "59P-130.03" },
+  { id: "00000000-0000-0000-0000-000000000024", fullName: "Tài xế mẫu PC13 4", phone: "0907777004", nationalId: "001133445504", lat: 10.702000, lng: 106.701000, plateNumber: "59P-130.04" },
+  { id: "00000000-0000-0000-0000-000000000025", fullName: "Tài xế mẫu PC13 5", phone: "0907777005", nationalId: "001133445505", lat: 10.697000, lng: 106.698000, plateNumber: "59P-130.05" },
+].map((driver, index) => ({
+  ...driver,
+  dateOfBirth: "1990-01-01",
+  licenseNumber: `A1-PC13-${index + 1}`,
+  licenseClass: "A1",
+  licenseExpiryDate: "2035-12-31",
+  status: "ONLINE",
+  ratingSum: 45,
+  ratingCount: 10,
+  ratingAvg: 4.50,
+  vehicle: {
+    vehicleType: "BIKE",
+    plateNumber: driver.plateNumber,
+    brand: "Honda",
+    model: "Wave",
+    color: "Xanh",
+    manufactureYear: 2022,
+    seatCount: 1,
+  }
+}));
+
 const SEED_DRIVERS = [
   {
     id: "00000000-0000-0000-0000-000000000011",
@@ -152,15 +180,16 @@ const SEED_DRIVERS = [
       manufactureYear: 2022,
       seatCount: 1,
     }
-  }
+  },
+  ...PC13_NEARBY_DRIVERS
 ];
 
-async function seed() {
+async function seed(drivers = SEED_DRIVERS) {
   const client = await pool.connect();
   try {
     const redis = getRedisClient();
 
-    for (const d of SEED_DRIVERS) {
+    for (const d of drivers) {
       const phoneEnc = encrypt(d.phone);
       const phoneH = hashPhone(d.phone);
       const nationalIdEnc = encrypt(d.nationalId);
@@ -235,7 +264,7 @@ async function seed() {
       }
     }
 
-    console.log("[driver-service] Seeded 6 sample drivers with vehicles and locations");
+    console.log(`[driver-service] Seeded ${drivers.length} sample drivers with vehicles and locations`);
   } catch (err) {
     console.error("[driver-service] Seed failed:", err.message);
   } finally {
@@ -243,4 +272,4 @@ async function seed() {
   }
 }
 
-module.exports = { seed, SEED_DRIVERS };
+module.exports = { seed, SEED_DRIVERS, PC13_NEARBY_DRIVERS };

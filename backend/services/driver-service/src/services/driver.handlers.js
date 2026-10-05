@@ -137,6 +137,14 @@ async function postDriversRegister(input) {
   if (!fullName || !nationalId || !licenseNumber || !licenseClass || !licenseExpiryDate) {
     return errorResult(400, "VALIDATION_ERROR", "Missing required driver fields", requestId);
   }
+  for (const [field, value] of Object.entries({ fullName, nationalId, licenseNumber, licenseClass, licenseExpiryDate })) {
+    if (typeof value !== "string" || !value.trim()) {
+      return errorResult(400, "VALIDATION_ERROR", `${field} must be a non-empty string`, requestId);
+    }
+  }
+  if (vehicle?.vehicleType != null && typeof vehicle.vehicleType !== "string") {
+    return errorResult(400, "VALIDATION_ERROR", "vehicle.vehicleType must be a string", requestId);
+  }
 
   // Validate license expiry
   const expiryDate = new Date(licenseExpiryDate);
@@ -800,7 +808,7 @@ async function postInternalDriversIdReservations(input) {
   }
 
   const redis = getRedisClient();
-  const ttlSec = 35;
+  const ttlSec = Number(process.env.OFFER_TTL_SEC || 1800) + 5;
 
   if (redis && redis.isOpen) {
     try {

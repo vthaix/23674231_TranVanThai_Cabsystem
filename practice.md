@@ -14,9 +14,16 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Tất cả request Postman bên dưới ghi URL đầy đủ của Gateway `http://localhost:8000`; không cần biến `baseUrl`. Các biến `customerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `offerId`, `tripId`, `paymentId` được điền từ response của từng bước. Mỗi lần thử đăng ký cần email, số điện thoại, CCCD và biển số mới để tránh HTTP 409 do trùng dữ liệu. Token JWT hết hạn sau khoảng 15 phút; đăng nhập lại nếu nhận HTTP 401.
+Sau khi sửa PC15/PC16 hoặc thời hạn token, build lại các service liên quan trong thư mục `backend/`:
 
-**Cách nhập request trong Postman:** chọn đúng method và URL ở từng PC; với JSON chọn **Body → raw → JSON** (Postman sẽ gửi `Content-Type: application/json`). Với request cần token, chọn **Authorization → Bearer Token** và nhập biến như `{{customerToken}}`; hoặc thêm header `Authorization: Bearer {{customerToken}}`. GET không có body. Mọi URL công khai bên dưới đi qua Gateway; đường `/internal/...` chỉ dành cho service trong Docker network, không gửi trực tiếp từ Postman trên host. Tạo environment các biến `otp`, `registrationToken`, `customerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `offerId`, `tripId`, `paymentId`, `providerTransactionId`, `paymentAmount`, `cancelBookingId`, `cancelTripId`. Khi có response, sao chép đúng trường được hướng dẫn vào biến tương ứng. Giữa các lần demo nên đổi email, phone, CCCD, biển số và `Idempotency-Key` để tránh trùng dữ liệu.
+```bash
+docker compose up -d --build identity-service booking-service driver-service
+docker compose ps
+```
+
+Tất cả request Postman bên dưới dùng Gateway `http://localhost:8000`. Token đăng nhập **mới** có hiệu lực **60 phút**; token lấy trước khi đổi cấu hình vẫn hết hạn theo thời điểm cũ. Nếu Postman trả HTTP 401 vì token hết hạn, gọi lại `POST /api/v1/auth/login` và ghi đè biến token tương ứng. Không cần đăng ký lại tài khoản.
+
+**Cách nhập request trong Postman:** chọn đúng method và URL ở từng PC; với JSON chọn **Body → raw → JSON** (Postman sẽ gửi `Content-Type: application/json`). Với request cần token, chọn **Authorization → Bearer Token** và nhập biến như `{{customerToken}}`; hoặc thêm header `Authorization: Bearer {{customerToken}}`. GET không có body. Mọi URL công khai bên dưới đi qua Gateway; đường `/internal/...` chỉ dành cho service trong Docker network, không gửi trực tiếp từ Postman trên host. Tạo environment các biến `otp`, `registrationToken`, `customerToken`, `pc14CustomerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `tripId`, `paymentId`, `providerTransactionId`, `paymentAmount`, `cancelBookingId`, `cancelTripBookingId`, `cancelTripId`. Khi có response, sao chép đúng trường được hướng dẫn vào biến tương ứng. Giữa các lần demo nên đổi email, phone, CCCD, biển số và `Idempotency-Key` để tránh trùng dữ liệu.
 
 **Số điện thoại:** nhập chuỗi đúng 10 chữ số, ví dụ `0912345001`; không thêm `+84`, khoảng trắng hoặc dấu phân cách. Quy tắc này áp dụng cho đăng ký, OTP và đăng nhập bằng số điện thoại.
 
@@ -274,7 +281,7 @@ pm.environment.set("customerId", pm.response.json().id);
 { "email": "khachdemo01@example.com", "password": "DemoPass@123" }
 ```
 
-**Cần thấy:** HTTP 200, response có `token`, `accountId = {{customerId}}`, `role: "CUSTOMER"`. Lưu `token` vào `customerToken`. Mật khẩu được so sánh bằng bcrypt, JWT được ký HS256. Để thực hiện PC13/PC22, đăng nhập admin bằng cùng endpoint với email `admin@cabsystem.com`, password seed mặc định `Admin@123456` (hoặc giá trị `SEED_PASSWORD` nếu đã cấu hình) và lưu `adminToken`.
+**Cần thấy:** HTTP 200, response có `token`, `accountId = {{customerId}}`, `role: "CUSTOMER"`. Lưu `token` vào `customerToken`. JWT ký bằng HS256 và token mới hết hạn sau 60 phút. Để thực hiện PC13/PC22, đăng nhập admin bằng cùng endpoint với email `admin@cabsystem.com`, password seed mặc định `Admin@123456` (hoặc giá trị `SEED_PASSWORD` nếu đã cấu hình) và lưu `adminToken`.
 
 **Request Admin trong Postman:** `POST http://localhost:8000/api/v1/auth/login`, không Bearer, Body → raw → JSON:
 
@@ -283,6 +290,8 @@ pm.environment.set("customerId", pm.response.json().id);
 ```
 
 Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin vào `adminToken`. Có thể dùng script Tests `pm.environment.set("customerToken", pm.response.json().token)` hoặc đổi tên biến thành `adminToken` trong request Admin.
+
+Khi token hết hạn, chạy lại đúng request đăng nhập của Customer, Admin hoặc Driver để cập nhật biến token đó. Thời hạn 1 giờ chỉ áp dụng cho token được cấp sau khi build lại identity-service.
 
 **Xem tài khoản Admin đang đăng nhập:** `GET http://localhost:8000/api/v1/admin/me` với `Bearer {{adminToken}}`, không body. Response có `id`, `email`, `displayName`, `role: "ADMIN"`, `status` và các mốc thời gian. Không có token trả HTTP 401; token Customer/Driver trả HTTP 403. API không trả mật khẩu hoặc hash.
 
@@ -318,11 +327,11 @@ Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin
 
 **Postman:**
 
-1. `GET http://localhost:8000/api/v1/drivers?page=1&limit=50` với `Bearer {{adminToken}}`: `pagination.total` ít nhất 5; dữ liệu seed gồm ONLINE, OFFLINE, BUSY, PENDING_APPROVAL. Đây là danh sách quản trị, có thể lọc bằng `status`, phân trang bằng `page` và `limit` (tối đa 100); token Customer trả HTTP 403.
-2. `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1&page=1`.
-3. `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.776889&lng=106.700806&radius=1000&limit=1&page=2`, không token, không body.
+1. **Chứng minh dữ liệu có nhiều trạng thái:** `GET http://localhost:8000/api/v1/drivers?page=1&limit=50` với `Bearer {{adminToken}}`. Trong `data`, tìm 5 ID seed kết thúc bằng `0011`–`0015`: lần lượt có trạng thái `ONLINE`, `ONLINE`, `BUSY`, `OFFLINE`, `PENDING_APPROVAL`. Có thể gọi thêm `GET /api/v1/drivers?status=OFFLINE` hoặc `?status=BUSY` để chứng minh bộ lọc. Đây là danh sách quản trị; token Customer trả HTTP 403.
+2. `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.7&lng=106.7&radius=1000&limit=5&page=1`, không token, không body.
+3. Để kiểm tra phân trang, gọi lại với `limit=2&page=1`, rồi `limit=2&page=2`.
 
-**Cần thấy:** mỗi trang tối đa 1 tài xế; ID của hai trang khác nhau; `distanceM <= 1000`, `status: "ONLINE"`. Tài xế ở xa hơn 1 km không xuất hiện. Driver-service tính khoảng cách từ tọa độ và áp dụng limit/page.
+**Cần thấy:** bước 1 chứng minh **ít nhất 5 tài xế có nhiều trạng thái** theo yêu cầu smoke. Bước 2 trả `pagination.total: 5` và `data` có 5 tài xế mẫu PC13, mỗi người `distanceM <= 1000`, `status: "ONLINE"`. Endpoint `/drivers/nearby` mặc định chỉ tìm `ONLINE`, vì tài xế `BUSY`/`OFFLINE`/`PENDING_APPROVAL` không nhận chuyến. Ở bước 3, mỗi trang có 2 ID khác nhau. Các tài xế seed cũ ở quanh `10.776…` nằm ngoài bán kính `10.7, 106.7`. Để nạp seed mới vào DB đang chạy, build/chạy lại `driver-service` bằng `docker compose up -d --build driver-service` trong `backend/`.
 
 **Kết luận:** “PC13 đạt khi có dữ liệu mẫu đủ trạng thái và danh sách quanh điểm đón được lọc/phân trang đúng.”
 
@@ -330,23 +339,27 @@ Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin
 
 ## PC14 – Danh sách booking của Customer
 
-**Postman:** Với `Bearer {{customerToken}}`, gửi `POST http://localhost:8000/api/v1/bookings` **5 lần**, mỗi lần đổi header `Idempotency-Key` (`demo-list-1` đến `demo-list-5`). Dùng pickup ở xa tài xế để các booking này không ảnh hưởng luồng nhận chuyến:
+**Vì sao Customer xem danh sách?** Mỗi lần đặt xe là **một booking mới**, không phải một booking duy nhất trong cả đời tài khoản. Dù một chuyến đã hủy hoặc không tìm được tài xế, bản ghi vẫn nằm trong lịch sử để Customer xem lại. PC14 kiểm tra Customer chỉ đọc được booking của **chính mình**. Admin có thể xem tổng hợp bằng cùng endpoint khi cần quản trị. Code hiện tại chưa chặn Customer tạo nhiều booking đang `SEARCHING` cùng lúc, nên không dùng PC14 để chứng minh quy tắc “mỗi lúc chỉ một booking đang hoạt động”.
+
+**Dữ liệu mẫu cho tài khoản của bạn:** 5 booking ID kết thúc `0151`–`0155` có điểm đón quanh `lat=10.7`, `lng=106.7`, thuộc `thai@gmail.com` (`customerId = b597a08b-958d-4ac6-b8c6-9f9a2a26ad2a`). Các booking này đã `CANCELED` hoặc `NO_DRIVER_FOUND`, nên chỉ dùng để xem lịch sử, không tạo offer mới. Tài khoản này còn có thể có các booking đã tự tạo trước đó; `pagination.total` vì vậy có thể lớn hơn 5. Chúng khác với 5 tài xế `ONLINE` của PC13.
+
+**Postman:**
+
+1. Đăng nhập tài khoản của bạn bằng `POST http://localhost:8000/api/v1/auth/login`, không Bearer, Body → raw → JSON:
 
 ```json
 {
-  "pickupAddress": "Diem don danh sach",
-  "pickupLat": 10.85,
-  "pickupLng": 106.75,
-  "destinationAddress": "Diem den danh sach",
-  "destinationLat": 10.86,
-  "destinationLng": 106.76,
-  "vehicleType": "BIKE"
+  "email": "thai@gmail.com",
+  "password": "<mật khẩu của tài khoản này>"
 }
 ```
 
-Sau đó gọi `GET http://localhost:8000/api/v1/bookings?limit=2&page=1`, rồi `GET http://localhost:8000/api/v1/bookings?limit=2&page=2`; cả hai dùng Bearer `{{customerToken}}`, không body.
+Thay chuỗi trong dấu `<...>` bằng mật khẩu thật của tài khoản; không gửi nguyên chuỗi giữ chỗ. Lưu `token` trả về thành `pc14CustomerToken` để không ghi đè `customerToken` của PC9.
 
-**Cần thấy:** HTTP 200, `pagination.total >= 5`, mỗi trang có 2 bản ghi, ID hai trang khác nhau, mọi `customerId` bằng `{{customerId}}`. Booking-service lọc theo người trong JWT.
+2. Gọi `GET http://localhost:8000/api/v1/bookings?limit=50&page=1` với Bearer `{{pc14CustomerToken}}`, không body. Tìm 5 ID kết thúc `0151`–`0155`; mỗi bản ghi có `customerId` như trên và `pickup.lat/lng` gần `10.7/106.7`.
+3. Kiểm tra phân trang bằng `GET http://localhost:8000/api/v1/bookings?limit=2&page=1`, rồi `GET http://localhost:8000/api/v1/bookings?limit=2&page=2`, vẫn dùng Bearer `{{pc14CustomerToken}}`.
+
+**Cần thấy:** HTTP 200, `pagination.total >= 5`; hai trang có tối đa 2 booking/trang, ID không trùng. Mọi `customerId` trong response bằng ID của Customer đang đăng nhập. Booking-service lấy ID từ JWT để lọc, không yêu cầu Customer truyền ID trên URL. Nếu đăng nhập Admin, có thể gọi `GET /api/v1/bookings?customerId=b597a08b-958d-4ac6-b8c6-9f9a2a26ad2a` với `Bearer {{adminToken}}` để xem cùng lịch sử; đó là góc nhìn quản trị, còn PC14 kiểm tra góc nhìn Customer. Năm booking seed `0141`–`0145` của `customer1@example.com` vẫn có trong DB nếu cần tài khoản demo độc lập.
 
 **Kết luận:** “PC14 đạt khi Customer xem được ít nhất 5 booking của mình với limit/page.”
 
@@ -382,6 +395,8 @@ Chọn số điện thoại, CCCD và biển số chưa từng dùng. PC21 hiệ
 ```
 
 **Cần thấy:** HTTP 201, `status: "PENDING_APPROVAL"`; lưu `id` vào `driverId`. Mật khẩu do tài xế nhập phải dài 8–128 ký tự và được lưu dạng bcrypt hash ở identity-service. Tài khoản đang `PENDING`, chưa thể đăng nhập; thử đăng nhập bằng số điện thoại và mật khẩu trên trước khi duyệt sẽ nhận HTTP 401. Hồ sơ Driver vẫn chờ duyệt. Số điện thoại, CCCD và GPLX được mã hóa khi lưu. Thiếu mật khẩu hoặc registration token OTP hợp lệ trả HTTP 400.
+
+`nationalId` phải là **chuỗi JSON**, kể cả khi chỉ gồm chữ số: `"nationalId": "012345678902"`. Nếu gửi `"nationalId": 1234`, API trả HTTP 400 với `code: "VALIDATION_ERROR"`; không dùng kiểu number vì có thể mất số `0` ở đầu.
 
 Ba request trên dùng `Content-Type: application/json`. Trong môi trường development có thể dùng script Tests ở request OTP: `pm.environment.set("otp", pm.response.json()._dev_otp)`; ở request verify: `pm.environment.set("registrationToken", pm.response.json().registrationToken)`; ở request register: `pm.environment.set("driverId", pm.response.json().id)`.
 
@@ -440,9 +455,9 @@ Các thao tác quản trị ở bước 1–3 và nhánh từ chối yêu cầu 
 }
 ```
 
-**Cần thấy:** HTTP 201, `status: "SEARCHING"`, có `id` để lưu vào `bookingId`. Gọi ngay `GET http://localhost:8000/api/v1/offers` với `Bearer {{driverToken}}`: phần tử `bookingId = {{bookingId}}`. Offer có hạn khoảng 30 giây, nên chuyển ngay sang PC16. Booking-service gọi driver-service tìm tài xế quanh điểm đón và tạo offer.
+**Cần thấy:** HTTP 201, `status: "SEARCHING"`, có `id` để lưu vào `bookingId`. Booking-service tìm tài xế ở gần và tạo **offer** (lời mời nhận chuyến) ở bước chạy nền. Gọi `GET http://localhost:8000/api/v1/offers` với `Bearer {{driverToken}}` để tìm phần tử có `bookingId = {{bookingId}}`; nếu chưa thấy ngay, đợi khoảng 1 giây rồi gọi lại. `expiresAt` của offer là thời điểm hết hạn, cách lúc tạo **30 phút**. Đây là hạn nhận lời mời của tài xế, không phải hạn cố định của toàn bộ booking; khi offer hết hạn, hệ thống có thể mời tài xế khác.
 
-GET offers không có body. Trong Postman, ở request tạo booking có thể đặt Tests `pm.environment.set("bookingId", pm.response.json().id)`; ở GET offers chọn phần tử `data[]` có `bookingId` này và lưu `id` vào `offerId`.
+GET offers không có body. Trong Postman, ở request tạo booking có thể đặt Tests `pm.environment.set("bookingId", pm.response.json().id)`; ở GET offers kiểm tra `data[]` có `bookingId` này. Mỗi offer gửi riêng cho một Driver: nếu tài xế đang đăng nhập không thấy offer sau vài lần kiểm tra, booking có thể đã được gửi cho tài xế gần hơn. Hãy đặt vị trí Driver thử nghiệm gần điểm đón và chọn khu vực ít tài xế khác trước khi tạo booking mới.
 
 **Kết luận:** “PC15 đạt khi booking SEARCHING được tạo và tài xế gần đó nhận offer.”
 
@@ -450,9 +465,9 @@ GET offers không có body. Trong Postman, ở request tạo booking có thể �
 
 ## PC16 – Tài xế nhận chuyến
 
-**Postman:** Lấy `id` của offer ở PC15, lưu thành `offerId`; gọi `POST http://localhost:8000/api/v1/offers/{{offerId}}/accept` với `Bearer {{driverToken}}`, body `{}`.
+**Postman:** Sau khi `GET /api/v1/offers` xác nhận tài xế có offer cho `{{bookingId}}`, gọi `POST http://localhost:8000/api/v1/bookings/{{bookingId}}/accept` với `Bearer {{driverToken}}`, body `{}`. Không cần lưu `offerId`: backend lấy Driver ID từ token, tìm offer của Driver cho booking này và kiểm tra offer còn hạn.
 
-**Cần thấy:** HTTP 200, `status: "ASSIGNED"`, có `tripId` để lưu. Customer gọi `GET http://localhost:8000/api/v1/trips/{{tripId}}` với `Bearer {{customerToken}}`: `driverId = {{driverId}}`, `status: "ASSIGNED"`, có `driverSnapshot`. Driver-service chuyển tài xế sang BUSY.
+**Cần thấy:** HTTP 200, `status: "ASSIGNED"`, có `tripId` để lưu. Customer gọi `GET http://localhost:8000/api/v1/trips/{{tripId}}` với `Bearer {{customerToken}}`: `driverId = {{driverId}}`, `status: "ASSIGNED"`, có `driverSnapshot`. Driver-service chuyển tài xế sang BUSY. Driver không được mời cho booking này nhận HTTP 404; offer đã hết hạn hoặc không còn chờ nhận trả HTTP 409.
 
 Có thể đặt Tests trên request accept: `pm.environment.set("tripId", pm.response.json().tripId)`. Request GET trip không có body.
 
@@ -516,7 +531,7 @@ Sau đó `POST http://localhost:8000/api/v1/bookings/{{cancelBookingId}}/cancel`
 }
 ```
 
-Gọi `GET http://localhost:8000/api/v1/offers` với Bearer token Driver mới, lưu `data[].id` phù hợp; `POST http://localhost:8000/api/v1/offers/{{cancelOfferId}}/accept` với cùng token và JSON `{}`; lưu `tripId` response vào `cancelTripId`. Làm ngay trước khi offer hết hạn. Cuối cùng `POST http://localhost:8000/api/v1/trips/{{cancelTripId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach huy truoc khi bat dau" }`.
+Lưu `id` của booking mới vào `cancelTripBookingId`. Gọi `GET http://localhost:8000/api/v1/offers` với Bearer token Driver mới để kiểm tra có offer cho `cancelTripBookingId`; `POST http://localhost:8000/api/v1/bookings/{{cancelTripBookingId}}/accept` với cùng token và JSON `{}`; lưu `tripId` response vào `cancelTripId`. Chấp nhận trong 30 phút từ khi offer được tạo. Cuối cùng `POST http://localhost:8000/api/v1/trips/{{cancelTripId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach huy truoc khi bat dau" }`.
 
 **Cần thấy:** HTTP 200, trip trả `CANCELED`; `GET http://localhost:8000/api/v1/trips/{{cancelTripId}}` với Bearer `{{customerToken}}` xác nhận. Gọi `GET http://localhost:8000/api/v1/notifications?limit=20` bằng token Customer **và** token Driver của trip vừa hủy: mỗi bên có notification `eventType: "trip.canceled"`, `body` chứa `cancelTripId` sau khi Kafka xử lý. Các GET không có body. Không dùng trip PC17 đã COMPLETED vì trạng thái đó không được hủy.
 

@@ -1,7 +1,7 @@
 const repository = require("../repositories/booking.repository");
 const crypto = require("crypto");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { SERVICE_NAME, DRIVER_SERVICE_URL } = require("../config");
+const { SERVICE_NAME, DRIVER_SERVICE_URL, OFFER_TTL_SEC } = require("../config");
 
 async function dispatchBooking(bookingId, client) {
   try {
@@ -47,7 +47,7 @@ async function dispatchBooking(bookingId, client) {
     if (!reserveResp.ok) return; // Driver was taken
 
     const attemptNo = (booking.attempt_count || 0) + 1;
-    const expiresAt = new Date(Date.now() + 30 * 1000); // 30s TTL
+    const expiresAt = new Date(Date.now() + OFFER_TTL_SEC * 1000);
 
     // Create Offer
     await repository.insertOffers(client, [

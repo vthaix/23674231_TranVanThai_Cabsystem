@@ -75,6 +75,13 @@ function findOffers2(db, params) {
     `, params);
 }
 
+function findOfferByBookingAndDriver(db, params) {
+  return db.query(
+    "SELECT id FROM offers WHERE booking_id = $1 AND driver_id = $2",
+    params
+  );
+}
+
 function updateOffers(db, params) {
   return db.query(`
       UPDATE offers SET
@@ -222,4 +229,4 @@ function countBookings(db, customerId) {
   return db.query(query, params);
 }
 
-module.exports = { begin, findIdempotencyRecords, rollback, insertBookings, insertBookingStatusHistory, insertOutboxEvents, insertIdempotencyRecords, commit, findOffers, findOffers2, updateOffers, updateOffers2, updateBookings, insertBookingStatusHistory2, insertOutboxEvents2, findOffers3, updateOffers3, findBookings, findOffers4, updateOffers4, updateBookings2, insertBookingStatusHistory3, insertOutboxEvents3, findOffers5, updateBookings3, insertOffers, updateBookings4, listBookings, countBookings };
+module.exports = { begin, findIdempotencyRecords, rollback, insertBookings, insertBookingStatusHistory, insertOutboxEvents, insertIdempotencyRecords, commit, findOffers, findOffers2, findOfferByBookingAndDriver, updateOffers, updateOffers2, updateBookings, insertBookingStatusHistory2, insertOutboxEvents2, findOffers3, updateOffers3, findBookings, findOffers4, updateOffers4, updateBookings2, insertBookingStatusHistory3, insertOutboxEvents3, findOffers5, updateBookings3, insertOffers, updateBookings4, listBookings, countBookings };

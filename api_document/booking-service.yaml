@@ -174,12 +174,13 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /offers/{id}/accept:
+  /bookings/{id}/accept:
     post:
       tags:
       - Public
-      summary: Accept an Offer
-      operationId: acceptOffer
+      summary: Accept a Booking offered to the authenticated Driver
+      description: The service finds the Driver's offer for this Booking and checks its 30-minute expiry.
+      operationId: acceptBooking
       servers: *id001
       security:
       - bearerAuth: []
@@ -188,7 +189,7 @@ paths:
       - $ref: '#/components/parameters/RequestId'
       responses:
         '200':
-          description: Offer accepted; assignment saga returns tripId
+          description: Booking accepted; assignment saga returns tripId
           content:
             application/json:
               schema:

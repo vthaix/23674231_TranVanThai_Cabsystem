@@ -32,6 +32,7 @@ services:
       SERVICE_NAME: identity-service
       NODE_ENV: development
       SEED_ON_START: ${SEED_ON_START:-true}
+      JWT_TTL_MIN: ${JWT_TTL_MIN:-60}
       DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@host.docker.internal:5432/identity_db
       KAFKA_BROKERS: kafka:9092
     networks:
@@ -68,6 +69,7 @@ services:
       DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@host.docker.internal:5432/driver_db
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
+      OFFER_TTL_SEC: ${OFFER_TTL_SEC:-1800}
     networks:
       - cab-internal
     depends_on:
@@ -88,6 +90,7 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://booking:${BOOKING_DB_PASSWORD}@host.docker.internal:5432/booking_db
       KAFKA_BROKERS: kafka:9092
+      OFFER_TTL_SEC: ${OFFER_TTL_SEC:-1800}
     networks:
       - cab-internal
     depends_on:

@@ -340,7 +340,7 @@ Cột, kiểu, ràng buộc và index chi tiết ở [mục 8](#8-thiết-kế-d
 | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register` | driver | public | giới hạn 10/phút/IP |
 | `GET /drivers`, `GET /drivers/{id}/application`, `POST /drivers/{id}/approve`, `POST /drivers/{id}/reject` | driver | `ADMIN` | |
 | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel` | booking | `CUSTOMER` | `POST /bookings`: 10/phút/user |
-| `GET /offers`, `POST /offers/{id}/accept`, `POST /offers/{id}/reject` | booking | `DRIVER` | |
+| `GET /offers`, `POST /bookings/{id}/accept`, `POST /offers/{id}/reject` | booking | `DRIVER` | |
 | `GET /trips/{id}`, `GET /trips/{id}/location` | trip | `CUSTOMER` (own), `DRIVER` (own), `EMPLOYEE` | |
 | `PATCH /trips/{id}/status` | trip | `DRIVER` (own) | |
 | `POST /trips/{id}/cancel` | trip | `CUSTOMER` (own), `DRIVER` (own), `EMPLOYEE` | |
@@ -420,7 +420,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 5. **Vị trí (PC13):** `PUT /drivers/me/location` kiểm tra `lat ∈ [-90,90]`, `lng ∈ [-180,180]` (sai → `400`); ghi `driver:geo` (Redis `GEOADD`) và upsert `driver_locations` (mỗi tài xế một dòng). Chỉ khi Driver đang `BUSY` mới phát `driver.location_updated` (kèm `tripId`) để Trip theo dõi.
 6. **GEO index:** nạp lại từ `driver_locations` khi service khởi động (mất Redis không mất dữ liệu). Chứa mọi Driver đã duyệt có vị trí.
 7. **Nearby (`GET /drivers/nearby`):** `GEOSEARCH` theo `lat`, `lng`, `radius` (mặc định 1000 m) lấy tối đa 500 ID kèm khoảng cách → lọc trong PostgreSQL theo `status` (mặc định `ONLINE`), `vehicleType`, đã duyệt → sắp xếp theo `distanceM` tăng dần → phân trang (`page`, `limit ≤ 50`) và trả `pagination.total` theo FR-S16. Internal `nearby` dùng cùng thuật toán nhưng luôn `status = ONLINE`, bỏ `excludeIds`, bỏ tài xế đang có reservation, và nếu bật `LOCATION_STALE_SEC` thì bỏ tài xế có vị trí cũ hơn ngưỡng (mặc định tắt để seed tĩnh vẫn khớp được).
-8. **Reservation:** `SET driver:reserve:{driverId} {bookingId} NX EX 35`. Gọi lại cùng `(driverId, bookingId)` là idempotent; khác `bookingId` → `409`. `busy` và `DELETE` xóa key. TTL 35 giây = `OFFER_TTL_SEC` + 5 giây.
+8. **Reservation:** `SET driver:reserve:{driverId} {bookingId} NX EX 1805`. Gọi lại cùng `(driverId, bookingId)` là idempotent; khác `bookingId` → `409`. `busy` và `DELETE` xóa key. TTL 1805 giây = `OFFER_TTL_SEC` + 5 giây.
 9. **`POST /internal/drivers/{id}/busy`:** `ONLINE → BUSY`, ghi `current_trip_id`, xóa reservation, ghi history, outbox `driver.busy`; idempotent theo `tripId`.
 10. **Phản ứng event:** `trip.completed`/`trip.canceled` → `BUSY → ONLINE`, xóa `current_trip_id`, `completed_trips + 1` khi hoàn tất; `trip.reviewed` → cộng `rating_sum`, `rating_count`. Mọi consumer ghi `processed_events` cùng transaction.
 11. `GET /drivers/{id}`: `DRIVER` chỉ xem của mình; `CUSTOMER` chỉ xem Driver của Trip đang/đã thuộc mình (own-in-trip, kiểm tra qua Trip); `EMPLOYEE`/`ADMIN` được xem. Phone, số CCCD, bằng lái luôn che.
@@ -432,7 +432,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 | Mục | Nội dung |
 |---|---|
 | **a. Trách nhiệm** | Tạo và quản lý Booking, Dispatch/matching, Offer, điều phối luồng nhận chuyến |
-| **b. API qua Gateway** | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel`, `GET /offers`, `POST /offers/{id}/accept`, `POST /offers/{id}/reject` |
+| **b. API qua Gateway** | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel`, `POST /bookings/{id}/accept`, `GET /offers`, `POST /offers/{id}/reject` |
 | **c. Internal REST cung cấp** | Không |
 | **d. Gọi đi** | Driver: `nearby`, `reservations`, `busy`, `summary`; Trip: `POST /internal/trips`; Map Provider: geocode (khi thiếu tọa độ) |
 | **e. Kafka** | Publish `booking.events` (`booking.created`, `offer.created`, `booking.assigned`, `booking.no_driver_found`, `booking.canceled`, `booking.completed`). Subscribe `trip.events` (`trip.completed` → `COMPLETED`, `trip.canceled` → `CANCELED`), `driver.events` (`driver.offline` → hủy Offer `PENDING`) |
@@ -445,7 +445,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 3. **Dispatch worker:** quét định kỳ (1 giây) `bookings` `SEARCHING` có `next_dispatch_at <= now()` và không có Offer `PENDING`, dùng `FOR UPDATE SKIP LOCKED` nên nhiều instance không tranh nhau, và vẫn chạy lại sau khi restart.
 4. **Một bước dispatch:** `attempt_count < OFFER_MAX_ATTEMPTS` → gọi `nearby` (loại tài xế đã mời) → chọn tài xế gần nhất → `POST reservations` → transaction ghi `offers` (`PENDING`, `expires_at = now + OFFER_TTL_SEC`), tăng `attempt_count`, outbox `offer.created`. Không còn ứng viên hoặc hết lượt → Booking `NO_DRIVER_FOUND` + outbox `booking.no_driver_found`.
 5. **Hết hạn Offer:** job chuyển Offer quá `expires_at` thành `EXPIRED`, nhả reservation, đặt `next_dispatch_at = now()` để thử tài xế kế. Driver `reject` làm tương tự với `REJECTED`.
-6. **Nhận chuyến (PC16):** `POST /offers/{id}/accept` chỉ do Driver sở hữu Offer gọi.
+6. **Nhận chuyến (PC16):** `POST /bookings/{id}/accept` chỉ do Driver có Offer cho Booking đó gọi. Service tra Offer theo Booking ID và Driver ID từ token.
    1. Transaction: khóa Booking `FOR UPDATE`, kiểm tra Offer `PENDING` chưa hết hạn, Booking `SEARCHING` → Offer `ACCEPTED`, Offer `PENDING` khác của Booking → `CANCELED`. Partial unique index `offers(booking_id) WHERE status='ACCEPTED'` bảo đảm đúng một tài xế thắng; request thua nhận `409`.
    2. `POST /internal/trips` (idempotent theo `bookingId`).
    3. `POST /internal/drivers/{id}/busy` (idempotent theo `tripId`).
@@ -2017,7 +2017,7 @@ Quy tắc Compose:
 |---|---|
 | Bí mật | `JWT_SECRET`, `INTERNAL_JWT_SECRET`, `DATA_ENCRYPTION_KEYS`, `DATA_ENCRYPTION_ACTIVE_KEY_ID`, `PHONE_HASH_PEPPER`, `NATIONAL_ID_HASH_PEPPER`, `PAYMENT_CALLBACK_SECRET` |
 | Database | `IDENTITY_DB_PASSWORD`, `CUSTOMER_DB_PASSWORD`, `DRIVER_DB_PASSWORD`, `BOOKING_DB_PASSWORD`, `TRIP_DB_PASSWORD`, `PAYMENT_DB_PASSWORD`, `NOTIFICATION_DB_PASSWORD` |
-| Cấu hình nghiệp vụ | `NEARBY_RADIUS_M=1000`, `PAGE_LIMIT_DEFAULT=10`, `PAGE_LIMIT_MAX=50`, `OFFER_TTL_SEC=30`, `OFFER_MAX_ATTEMPTS=5`, `OTP_LENGTH=6`, `OTP_TTL_SEC=300`, `OTP_MAX_ATTEMPTS=5`, `OTP_LOCK_SEC=900`, `REGISTRATION_TOKEN_TTL_MIN=15`, `JWT_ALG=HS256`, `JWT_TTL_MIN=15`, `IDEMPOTENCY_TTL_H=24`, `PAYMENT_PENDING_TIMEOUT_MIN=15`, `RESERVATION_TTL_SEC=35`, `LOCATION_STALE_SEC=0`, `ARRIVAL_CONFIRM_RADIUS_M=0`, `INTERNAL_JWT_TTL_SEC=60` |
+| Cấu hình nghiệp vụ | `NEARBY_RADIUS_M=1000`, `PAGE_LIMIT_DEFAULT=10`, `PAGE_LIMIT_MAX=50`, `OFFER_TTL_SEC=1800`, `OFFER_MAX_ATTEMPTS=5`, `OTP_LENGTH=6`, `OTP_TTL_SEC=300`, `OTP_MAX_ATTEMPTS=5`, `OTP_LOCK_SEC=900`, `REGISTRATION_TOKEN_TTL_MIN=15`, `JWT_ALG=HS256`, `JWT_TTL_MIN=60`, `IDEMPOTENCY_TTL_H=24`, `PAYMENT_PENDING_TIMEOUT_MIN=15`, `RESERVATION_TTL_SEC=1805`, `LOCATION_STALE_SEC=0`, `ARRIVAL_CONFIRM_RADIUS_M=0`, `INTERNAL_JWT_TTL_SEC=60` |
 | Rate limit | `RATE_LIMIT_GENERAL=100`, `RATE_LIMIT_BOOKING=10`, `RATE_LIMIT_LOGIN=10` (mỗi phút) |
 | Mock | `MOCK_CALLBACK_DELAY_MS=2000`, `MOCK_PAYMENT_AUTO_RESULT=SUCCESS` |
 | Seed | `SEED_ON_START=true`, `SEED_PASSWORD` |
@@ -2077,7 +2077,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 13 | Nearby | `GET /drivers/nearby?lat&lng&radius=1000&status&page&limit` | driver | Chỉ Driver trong 1 km, có `distanceM`, `pagination` |
 | 14 | Danh sách Booking | `GET /bookings?page&limit` | booking | Chỉ Booking của Customer, có `pagination` |
 | 15 | Đặt xe | `POST /bookings` | booking, driver | `201 SEARCHING`; sau đó có Offer cho Driver gần nhất |
-| 16 | Tài xế nhận chuyến | `GET /offers`, `POST /offers/{id}/accept` | booking, trip, driver | Trip `ASSIGNED`, Driver `BUSY`, Booking `ASSIGNED`, khách thấy thông tin tài xế |
+| 16 | Tài xế nhận chuyến | `GET /offers`, `POST /bookings/{id}/accept` | booking, trip, driver | Trip `ASSIGNED`, Driver `BUSY`, Booking `ASSIGNED`, khách thấy thông tin tài xế |
 | 17 | Trạng thái chuyến | `PATCH /trips/{id}/status`, `PUT /drivers/me/location`, `GET /trips/{id}/location` | trip, driver | `ARRIVED → IN_PROGRESS → COMPLETED` đúng thứ tự; vị trí cập nhật |
 | 18 | Hủy chuyến | `POST /trips/{id}/cancel` (+ `reason`) | trip | Trip `CANCELED`, Booking `CANCELED`, các bên có Notification |
 | 19 | Thanh toán online | `POST /payments` → callback → `GET /payments/{id}` | payment, trip | `PENDING` → callback hợp lệ → `COMPLETED`; Trip `PAID` |

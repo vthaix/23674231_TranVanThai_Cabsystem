@@ -388,6 +388,30 @@ async function postOffersIdAccept(input) {
   }
 }
 
+async function postBookingsIdAccept(input) {
+  const { sub: driverId, role } = input.user;
+  const { id: bookingId } = input.params;
+  const requestId = input.requestId;
+
+  if (role !== "DRIVER") {
+    return errorResult(403, "FORBIDDEN", "Driver access required", requestId);
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId)) {
+    return errorResult(400, "VALIDATION_ERROR", "Invalid booking id", requestId);
+  }
+
+  try {
+    const { rows } = await repository.findOfferByBookingAndDriver(pool, [bookingId, driverId]);
+    if (rows.length === 0) {
+      return errorResult(404, "NOT_FOUND", "No offer for this booking and driver", requestId);
+    }
+    return postOffersIdAccept({ ...input, params: { id: rows[0].id } });
+  } catch (err) {
+    console.error("[bookings/accept]", err.message);
+    return errorResult(500, "INTERNAL_ERROR", "Failed to accept booking", requestId);
+  }
+}
+
 async function postOffersIdReject(input) {
   const { sub: driverId, role } = input.user;
   const { id: offerId } = input.params;
@@ -517,4 +541,4 @@ async function postBookingsIdCancel(input) {
   }
 }
 
-module.exports = { postInternalTestKafka, getBookings, postBookings, getOffers, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };
+module.exports = { postInternalTestKafka, getBookings, postBookings, getOffers, postBookingsIdAccept, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };

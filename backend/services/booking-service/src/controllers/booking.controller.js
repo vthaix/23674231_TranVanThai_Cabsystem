@@ -65,6 +65,19 @@ async function postOffersIdAccept(req, res) {
   return res.status(result.status).json(result.body);
 }
 
+async function postBookingsIdAccept(req, res) {
+  const result = await service.postBookingsIdAccept({
+    headers: req.headers,
+    body: req.body,
+    params: req.params,
+    query: req.query,
+    user: req.user,
+    requestId: req.requestId,
+    rawBody: req.rawBody
+  });
+  return res.status(result.status).json(result.body);
+}
+
 async function postOffersIdReject(req, res) {
   const result = await service.postOffersIdReject({
     headers: req.headers,
@@ -91,4 +104,4 @@ async function postBookingsIdCancel(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postInternalTestKafka, getBookings, postBookings, getOffers, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };
+module.exports = { postInternalTestKafka, getBookings, postBookings, getOffers, postBookingsIdAccept, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };

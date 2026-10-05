@@ -1,8 +1,32 @@
 const { pool } = require("./postgres");
 
 const TEST_CUSTOMER_ID = "00000000-0000-0000-0000-000000000001";
+const PC14_CUSTOMER_ID = "10000000-0000-4000-8000-000000000001"; // customer1@example.com
 const DRIVER_ID_1 = "00000000-0000-0000-0000-000000000011";
 const DRIVER_ID_2 = "00000000-0000-0000-0000-000000000012";
+
+// Five finished booking attempts near (10.7, 106.7), owned by a real seeded Customer.
+// Terminal states keep the demo data from creating live dispatch offers.
+const PC14_BOOKINGS = [
+  { id: "00000000-0000-0000-0000-000000000141", pickupLat: 10.700000, pickupLng: 106.700000, destinationLat: 10.710000, destinationLng: 106.710000, status: "CANCELED" },
+  { id: "00000000-0000-0000-0000-000000000142", pickupLat: 10.701000, pickupLng: 106.700500, destinationLat: 10.711000, destinationLng: 106.711000, status: "CANCELED" },
+  { id: "00000000-0000-0000-0000-000000000143", pickupLat: 10.699000, pickupLng: 106.699500, destinationLat: 10.709000, destinationLng: 106.709000, status: "NO_DRIVER_FOUND" },
+  { id: "00000000-0000-0000-0000-000000000144", pickupLat: 10.702000, pickupLng: 106.701000, destinationLat: 10.712000, destinationLng: 106.712000, status: "CANCELED" },
+  { id: "00000000-0000-0000-0000-000000000145", pickupLat: 10.697000, pickupLng: 106.698000, destinationLat: 10.707000, destinationLng: 106.708000, status: "NO_DRIVER_FOUND" },
+].map((booking, index) => {
+  const createdAt = new Date(Date.now() - (index + 1) * 86400000).toISOString();
+  return {
+    ...booking,
+    customerId: PC14_CUSTOMER_ID,
+    vehicleType: "BIKE",
+    pickupAddress: `Điểm đón PC14 ${index + 1}`,
+    destinationAddress: `Điểm đến PC14 ${index + 1}`,
+    cancelReason: booking.status === "CANCELED" ? "CUSTOMER_REQUEST" : null,
+    canceledAt: booking.status === "CANCELED"
+      ? new Date(Date.parse(createdAt) + 600000).toISOString() : null,
+    createdAt
+  };
+});
 
 const SEED_BOOKINGS = [
   {
@@ -96,13 +120,14 @@ const SEED_BOOKINGS = [
     destinationLng: 106.705278,
     status: "SEARCHING",
     createdAt: new Date().toISOString()
-  }
+  },
+  ...PC14_BOOKINGS
 ];
 
-async function seed() {
+async function seed(bookings = SEED_BOOKINGS) {
   const client = await pool.connect();
   try {
-    for (const b of SEED_BOOKINGS) {
+    for (const b of bookings) {
       await client.query(`
         INSERT INTO bookings (
           id, customer_id, vehicle_type, pickup_address, pickup_lat, pickup_lng,
@@ -121,7 +146,7 @@ async function seed() {
         b.completedAt || null, b.canceledAt || null, b.createdAt
       ]);
     }
-    console.log("[booking-service] Seeded 6 sample bookings for test customer");
+    console.log(`[booking-service] Seeded ${bookings.length} sample bookings`);
   } catch (err) {
     console.error("[booking-service] Seed failed:", err.message);
   } finally {
@@ -129,4 +154,4 @@ async function seed() {
   }
 }
 
-module.exports = { seed, SEED_BOOKINGS, TEST_CUSTOMER_ID };
+module.exports = { seed, SEED_BOOKINGS, TEST_CUSTOMER_ID, PC14_BOOKINGS, PC14_CUSTOMER_ID };

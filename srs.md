@@ -439,7 +439,7 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 6. Khi Offer được Accept, Booking chuyển `ASSIGNED`, Trip được tạo, Driver chuyển `BUSY` và các Offer `PENDING` còn lại của Booking chuyển `CANCELED`.
 7. Khi tất cả Offer đều hết hạn/từ chối và không còn Driver phù hợp, Booking chuyển `NO_DRIVER_FOUND` và phát event `booking.no_driver_found`.
 8. Khi Booking đang `SEARCHING`, mỗi Driver chỉ có tối đa một Offer `PENDING` tại một thời điểm và không được mời lại cho cùng Booking.
-9. `POST /offers/{id}/accept` là idempotent với cùng Driver: nếu Offer đã `ACCEPTED` bởi chính Driver đó thì tiếp tục/trả kết quả của luồng nhận chuyến thay vì lỗi.
+9. `POST /bookings/{id}/accept` là idempotent với cùng Driver: nếu Offer của Driver cho Booking đã `ACCEPTED` thì tiếp tục/trả kết quả của luồng nhận chuyến thay vì lỗi. Offer có hiệu lực 30 phút từ lúc tạo.
 10. Luồng nhận chuyến gồm: Offer `ACCEPTED` → tạo Trip (idempotent theo `bookingId`) → Driver `BUSY` → Booking `ASSIGNED`. Nếu một bước lỗi tạm thời, hệ thống phải tự hoàn tất lại (recovery) mà không tạo Trip trùng.
 11. Khi Driver chuyển `OFFLINE` trong lúc có Offer `PENDING`, Offer đó chuyển `CANCELED` và Booking thử Driver kế tiếp.
 
@@ -1209,7 +1209,7 @@ domain services / notification-service / backoffice-service
 | `NEARBY_RADIUS_M` | `1000` |
 | `PAGE_LIMIT_DEFAULT` | `10` |
 | `PAGE_LIMIT_MAX` | `50` |
-| `OFFER_TTL_SEC` | `30` |
+| `OFFER_TTL_SEC` | `1800` |
 | `OFFER_MAX_ATTEMPTS` | `5` |
 | `OTP_LENGTH` | `6` |
 | `OTP_TTL_SEC` | `300` |
@@ -1217,7 +1217,7 @@ domain services / notification-service / backoffice-service
 | `OTP_LOCK_SEC` | `900` |
 | `REGISTRATION_TOKEN_TTL_MIN` | `15` |
 | `JWT_ALG` | `HS256` |
-| `JWT_TTL_MIN` | `15` |
+| `JWT_TTL_MIN` | `60` |
 | `RATE_LIMIT_GENERAL` | `100 req/phút/IP` |
 | `RATE_LIMIT_BOOKING` | `10 req/phút/user` |
 | `RATE_LIMIT_LOGIN` | `10 req/phút/IP` |
@@ -1241,7 +1241,7 @@ Các giá trị là mặc định cho môi trường test; có thể cấu hình
 | 12 | `GET /drivers/{id}` |
 | 13 | `GET /drivers/nearby`, `PUT /drivers/me/location` |
 | 14–15 | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel` |
-| 16 | `GET /offers`, `POST /offers/{id}/accept`, `POST /offers/{id}/reject` |
+| 16 | `GET /offers`, `POST /bookings/{id}/accept`, `POST /offers/{id}/reject` |
 | 17–18 | `GET /trips/{id}`, `PATCH /trips/{id}/status`, `POST /trips/{id}/cancel` |
 | 19 | `POST /payments`, `POST /payments/callback`, `GET /payments/{id}` |
 | 20 | `POST /trips/{id}/reviews` |
@@ -1271,7 +1271,7 @@ Các giá trị là mặc định cho môi trường test; có thể cấu hình
 | `GET /customers/{id}` | own | ✗ | ✓ | ✓ | ✗ |
 | `GET /drivers/{id}` | own-in-trip | own | ✓ | ✓ | ✗ |
 | `POST /bookings` | ✓ | ✗ | ✗ | ✗ | ✗ |
-| `POST /offers/{id}/accept` | ✗ | own | ✗ | ✗ | ✗ |
+| `POST /bookings/{id}/accept` | ✗ | own | ✗ | ✗ | ✗ |
 | `PATCH /trips/{id}/status` | ✗ | own | ✗ | ✗ | ✗ |
 | `GET /drivers` | ✗ | ✗ | ✗ | ✓ | ✗ |
 | `GET /drivers/{id}/application` | ✗ | ✗ | ✗ | ✓ | ✗ |

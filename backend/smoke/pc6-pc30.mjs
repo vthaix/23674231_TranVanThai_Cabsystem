@@ -252,18 +252,29 @@ await check(23, 'driver offline and online availability', async () => {
 });
 
 await check(15, 'booking dispatches an offer to nearby driver', async () => {
-  booking = status(await call('POST', '/api/v1/bookings', bookingPayload(), customerToken,
+  const pickupLat = 11 + Number.parseInt(runId.slice(0, 4), 16) / 0xffff;
+  const pickupLng = 107 + Number.parseInt(runId.slice(4, 8), 16) / 0xffff;
+  status(await call('PUT', '/api/v1/drivers/me/location', { latitude: pickupLat, longitude: pickupLng }, driverToken), 200);
+  booking = status(await call('POST', '/api/v1/bookings', bookingPayload(pickupLat, pickupLng), customerToken,
     { 'idempotency-key': `smoke-${runId}-ride` }), 201);
   assert.equal(booking.status, 'SEARCHING');
-  const offers = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200);
-  assert(offers.data.some(o => o.bookingId === booking.id), JSON.stringify(offers));
+  let offer;
+  for (let i = 0; i < 20; i++) {
+    const offers = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200);
+    offer = offers.data.find(o => o.bookingId === booking.id);
+    if (offer) break;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  assert(offer, 'driver did not receive an offer within 5 seconds');
+  const ttlSeconds = (new Date(offer.expiresAt).getTime() - Date.now()) / 1000;
+  assert(ttlSeconds > 1700 && ttlSeconds <= 1800, `expected 30-minute offer, got ${ttlSeconds}s`);
 });
 
 await check(16, 'driver accepts offer and trip is assigned', async () => {
   const offers = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200);
   const offer = offers.data.find(o => o.bookingId === booking.id);
   assert(offer);
-  const accepted = status(await call('POST', `/api/v1/offers/${offer.id}/accept`, {}, driverToken), 200);
+  const accepted = status(await call('POST', `/api/v1/bookings/${booking.id}/accept`, {}, driverToken), 200);
   assert.equal(accepted.status, 'ASSIGNED');
   trip = status(await call('GET', `/api/v1/trips/${accepted.tripId}`, undefined, customerToken), 200);
   assert.equal(trip.driverId, driver.id);
@@ -329,7 +340,7 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
   const offers = status(await call('GET', '/api/v1/offers', undefined, cancelToken), 200);
   const offer = offers.data.find(o => o.bookingId === b2.id);
   assert(offer, 'second driver did not receive cancellation test offer');
-  const assigned = status(await call('POST', `/api/v1/offers/${offer.id}/accept`, {}, cancelToken), 200);
+  const assigned = status(await call('POST', `/api/v1/bookings/${b2.id}/accept`, {}, cancelToken), 200);
   const tripCanceled = status(await call('POST', `/api/v1/trips/${assigned.tripId}/cancel`,
     { reason: 'Smoke cancellation' }, customerToken), 200);
   assert.equal(tripCanceled.status, 'CANCELED');

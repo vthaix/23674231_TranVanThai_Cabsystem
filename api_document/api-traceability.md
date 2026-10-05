@@ -31,7 +31,7 @@
 | booking-service | Public | POST | /bookings | UC07 / FR-C06–FR-C07 / FR-S13 | srs.md §9.1, §9.9, §16.2.1; microservice_design.md §5.4 |
 | booking-service | Public | POST | /bookings/{id}/cancel | UC10 / FR-C09 | srs.md §9.1, §16.2.1; microservice_design.md §5.4 |
 | booking-service | Public | GET | /offers | UC08 / FR-D07 | srs.md §9.2, §16.2; microservice_design.md §5.4 |
-| booking-service | Public | POST | /offers/{id}/accept | UC08 / FR-D08 | srs.md §9.2, §16.2; microservice_design.md §5.4 |
+| booking-service | Public | POST | /bookings/{id}/accept | UC08 / FR-D08 | srs.md §9.2, §16.2; microservice_design.md §5.4 |
 | booking-service | Public | POST | /offers/{id}/reject | UC08 / FR-D07–FR-D08 | microservice_design.md §5.4 |
 | trip-service | Public | GET | /trips/{id} | UC09 / FR-C08 | srs.md §9.1, §16.2; microservice_design.md §5.5 |
 | trip-service | Public | GET | /trips/{id}/location | UC09 / FR-C08 | srs.md §16.2.1; microservice_design.md §5.5 |
