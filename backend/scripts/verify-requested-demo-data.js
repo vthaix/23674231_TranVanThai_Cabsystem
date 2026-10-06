@@ -42,9 +42,14 @@ async function main() {
     const r = (await pools.trip.query(`SELECT customer_id,count(*)::int n,min(stars) lo,max(stars) hi,
       count(*) FILTER (WHERE comment IS NULL OR comment='')::int missing FROM reviews GROUP BY customer_id`)).rows;
     for (const c of new Set(b.map(x => x.customer_id))) {
-      for (const status of ['SEARCHING', 'ASSIGNED', 'NO_DRIVER_FOUND', 'CANCELED'])
-        expect(b.find(x => x.customer_id === c && x.status === status)?.n, 1, `${c} ${status}`);
+      expect(b.filter(x => x.customer_id === c).reduce((sum, x) => sum + x.n, 0), 9, `${c} bookings`);
+      expect(b.find(x => x.customer_id === c && x.status === 'NO_DRIVER_FOUND')?.n, 1,
+        `${c} NO_DRIVER_FOUND`);
       expect(b.find(x => x.customer_id === c && x.status === 'COMPLETED')?.n, 5, `${c} COMPLETED`);
+      const active = b.filter(x => x.customer_id === c && ['SEARCHING', 'ASSIGNED'].includes(x.status))
+        .reduce((sum, x) => sum + x.n, 0);
+      if (active > 1) throw new Error(`${c} has ${active} active bookings`);
+      console.log(`${c} active bookings: ${active}`);
       expect(t.find(x => x.customer_id === c)?.n, 5, `${c} completed trips`);
       const review = r.find(x => x.customer_id === c);
       expect(review?.n, 5, `${c} reviews`);

@@ -2,7 +2,7 @@ const repository = require("../repositories/driver.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { getRedisClient } = require("../db/redis");
-const { encrypt, decrypt, hashPhone, hashNationalId } = require("../../../../shared/src/crypto/index");
+const { encrypt, decrypt, hashPhone } = require("../../../../shared/src/crypto/index");
 const { isValidPhone, isValidPassword } = require("../../../../shared/src/validation/index");
 const { maskPhone } = require("../utils/maskPhone");
 const { inMemStore, haversineDistanceMeters } = require("../services/driver.service");
@@ -109,8 +109,6 @@ async function postDriversRegister(input) {
     fullName,
     phone,
     password,
-    nationalId,
-    dateOfBirth,
     licenseNumber,
     licenseClass,
     licenseExpiryDate,
@@ -134,10 +132,10 @@ async function postDriversRegister(input) {
     return errorResult(400, "INVALID_REGISTRATION_TOKEN", "Valid OTP registration token for this phone is required", requestId);
   }
 
-  if (!fullName || !nationalId || !licenseNumber || !licenseClass || !licenseExpiryDate) {
+  if (!fullName || !licenseNumber || !licenseClass || !licenseExpiryDate) {
     return errorResult(400, "VALIDATION_ERROR", "Missing required driver fields", requestId);
   }
-  for (const [field, value] of Object.entries({ fullName, nationalId, licenseNumber, licenseClass, licenseExpiryDate })) {
+  for (const [field, value] of Object.entries({ fullName, licenseNumber, licenseClass, licenseExpiryDate })) {
     if (typeof value !== "string" || !value.trim()) {
       return errorResult(400, "VALIDATION_ERROR", `${field} must be a non-empty string`, requestId);
     }
@@ -167,8 +165,6 @@ async function postDriversRegister(input) {
   const driverId = crypto.randomUUID();
   const phoneH = hashPhone(verifiedPhone);
   const phoneEnc = encrypt(verifiedPhone);
-  const nationalIdH = hashNationalId(nationalId);
-  const nationalIdEnc = encrypt(nationalId);
   const licenseEnc = encrypt(licenseNumber);
 
   // Create a disabled account until an admin approves the driver profile.
@@ -190,8 +186,8 @@ async function postDriversRegister(input) {
 
     // Insert driver in PENDING_APPROVAL
     await repository.insertDrivers(client, [
-      driverId, phoneEnc, phoneH, nationalIdEnc, nationalIdH,
-      fullName, `${driverId.slice(0, 8)}@driver.cab`, dateOfBirth || "1995-01-01",
+      driverId, phoneEnc, phoneH,
+      fullName, `${driverId.slice(0, 8)}@driver.cab`,
       licenseEnc, licenseClass, licenseExpiryDate
     ]);
 
@@ -265,8 +261,7 @@ async function getDriversMe(input) {
       fullName: d.full_name,
       phone: decryptField(d.phone_enc),
       email: d.email,
-      nationalId: decryptField(d.national_id_enc),
-      dateOfBirth: d.date_of_birth,
+      balance: Number(d.balance),
       licenseNumber: decryptField(d.license_number_enc),
       licenseClass: d.license_class,
       licenseExpiryDate: d.license_expiry_date,
@@ -322,7 +317,7 @@ async function listDrivers(input) {
       id: r.id,
       fullName: r.full_name,
       status: r.status,
-      dateOfBirth: r.date_of_birth,
+      balance: Number(r.balance),
       licenseClass: r.license_class,
       licenseExpiryDate: r.license_expiry_date,
       ratingAvg: Number(r.rating_avg),
@@ -373,7 +368,7 @@ async function getAdminDriversId(input) {
       id: r.id,
       fullName: r.full_name,
       status: r.status,
-      dateOfBirth: r.date_of_birth,
+      balance: Number(r.balance),
       licenseClass: r.license_class,
       licenseExpiryDate: r.license_expiry_date,
       ratingAvg: Number(r.rating_avg),
@@ -721,6 +716,7 @@ async function getDriversId(input) {
       fullName: d.full_name,
       phone,
       status: d.status,
+      ...(role === 'DRIVER' || role === 'ADMIN' ? { balance: Number(d.balance) } : {}),
       ratingAvg: Number(d.rating_avg),
       ratingCount: d.rating_count,
       completedTrips: d.completed_trips,
@@ -910,4 +906,38 @@ async function getInternalDriversIdSummary(input) {
   }
 }
 
-module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };
+async function postInternalDriversIdAvailable(input) {
+  const { id } = input.params;
+  const { tripId } = input.body;
+  const requestId = input.requestId || crypto.randomUUID();
+  if (!tripId) return errorResult(400, 'VALIDATION_ERROR', 'tripId is required', requestId);
+  const client = await pool.connect();
+  try {
+    await repository.begin(client);
+    const { rows } = await client.query('SELECT status,current_trip_id FROM drivers WHERE id=$1 FOR UPDATE', [id]);
+    if (!rows.length) {
+      await repository.rollback(client);
+      return errorResult(404, 'NOT_FOUND', 'Driver not found', requestId);
+    }
+    if (rows[0].status === 'ONLINE' && rows[0].current_trip_id === null) {
+      await repository.rollback(client);
+      return response(200, { id, status: 'ONLINE', requestId });
+    }
+    if (rows[0].status !== 'BUSY' || rows[0].current_trip_id !== tripId) {
+      await repository.rollback(client);
+      return errorResult(409, 'TRIP_MISMATCH', 'Driver is busy with another trip', requestId);
+    }
+    await client.query(`UPDATE drivers SET status='ONLINE',current_trip_id=NULL,
+      last_online_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
+    await client.query(`INSERT INTO driver_status_history(driver_id,from_status,to_status,trip_id,request_id)
+      VALUES($1,'BUSY','ONLINE',$2,$3)`, [id, tripId, requestId]);
+    await repository.commit(client);
+    return response(200, { id, status: 'ONLINE', requestId });
+  } catch (error) {
+    await repository.rollback(client).catch(() => {});
+    console.error('[internal/available]', error.message);
+    return errorResult(500, 'INTERNAL_ERROR', 'Failed to release driver', requestId);
+  } finally { client.release(); }
+}
+
+module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, postInternalDriversIdAvailable, getInternalDriversIdSummary };

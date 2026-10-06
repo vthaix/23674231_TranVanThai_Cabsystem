@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { verifyToken } = require("../../../../shared/src/auth/jwt");
+const { verifyToken, verifyServiceToken } = require("../../../../shared/src/auth/jwt");
 const { errorResponse } = require("../utils/errorResponse");
 
 function requireAuth(req, res, next) {
@@ -18,4 +18,17 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth };
+function requireTripService(req, res, next) {
+  try {
+    const token = req.headers['x-service-token'];
+    if (!token) throw new Error('Missing service token');
+    const payload = verifyServiceToken(token, 'booking-service');
+    if (payload.iss !== 'trip-service') throw new Error('Wrong service');
+    next();
+  } catch {
+    return errorResponse(res, 401, 'UNAUTHORIZED', 'Trip service token required',
+      req.headers['x-request-id'] || crypto.randomUUID());
+  }
+}
+
+module.exports = { requireAuth, requireTripService };

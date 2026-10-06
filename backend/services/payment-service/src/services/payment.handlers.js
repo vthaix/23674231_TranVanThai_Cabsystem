@@ -64,7 +64,23 @@ async function postPayments(input) {
       return errorResult(502, "SERVICE_UNAVAILABLE", "Cannot contact Trip service", requestId);
     }
 
-    // Verify trip status
+    // Wallet bookings are funded at booking time. PC19 reads the escrow instead
+    // of creating a second charge after the ride.
+    const escrowResult = await client.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [trip.bookingId]);
+    if (escrowResult.rows.length) {
+      const escrow = escrowResult.rows[0];
+      await repository.rollback(client);
+      if (role === 'CUSTOMER' && escrow.customer_id !== userId) {
+        return errorResult(403, 'FORBIDDEN', 'Only customer of this trip can view payment', requestId);
+      }
+      return response(200, {
+        id: trip.bookingId, bookingId: trip.bookingId, tripId, customerId: escrow.customer_id,
+        amount: Number(escrow.amount), currency: 'VND', method: 'WALLET',
+        status: escrow.status, requestId
+      });
+    }
+
+    // Legacy trips without an escrow retain the provider callback flow.
     if (trip.status !== "COMPLETED") {
       await repository.rollback(client);
       return errorResult(409, "TRIP_NOT_COMPLETED", `Trip is not completed (status: ${trip.status})`, requestId);
@@ -239,7 +255,18 @@ async function getPaymentsId(input) {
   try {
     const p = await repository.findById(id);
     if (!p) {
-      return errorResult(404, "NOT_FOUND", "Payment not found", requestId);
+      const { rows } = await pool.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [id]);
+      if (!rows.length) return errorResult(404, "NOT_FOUND", "Payment not found", requestId);
+      const escrow = rows[0];
+      if (role === 'CUSTOMER' && escrow.customer_id !== userId) {
+        return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+      }
+      return response(200, {
+        id: escrow.booking_id, bookingId: escrow.booking_id, tripId: escrow.trip_id,
+        customerId: escrow.customer_id, driverId: escrow.driver_id,
+        amount: Number(escrow.amount), currency: 'VND', method: 'WALLET',
+        status: escrow.status, createdAt: escrow.created_at, requestId
+      });
     }
 
     // Authorization

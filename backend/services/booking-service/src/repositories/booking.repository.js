@@ -21,8 +21,9 @@ function insertBookings(db, params) {
       INSERT INTO bookings (
         id, customer_id, vehicle_type, pickup_address, pickup_lat, pickup_lng,
         destination_address, destination_lat, destination_lng, note, status,
-        next_dispatch_at, attempt_count
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SEARCHING', NOW(), 0)
+        next_dispatch_at, attempt_count, search_expires_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SEARCHING', NOW(), 0,
+        NOW() + $11::int * INTERVAL '1 second')
     `, params);
 }
 
@@ -60,6 +61,7 @@ function findOffers(db, params) {
       FROM offers o
       JOIN bookings b ON o.booking_id = b.id
       WHERE o.driver_id = $1 AND o.status = 'PENDING' AND o.expires_at > NOW()
+        AND b.status = 'SEARCHING' AND b.search_expires_at > NOW()
       ORDER BY o.created_at DESC
     `, params);
 }
@@ -68,10 +70,10 @@ function findOffers2(db, params) {
   return db.query(`
       SELECT o.*, b.customer_id, b.vehicle_type, b.pickup_address, b.pickup_lat, b.pickup_lng,
              b.destination_address, b.destination_lat, b.destination_lng, b.status as booking_status,
-             b.trip_id
+             b.trip_id, b.search_expires_at, b.fare
       FROM offers o
       JOIN bookings b ON o.booking_id = b.id
-      WHERE o.id = $1 FOR UPDATE
+      WHERE o.id = $1 FOR UPDATE OF o, b
     `, params);
 }
 

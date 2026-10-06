@@ -6,10 +6,100 @@ const { sanitizeString } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME, DRIVER_SERVICE_URL, TRIP_SERVICE_URL } = require("../config");
 const { producer, isKafkaReady } = require("../events/kafka.producer");
 const { dispatchBooking } = require("../services/booking.service");
+const { expireCustomerSearches, releaseReservations } = require("../services/booking-expiry");
+const { OFFER_TTL_SEC } = require('../config');
+const escrowClient = require('./escrow.client');
+const { calculateFare } = require('../../../../shared/src/fare');
 
 function response(status, body) { return { status, body }; }
 function errorResult(status, code, message, requestId) {
   return response(status, { code, message, requestId });
+}
+
+function bookingView(r) {
+  const fare = r.fare == null
+    ? calculateFare(Number(r.pickup_lat), Number(r.pickup_lng),
+      Number(r.destination_lat), Number(r.destination_lng)).amount
+    : Number(r.fare);
+  return {
+    id: r.id,
+    customerId: r.customer_id,
+    vehicleType: r.vehicle_type,
+    pickup: { address: r.pickup_address, lat: Number(r.pickup_lat), lng: Number(r.pickup_lng) },
+    destination: { address: r.destination_address, lat: Number(r.destination_lat), lng: Number(r.destination_lng) },
+    fare,
+    currency: 'VND',
+    paymentStatus: r.payment_status,
+    status: r.status,
+    searchExpiresAt: r.search_expires_at,
+    currentDriverId: r.current_driver_id,
+    tripId: r.trip_id,
+    cancelReason: r.cancel_reason,
+    createdAt: r.created_at,
+    completedAt: r.completed_at,
+    canceledAt: r.canceled_at
+  };
+}
+
+async function postInternalBookingsIdTripStatus(input) {
+  const { id } = input.params;
+  const { tripId, status, reason } = input.body;
+  const requestId = input.requestId || crypto.randomUUID();
+  if (!['COMPLETED', 'CANCELED'].includes(status) || !tripId) {
+    return errorResult(400, 'VALIDATION_ERROR', 'tripId and terminal trip status required', requestId);
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await repository.findBookings(client, [id]);
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return errorResult(404, 'NOT_FOUND', 'Booking not found', requestId);
+    }
+    const booking = rows[0];
+    if (booking.trip_id !== tripId) {
+      await client.query('ROLLBACK');
+      return errorResult(409, 'TRIP_MISMATCH', 'Trip does not belong to booking', requestId);
+    }
+    if (booking.status === status) {
+      await client.query('ROLLBACK');
+      if (booking.payment_status === 'HELD') {
+        if (status === 'COMPLETED') await escrowClient.settle(id, tripId, booking.current_driver_id);
+        else await escrowClient.refund(id);
+        await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
+        await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
+          [id, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
+      }
+      return response(200, { id, status, requestId });
+    }
+    if (booking.status !== 'ASSIGNED') {
+      await client.query('ROLLBACK');
+      return errorResult(409, 'INVALID_STATE', `Booking is ${booking.status}`, requestId);
+    }
+    if (status === 'COMPLETED') {
+      await client.query(`UPDATE bookings SET status='COMPLETED',completed_at=NOW(),
+        updated_at=NOW() WHERE id=$1`, [id]);
+    } else {
+      await client.query(`UPDATE bookings SET status='CANCELED',canceled_at=NOW(),
+        cancel_reason=LEFT($1,40),updated_at=NOW() WHERE id=$2`,
+        [reason || 'TRIP_CANCELED', id]);
+    }
+    await client.query(`INSERT INTO booking_status_history(booking_id,from_status,to_status,reason,request_id)
+      VALUES($1,'ASSIGNED',$2,$3,$4)`, [id, status, reason || null, requestId]);
+    await client.query('COMMIT');
+    if (booking.payment_status === 'HELD') {
+      if (status === 'COMPLETED') await escrowClient.settle(id, tripId, booking.current_driver_id);
+      else await escrowClient.refund(id);
+      await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
+      await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
+        [id, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
+    }
+    return response(200, { id, status, requestId });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[booking/trip-status]', error.message);
+    return errorResult(500, 'INTERNAL_ERROR', 'Failed to sync booking status', requestId);
+  } finally { client.release(); }
 }
 
 async function postInternalTestKafka(input) {
@@ -40,6 +130,9 @@ async function postInternalTestKafka(input) {
 async function getBookings(input) {
   const { sub: userId, role } = input.user;
   const requestId = input.requestId;
+  if (!['CUSTOMER', 'ADMIN'].includes(role)) {
+    return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+  }
   const { page = 1, limit = 20, status } = input.query;
 
   const p = Math.max(1, Number(page));
@@ -52,28 +145,7 @@ async function getBookings(input) {
     const countRes = await repository.countBookings(pool, customerId);
     const total = Number(countRes.rows[0].count);
 
-    const data = rows.map(r => ({
-      id: r.id,
-      customerId: r.customer_id,
-      vehicleType: r.vehicle_type,
-      pickup: {
-        address: r.pickup_address,
-        lat: Number(r.pickup_lat),
-        lng: Number(r.pickup_lng)
-      },
-      destination: {
-        address: r.destination_address,
-        lat: Number(r.destination_lat),
-        lng: Number(r.destination_lng)
-      },
-      status: r.status,
-      currentDriverId: r.current_driver_id,
-      tripId: r.trip_id,
-      cancelReason: r.cancel_reason,
-      createdAt: r.created_at,
-      completedAt: r.completed_at,
-      canceledAt: r.canceled_at
-    }));
+    const data = rows.map(bookingView);
 
     return response(200, {
       data,
@@ -90,11 +162,32 @@ async function getBookings(input) {
   }
 }
 
+async function getBookingsId(input) {
+  const { id } = input.params;
+  const { sub: userId, role } = input.user;
+  const requestId = input.requestId;
+  try {
+    const { rows } = await pool.query('SELECT * FROM bookings WHERE id=$1', [id]);
+    if (!rows.length) return errorResult(404, 'NOT_FOUND', 'Booking not found', requestId);
+    if (role === 'CUSTOMER' && rows[0].customer_id !== userId) {
+      return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+    }
+    if (!['CUSTOMER', 'ADMIN'].includes(role)) {
+      return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+    }
+    return response(200, { ...bookingView(rows[0]), requestId });
+  } catch (error) {
+    if (error.code === '22P02') return errorResult(400, 'VALIDATION_ERROR', 'Invalid booking ID', requestId);
+    console.error('[bookings/get]', error.message);
+    return errorResult(500, 'INTERNAL_ERROR', 'Failed to get booking', requestId);
+  }
+}
+
 async function postBookings(input) {
   const { sub: customerId, role } = input.user;
   const requestId = input.requestId;
 
-  if (role !== "CUSTOMER" && role !== "ADMIN") {
+  if (role !== "CUSTOMER") {
     return errorResult(403, "FORBIDDEN", "Only customers can create bookings", requestId);
   }
 
@@ -124,7 +217,8 @@ async function postBookings(input) {
   const dLat = Number(destinationLat);
   const dLng = Number(destinationLng);
 
-  if (isNaN(pLat) || isNaN(pLng) || isNaN(dLat) || isNaN(dLng)) {
+  if (![pLat, pLng, dLat, dLng].every(Number.isFinite) ||
+      Math.abs(pLat) > 90 || Math.abs(dLat) > 90 || Math.abs(pLng) > 180 || Math.abs(dLng) > 180) {
     return errorResult(400, "VALIDATION_ERROR", "Invalid coordinates", requestId);
   }
 
@@ -145,6 +239,7 @@ async function postBookings(input) {
   const requestHash = crypto.createHash("sha256").update(JSON.stringify(payloadToHash)).digest("hex");
 
   const client = await pool.connect();
+  let heldBookingId = null;
   try {
     await repository.begin(client);
 
@@ -163,14 +258,29 @@ async function postBookings(input) {
       return response(record.response_code || 201, record.response_body);
     }
 
-    const bookingId = crypto.randomUUID();
+    const releases = await expireCustomerSearches(client, customerId);
+    await releaseReservations(releases);
+    const active = await client.query(`SELECT id,status FROM bookings
+      WHERE customer_id=$1 AND status IN ('SEARCHING','ASSIGNED') LIMIT 1`, [customerId]);
+    if (active.rows.length) {
+      await repository.rollback(client);
+      return errorResult(409, 'ACTIVE_BOOKING_EXISTS',
+        `Customer already has an active booking (${active.rows[0].status})`, requestId);
+    }
+
+    const digest = crypto.createHash('sha256').update(`${customerId}:${idempotencyKey}`).digest('hex');
+    const bookingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+    const fare = calculateFare(pLat, pLng, dLat, dLng).amount;
+    heldBookingId = bookingId;
+    await escrowClient.hold(bookingId, customerId, fare);
 
     // Insert booking
     await repository.insertBookings(client, [
       bookingId, customerId, normalizedVehicle, sanitizeString(pickupAddress),
       pLat, pLng, sanitizeString(destinationAddress), dLat, dLng,
-      note ? sanitizeString(note) : null
+      note ? sanitizeString(note) : null, OFFER_TTL_SEC
     ]);
+    await client.query("UPDATE bookings SET fare=$2,payment_status='HELD' WHERE id=$1", [bookingId, fare]);
 
     // History
     await repository.insertBookingStatusHistory(client, [bookingId, customerId, role, requestId]);
@@ -189,6 +299,10 @@ async function postBookings(input) {
       pickup: { address: pickupAddress, lat: pLat, lng: pLng },
       destination: { address: destinationAddress, lat: dLat, lng: dLng },
       status: "SEARCHING",
+      fare,
+      currency: 'VND',
+      paymentStatus: 'HELD',
+      searchExpiresAt: new Date(Date.now() + OFFER_TTL_SEC * 1000).toISOString(),
       message: "Booking created, searching for nearby driver",
       createdAt: new Date().toISOString(),
       requestId
@@ -201,10 +315,16 @@ async function postBookings(input) {
     await dispatchBooking(bookingId, client);
 
     await repository.commit(client);
+    heldBookingId = null;
 
     return response(201, responseBody);
   } catch (err) {
     await repository.rollback(client);
+    if (heldBookingId) await escrowClient.refund(heldBookingId).catch(error => console.error('[booking/refund]', error.message));
+    if (err.status === 409) return errorResult(409, err.message, 'Insufficient balance or escrow conflict', requestId);
+    if (err.code === '23505' && err.constraint === 'bookings_one_active_per_customer') {
+      return errorResult(409, 'ACTIVE_BOOKING_EXISTS', 'Customer already has an active booking', requestId);
+    }
     console.error("[bookings/create]", err.message);
     return errorResult(500, "INTERNAL_ERROR", "Failed to create booking", requestId);
   } finally {
@@ -290,7 +410,8 @@ async function postOffersIdAccept(input) {
       });
     }
 
-    if (offer.status !== "PENDING" || new Date(offer.expires_at) < new Date()) {
+    if (offer.status !== "PENDING" || new Date(offer.expires_at) < new Date() ||
+        new Date(offer.search_expires_at) <= new Date()) {
       await repository.rollback(client);
       return errorResult(409, "OFFER_EXPIRED", "Offer has expired or is no longer pending", requestId);
     }
@@ -327,7 +448,8 @@ async function postOffersIdAccept(input) {
           pickupLng: Number(offer.pickup_lng),
           destinationAddress: offer.destination_address,
           destinationLat: Number(offer.destination_lat),
-          destinationLng: Number(offer.destination_lng)
+          destinationLng: Number(offer.destination_lng),
+          fare: Number(offer.fare)
         })
       });
 
@@ -335,12 +457,10 @@ async function postOffersIdAccept(input) {
         const tripData = await tripResp.json();
         tripId = tripData.id;
       } else {
-        console.warn("[offers/accept] Trip service returned non-200:", await tripResp.text());
-        tripId = crypto.randomUUID(); // fallback ID
+        throw new Error(`Trip service returned ${tripResp.status}: ${await tripResp.text()}`);
       }
     } catch (e) {
-      console.warn("[offers/accept] Trip service call error:", e.message);
-      tripId = crypto.randomUUID(); // fallback ID
+      throw e;
     }
 
     // 3. Call Driver Service to set Driver BUSY
@@ -470,6 +590,39 @@ async function postBookingsIdCancel(input) {
   if (!reason) {
     return errorResult(400, "VALIDATION_ERROR", "Cancellation reason is required", requestId);
   }
+  if (role !== 'CUSTOMER' && role !== 'ADMIN') {
+    return errorResult(403, 'FORBIDDEN', 'Customer or admin access required', requestId);
+  }
+
+  // A real ASSIGNED booking owns a trip. Let Trip Service cancel it first;
+  // its terminal-status callback updates the booking before this endpoint returns.
+  const snapshot = await pool.query('SELECT * FROM bookings WHERE id=$1', [bookingId]);
+  if (snapshot.rows.length && snapshot.rows[0].status === 'ASSIGNED' && snapshot.rows[0].trip_id) {
+    const booking = snapshot.rows[0];
+    if (role === 'CUSTOMER' && booking.customer_id !== userId) {
+      return errorResult(403, 'FORBIDDEN', "Cannot cancel another customer's booking", requestId);
+    }
+    try {
+      const tripResponse = await fetch(`${TRIP_SERVICE_URL}/trips/${booking.trip_id}/cancel`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: input.headers.authorization,
+          'x-request-id': requestId },
+        body: JSON.stringify({ reason }),
+        signal: AbortSignal.timeout(5000),
+      });
+      const tripBody = await tripResponse.json();
+      if (!tripResponse.ok) return response(tripResponse.status, tripBody);
+      const synced = await postInternalBookingsIdTripStatus({
+        params: { id: bookingId }, body: { tripId: booking.trip_id, status: 'CANCELED', reason }, requestId
+      });
+      if (synced.status !== 200) return synced;
+      return response(200, { id: bookingId, status: 'CANCELED', tripId: booking.trip_id,
+        cancelReason: reason, requestId });
+    } catch (error) {
+      console.error('[bookings/cancel-trip]', error.message);
+      return errorResult(503, 'DEPENDENCY_ERROR', 'Failed to cancel assigned trip', requestId);
+    }
+  }
 
   const client = await pool.connect();
   try {
@@ -488,12 +641,12 @@ async function postBookingsIdCancel(input) {
       return errorResult(403, "FORBIDDEN", "Cannot cancel another customer's booking", requestId);
     }
 
-    if (booking.status === "ASSIGNED") {
+    if (booking.status === "ASSIGNED" && booking.trip_id) {
       await repository.rollback(client);
       return errorResult(409, "BOOKING_ALREADY_ASSIGNED", "Booking is already assigned to a driver. Cancel via trip endpoint.", requestId);
     }
 
-    if (["COMPLETED", "CANCELED"].includes(booking.status)) {
+    if (["COMPLETED", "CANCELED", "EXPIRED"].includes(booking.status)) {
       await repository.rollback(client);
       return errorResult(409, "INVALID_STATE", `Booking already in status ${booking.status}`, requestId);
     }
@@ -524,10 +677,17 @@ async function postBookingsIdCancel(input) {
     ]);
 
     await repository.commit(client);
+    let paymentStatus = booking.payment_status;
+    if (paymentStatus === 'HELD') {
+      await escrowClient.refund(bookingId);
+      await pool.query("UPDATE bookings SET payment_status='REFUNDED' WHERE id=$1", [bookingId]);
+      paymentStatus = 'REFUNDED';
+    }
 
     return response(200, {
       id: bookingId,
       status: "CANCELED",
+      paymentStatus,
       cancelReason: reason,
       message: "Booking canceled successfully",
       requestId
@@ -541,4 +701,4 @@ async function postBookingsIdCancel(input) {
   }
 }
 
-module.exports = { postInternalTestKafka, getBookings, postBookings, getOffers, postBookingsIdAccept, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };
+module.exports = { postInternalTestKafka, postInternalBookingsIdTripStatus, getBookings, getBookingsId, postBookings, getOffers, postBookingsIdAccept, postOffersIdAccept, postOffersIdReject, postBookingsIdCancel };

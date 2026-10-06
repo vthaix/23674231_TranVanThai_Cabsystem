@@ -41,6 +41,21 @@ docker compose up -d --build
 node scripts/verify-requested-demo-data.js
 ```
 
-The reset script clears all application tables in the six PostgreSQL databases and all notification collections in MongoDB, then creates 1 admin (`admin@gmail.com`), 5 customers, 10 drivers, 45 bookings, 25 completed trips with reviews, 25 payments, and 2 pending offers. Each customer has one booking in each of `SEARCHING`, `ASSIGNED`, `NO_DRIVER_FOUND`, and `CANCELED`, plus five `COMPLETED` bookings linked to the five completed trips. All accounts use password `12345678`. Driver phone `0391234568` appeared twice in the supplied list; the duplicate was removed.
+The reset script clears all application tables in the six PostgreSQL databases and all notification collections in MongoDB, then creates 1 admin (`admin@gmail.com`), 5 customers, 10 drivers, 45 bookings, 25 completed trips with reviews, 25 payments, and 2 pending offers. Each customer has one booking in each of `SEARCHING`, `EXPIRED`, `NO_DRIVER_FOUND`, and `CANCELED`, plus five `COMPLETED` bookings linked to the five completed trips. All accounts use password `12345678`. Driver phone `0391234568` appeared twice in the supplied list; the duplicate was removed.
 
 The reset script also clears Redis, rebuilds its driver GEO index, and reserves the two drivers with pending offers.
+
+## Active booking rule
+
+Each customer can have at most one booking in `SEARCHING` or `ASSIGNED`. A new booking returns `409 ACTIVE_BOOKING_EXISTS` while either state is active. `SEARCHING` lasts 30 minutes (`OFFER_TTL_SEC`); the booking service changes it to `EXPIRED`, expires pending offers, and releases reservations. Finishing or cancelling an assigned trip updates its booking to `COMPLETED` or `CANCELED`.
+
+To cancel a booking before starting a new one, use the customer token and booking ID:
+
+```sh
+curl -X POST http://localhost:8000/api/v1/bookings/BOOKING_ID/cancel \
+  -H "Authorization: Bearer CUSTOMER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"Thử tạo chuyến mới"}'
+```
+
+This endpoint cancels a `SEARCHING` booking directly and cancels an `ASSIGNED` booking through its trip. A trip already `IN_PROGRESS` cannot be cancelled through this endpoint.

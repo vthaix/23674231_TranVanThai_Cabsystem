@@ -8,7 +8,7 @@ async function dispatchBooking(bookingId, client) {
     const { rows } = await repository.findBookings(client, [bookingId]);
     if (rows.length === 0) return;
     const booking = rows[0];
-    if (booking.status !== "SEARCHING") return;
+    if (booking.status !== "SEARCHING" || new Date(booking.search_expires_at) <= new Date()) return;
 
     // Get drivers already offered
     const offersRes = await repository.findOffers5(client, [bookingId]);

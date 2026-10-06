@@ -3,12 +3,41 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
 const { sanitizeString } = require("../../../../shared/src/validation/index");
-const { SERVICE_NAME, DRIVER_SERVICE_URL } = require("../config");
+const { SERVICE_NAME, DRIVER_SERVICE_URL, BOOKING_SERVICE_URL } = require("../config");
 const { haversineDistanceKm, STATUS_TRANSITIONS } = require("../services/trip.service");
 
 function response(status, body) { return { status, body }; }
 function errorResult(status, code, message, requestId) {
   return response(status, { code, message, requestId });
+}
+
+async function syncBookingStatus(trip, status, reason, requestId) {
+  try {
+    const res = await fetch(`${BOOKING_SERVICE_URL}/internal/bookings/${trip.booking_id}/trip-status`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-request-id': requestId,
+        'x-service-token': generateServiceToken(SERVICE_NAME, 'booking-service') },
+      body: JSON.stringify({ tripId: trip.id, status, reason }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) { console.warn('[trip/booking-sync]', status, trip.id, res.status, await res.text()); return false; }
+    await repository.updateTrips(pool, [status === 'COMPLETED' ? 'PAID' : 'REFUNDED', null, trip.id]);
+    return true;
+  } catch (error) { console.warn('[trip/booking-sync]', status, trip.id, error.message); }
+  return false;
+}
+
+async function releaseDriver(trip, requestId) {
+  try {
+    const res = await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${trip.driver_id}/available`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-request-id': requestId,
+        'x-service-token': generateServiceToken(SERVICE_NAME, 'driver-service') },
+      body: JSON.stringify({ tripId: trip.id }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) console.warn('[trip/driver-release]', trip.id, res.status, await res.text());
+  } catch (error) { console.warn('[trip/driver-release]', trip.id, error.message); }
 }
 
 async function postInternalTrips(input) {
@@ -23,7 +52,8 @@ async function postInternalTrips(input) {
     pickupLng,
     destinationAddress,
     destinationLat,
-    destinationLng
+    destinationLng,
+    fare: bookingFare
   } = input.body;
 
   if (!bookingId || !customerId || !driverId) {
@@ -52,16 +82,14 @@ async function postInternalTrips(input) {
       console.warn("[trips/internal] Fetch driver summary warning:", e.message);
     }
 
-    // 2. Calculate distance in km
-    const distKm = Math.max(1.0, haversineDistanceKm(Number(pickupLat), Number(pickupLng), Number(destinationLat), Number(destinationLng)));
-
-    // 3. Find active fare rule
+    // Use the fare already held when the booking was created.
+    const distKm = haversineDistanceKm(Number(pickupLat), Number(pickupLng), Number(destinationLat), Number(destinationLng));
     const normalizedVehicle = ["BIKE", "SEDAN", "SUV"].includes(vehicleType.toUpperCase()) ? vehicleType.toUpperCase() : "BIKE";
-    const fareRuleRes = await repository.findFareRules(client, [normalizedVehicle]);
-
-    const baseFare = fareRuleRes.rows.length > 0 ? Number(fareRuleRes.rows[0].base_fare) : 15000;
-    const perKm = fareRuleRes.rows.length > 0 ? Number(fareRuleRes.rows[0].per_km) : 5000;
-    const fare = Math.round(baseFare + perKm * distKm);
+    const { calculateFare } = require('../../../../shared/src/fare');
+    const fare = calculateFare(Number(pickupLat), Number(pickupLng), Number(destinationLat), Number(destinationLng)).amount;
+    if (fare !== bookingFare) return errorResult(409, 'FARE_MISMATCH', 'Booking fare differs from route fare', requestId);
+    const baseFare = 0;
+    const perKm = 9000;
 
     const tripId = crypto.randomUUID();
 
@@ -91,7 +119,7 @@ async function postInternalTrips(input) {
       distanceKm: distKm,
       fare,
       status: "ASSIGNED",
-      paymentStatus: "UNPAID",
+      paymentStatus: "HELD",
       driverSnapshot
     });
   } catch (err) {
@@ -133,7 +161,17 @@ async function postInternalTripsIdPaymentStatus(input) {
   const { paymentId, status = "PAID" } = input.body;
   const requestId = input.headers["x-request-id"] || crypto.randomUUID();
 
+  if (!['PAID', 'REFUNDED'].includes(status)) {
+    return errorResult(400, 'VALIDATION_ERROR', 'Invalid payment status', requestId);
+  }
+
   try {
+    const { rows } = await repository.findTrips2(pool, [id]);
+    if (!rows.length) return errorResult(404, 'NOT_FOUND', 'Trip not found', requestId);
+    if ((status === 'PAID' && rows[0].status !== 'COMPLETED') ||
+        (status === 'REFUNDED' && rows[0].status !== 'CANCELED')) {
+      return errorResult(409, 'INVALID_STATE', 'Trip state does not permit this payment status', requestId);
+    }
     await repository.updateTrips(pool, [status, paymentId || null, id]);
 
     return response(200, { id, paymentStatus: status });
@@ -204,22 +242,12 @@ async function patchTripsIdStatus(input) {
       requestId
     ]);
 
-    // If trip COMPLETED, notify Driver Service to set driver back to ONLINE
-    if (targetStatus === "COMPLETED") {
-      try {
-        const svcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-        await fetch(`${DRIVER_SERVICE_URL}/drivers/me/availability`, {
-          method: "PUT",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${generateServiceToken(SERVICE_NAME, "driver-service")}`
-          },
-          body: JSON.stringify({ status: "ONLINE" })
-        });
-      } catch {}
-    }
-
     await repository.commit(client);
+
+    if (targetStatus === 'COMPLETED') {
+      await syncBookingStatus(trip, 'COMPLETED', null, requestId);
+      await releaseDriver(trip, requestId);
+    }
 
     return response(200, {
       id: tripId,
@@ -288,6 +316,9 @@ async function postTripsIdCancel(input) {
     ]);
 
     await repository.commit(client);
+
+    await syncBookingStatus(trip, 'CANCELED', sanitizeString(reason), requestId);
+    await releaseDriver(trip, requestId);
 
     return response(200, {
       id: tripId,

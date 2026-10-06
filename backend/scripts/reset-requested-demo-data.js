@@ -5,6 +5,7 @@ const { execFileSync } = require('child_process');
 const { Pool } = require('pg');
 const { MongoClient } = require('mongodb');
 const { encrypt, hashPhone, hashNationalId } = require('../shared/src/crypto');
+const { calculateFare } = require('../shared/src/fare');
 const { ensureDemoAdmin, passwordHash } = require('./add-demo-admin');
 
 const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
@@ -14,7 +15,7 @@ const driverPhones = [
   '0391234561', '0391234562', '0391234563', '0391234564', '0391234565',
   '0391234566', '0391234567', '0391234568', '0391234569', '0391234510',
 ];
-const statuses = ['SEARCHING', 'ASSIGNED', 'NO_DRIVER_FOUND', 'COMPLETED', 'CANCELED'];
+const statuses = ['SEARCHING', 'EXPIRED', 'NO_DRIVER_FOUND', 'COMPLETED', 'CANCELED'];
 const center = { lat: 10.7769, lng: 106.7008 };
 const uuid = (prefix, n) => `${prefix}0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const customerId = n => uuid('1', n);
@@ -102,21 +103,22 @@ async function seedRides() {
       const b = bookingId(++bookingNo);
       const lat = center.lat + (c.n - 1) * 0.00015 + (slot % 3) * 0.0001;
       const lng = center.lng + (slot % 2) * 0.0001;
-      const assignedDriver = status === 'ASSIGNED'
-        ? driver[(c.n - 1) % 2]
-        : driver[(tripNo + c.n) % 7];
+      const assignedDriver = driver[(tripNo + c.n) % 7];
       const completed = status === 'COMPLETED';
       const t = completed ? tripId(++tripNo) : null;
+      const fare = completed ? 24000 : calculateFare(lat, lng, lat + 0.02, lng + 0.02).amount;
       await pools.booking.query(`INSERT INTO bookings(id,customer_id,vehicle_type,pickup_address,pickup_lat,pickup_lng,
         destination_address,destination_lat,destination_lng,status,trip_id,current_driver_id,
-        completed_at,canceled_at,cancel_reason,assigned_at)
-        VALUES($1,$2,'BIKE',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        completed_at,canceled_at,cancel_reason,assigned_at,search_expires_at,fare,payment_status)
+        VALUES($1,$2,'BIKE',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [b, c.id, `Điểm đón ${c.n}-${slot + 1}`, lat, lng, `Điểm đến ${c.n}-${slot + 1}`,
           lat + 0.02, lng + 0.02, status, t,
-          status === 'ASSIGNED' || completed ? assignedDriver.id : null,
+          completed ? assignedDriver.id : null,
           completed ? new Date() : null, status === 'CANCELED' ? new Date() : null,
           status === 'CANCELED' ? 'CUSTOMER_REQUEST' : null,
-          status === 'ASSIGNED' || completed ? new Date() : null]);
+          completed ? new Date() : null,
+          status === 'SEARCHING' ? new Date(Date.now() + 30 * 60 * 1000) : null,
+          fare, completed ? 'PAID' : null]);
       await pools.booking.query(`INSERT INTO booking_status_history(booking_id,to_status,actor_id,actor_role)
         VALUES($1,$2,$3,'CUSTOMER')`, [b, status, c.id]);
       if (completed) {

@@ -14,16 +14,18 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Sau khi sửa PC15/PC16 hoặc thời hạn token, build lại các service liên quan trong thư mục `backend/`:
+Sau khi sửa luồng booking/trip hoặc thời hạn token, build lại các service liên quan trong thư mục `backend/`:
 
 ```bash
-docker compose up -d --build identity-service booking-service driver-service
+docker compose up -d --build identity-service customer-service driver-service booking-service trip-service payment-service
 docker compose ps
 ```
 
-Tất cả request Postman bên dưới dùng Gateway `http://localhost:8000`. Token đăng nhập **mới** có hiệu lực **60 phút**; token lấy trước khi đổi cấu hình vẫn hết hạn theo thời điểm cũ. Nếu Postman trả HTTP 401 vì token hết hạn, gọi lại `POST /api/v1/auth/login` và ghi đè biến token tương ứng. Không cần đăng ký lại tài khoản.
+Tất cả request Postman bên dưới dùng Gateway `http://localhost:8000`. Token đăng nhập có hiệu lực **60 phút**. Nếu Postman trả HTTP 401 vì token hết hạn, gọi lại `POST /api/v1/auth/login` và ghi đè biến token tương ứng. Không cần đăng ký lại tài khoản.
 
-**Cách nhập request trong Postman:** chọn đúng method và URL ở từng PC; với JSON chọn **Body → raw → JSON** (Postman sẽ gửi `Content-Type: application/json`). Với request cần token, chọn **Authorization → Bearer Token** và nhập biến như `{{customerToken}}`; hoặc thêm header `Authorization: Bearer {{customerToken}}`. GET không có body. Mọi URL công khai bên dưới đi qua Gateway; đường `/internal/...` chỉ dành cho service trong Docker network, không gửi trực tiếp từ Postman trên host. Tạo environment các biến `otp`, `registrationToken`, `customerToken`, `pc14CustomerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `tripId`, `paymentId`, `providerTransactionId`, `paymentAmount`, `cancelBookingId`, `cancelTripBookingId`, `cancelTripId`. Khi có response, sao chép đúng trường được hướng dẫn vào biến tương ứng. Giữa các lần demo nên đổi email, phone, CCCD, biển số và `Idempotency-Key` để tránh trùng dữ liệu.
+**Dữ liệu mẫu hiện tại:** `kh01@gmail.com`–`kh05@gmail.com`, `dr01@gmail.com`–`dr10@gmail.com` và `admin@gmail.com` đều dùng mật khẩu `12345678`. Mỗi khách có 9 booking và 5 trip `COMPLETED` có review. Chỉ `dr01` và `dr02` đang `ONLINE`; các driver khác `OFFLINE` hoặc `PENDING_APPROVAL`. Hai tài xế này ở gần `10.7769, 106.7008`. Nếu chạy lại script `node scripts/reset-requested-demo-data.js` theo `backend/README.md`, mỗi khách có một booking `SEARCHING` mới. Đợi nó hết hạn 30 phút hoặc hủy trước khi tạo booking khác; không dùng `docker compose up -d --build` để mong dữ liệu mẫu tự nạp lại, vì `SEED_ON_START=false`.
+
+**Cách nhập request trong Postman:** chọn đúng method và URL ở từng PC; với JSON chọn **Body → raw → JSON** (Postman sẽ gửi `Content-Type: application/json`). Với request cần token, chọn **Authorization → Bearer Token** và nhập biến như `{{customerToken}}`; hoặc thêm header `Authorization: Bearer {{customerToken}}`. GET không có body. Mọi URL công khai bên dưới đi qua Gateway; đường `/internal/...` chỉ dành cho service trong Docker network, không gửi trực tiếp từ Postman trên host. Tạo environment các biến `otp`, `registrationToken`, `customerToken`, `pc14CustomerToken`, `adminToken`, `driverToken`, `customerId`, `driverId`, `bookingId`, `tripId`, `paymentId`, `cancelBookingId`, `cancelTripBookingId`, `cancelTripId`. Khi có response, sao chép đúng trường được hướng dẫn vào biến tương ứng. Giữa các lần demo nên đổi email, phone và `Idempotency-Key` để tránh trùng dữ liệu.
 
 **Số điện thoại:** nhập chuỗi đúng 10 chữ số, ví dụ `0912345001`; không thêm `+84`, khoảng trắng hoặc dấu phân cách. Quy tắc này áp dụng cho đăng ký, OTP và đăng nhập bằng số điện thoại.
 
@@ -35,13 +37,13 @@ curl -i http://localhost:8000/ready
 curl -i http://localhost:8000/health/services
 ```
 
-Để chạy toàn bộ 25 kiểm tra PC6–PC30 tự động:
+Script kiểm tra PC6–PC30 dùng dữ liệu seed cũ ở một số tiêu chí. Với bộ dữ liệu mẫu hiện tại, dùng các bước Postman bên dưới để demo; có thể chạy script riêng nếu đã chuẩn bị fixture mà script yêu cầu:
 
 ```bash
 npm run smoke:pc6-pc30
 ```
 
-Kết quả cần thấy là `25/25 criteria passed`. Script tạo dữ liệu test riêng cho mỗi lần chạy và không xóa volume. Chi tiết ở `smoke/README.md`.
+Script tạo thêm dữ liệu test mỗi lần chạy và không xóa volume. Chi tiết ở `smoke/README.md`.
 
 PC2 (kiểm tra `.gitignore` và `.env` **trên GitHub**) chưa được ghi là đã đạt trong tài liệu này vì chưa đối chiếu repository trên GitHub; chỉ kiểm tra file tại máy không đủ để kết luận phần “trên GitHub”.
 
@@ -163,8 +165,7 @@ curl -i http://localhost:8000/health/services
      "pickupLng": 106.7101,
      "destinationAddress": "Diem den test Kafka",
      "destinationLat": 10.8001,
-     "destinationLng": 106.7201,
-     "vehicleType": "BIKE"
+     "destinationLng": 106.7201
    }
    ```
 
@@ -172,6 +173,8 @@ curl -i http://localhost:8000/health/services
 2. Gửi `GET http://localhost:8000/api/v1/notifications?limit=20` với cùng Bearer `{{customerToken}}`, không có Body. Tìm phần tử trong `data` có `eventType: "booking.created"` và trường `body` chứa `pc7BookingId`. Nếu chưa thấy, đợi vài giây rồi gửi lại GET.
 
 **Vì sao cách này kiểm tra được Kafka?** Booking-service ghi event `booking.created` vào outbox, relay gửi lên topic `booking.events`, notification-service đọc event rồi tạo thông báo cho Customer. GET cuối đọc thông báo từ notification-service. HTTP `201` ở bước 1 **chưa đủ**; phải thấy đúng `pc7BookingId` trong thông báo ở bước 2. Postman kiểm tra được luồng nghiệp vụ này, nhưng không hiển thị trực tiếp trạng thái broker/topic/consumer group.
+
+**Dọn booking PC7 trước PC15:** `POST http://localhost:8000/api/v1/bookings/{{pc7BookingId}}/cancel` với Bearer `{{customerToken}}`, JSON `{ "reason": "Ket thuc test Kafka" }` → HTTP 200, `status: "CANCELED"`. Nếu booking đã `EXPIRED`, không cần hủy; khách đã được phép tạo booking mới. Mỗi Customer chỉ được có một booking `SEARCHING` hoặc `ASSIGNED` tại một thời điểm.
 
 **Cách nói khi demo:** “Em tạo booking qua Gateway; booking-service phát event lên Kafka. Notification-service nhận event, nên API thông báo của Customer xuất hiện `booking.created` với đúng booking ID vừa tạo.”
 
@@ -215,7 +218,7 @@ docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --from-beginning --max-messages 1 --timeout-ms 10000
 ```
 
-**Cần thấy:** lệnh cuối in `hello-pc7`. Topic `pc7-demo-...` là topic thử riêng, không phải topic nghiệp vụ. Muốn chạy tự động thay bước này, dùng `npm run smoke:pc6-pc30` và tìm `PASS PC7 Kafka publish and consume`; script còn chạy PC6–PC30, tạo dữ liệu test mới và không xóa dữ liệu cũ.
+**Cần thấy:** lệnh cuối in `hello-pc7`. Topic `pc7-demo-...` là topic thử riêng, không phải topic nghiệp vụ. Script `npm run smoke:pc6-pc30` có kiểm tra Kafka nhưng một số bước khác còn phụ thuộc seed cũ; với dữ liệu hiện tại, ưu tiên luồng Postman và các lệnh Kafka phía trên.
 
 **Bằng chứng end-to-end nghiệp vụ (sau khi làm PC18):** `docker compose logs --tail=50 notification-service` cần có dòng `[NOTIFICATION KAFKA] consumed ... eventType=trip.canceled`. Trong Postman, `GET http://localhost:8000/api/v1/notifications?limit=20` với Bearer `{{customerToken}}` và token Driver của trip đã hủy; response HTTP `200` có `data` chứa thông báo `trip.canceled` liên quan `{{cancelTripId}}`. Event có thể cần vài giây mới xuất hiện. Đây là kiểm tra cả producer → Kafka → consumer → dữ liệu thông báo; bài thử topic riêng ở bước 3 chỉ kiểm tra broker.
 
@@ -243,7 +246,7 @@ curl -i --max-time 3 http://localhost:3000/health
 
 ## Chuẩn bị dữ liệu Postman cho PC9–PC30
 
-Các request công khai không cần token là đăng ký, đăng nhập, OTP và tìm tài xế quanh tọa độ. Các request còn lại thêm header `Authorization: Bearer {{customerToken}}`, `{{driverToken}}` hoặc `{{adminToken}}` đúng vai trò. Với POST/PUT/PATCH, thêm `Content-Type: application/json`. Chỉ request tạo booking và tạo payment cần `Idempotency-Key`; mỗi giao dịch mới dùng một key mới.
+Các request công khai không cần token là đăng ký, đăng nhập, OTP và tìm tài xế quanh tọa độ. Các request còn lại thêm header `Authorization: Bearer {{customerToken}}`, `{{driverToken}}` hoặc `{{adminToken}}` đúng vai trò. Với request có JSON, thêm `Content-Type: application/json`. Chỉ request tạo booking cần `Idempotency-Key`; mỗi booking mới dùng một key mới. Các trường `vehicleType` khi đặt xe, `vehicle` khi đăng ký tài xế và tọa độ khi cập nhật trạng thái trip đều có thể bỏ trong các ví dụ cơ bản bên dưới.
 
 Thứ tự thử thuận tiện: PC9–PC14 → PC21–PC23 → PC15–PC20 → PC24–PC30. PC15–PC20 cần tài xế đã duyệt và ONLINE. Để thử hủy trip ở PC18, tạo một booking/trip **khác** với trip đã hoàn thành ở PC17, vì trip `COMPLETED` không thể hủy.
 
@@ -281,12 +284,14 @@ pm.environment.set("customerId", pm.response.json().id);
 { "email": "khachdemo01@example.com", "password": "DemoPass@123" }
 ```
 
-**Cần thấy:** HTTP 200, response có `token`, `accountId = {{customerId}}`, `role: "CUSTOMER"`. Lưu `token` vào `customerToken`. JWT ký bằng HS256 và token mới hết hạn sau 60 phút. Để thực hiện PC13/PC22, đăng nhập admin bằng cùng endpoint với email `admin@cabsystem.com`, password seed mặc định `Admin@123456` (hoặc giá trị `SEED_PASSWORD` nếu đã cấu hình) và lưu `adminToken`.
+Chỉ gửi `email` **hoặc** `phone`, kèm `password`. Không cần gửi ID, role, tên hay số dư; hệ thống xác định tài khoản và vai trò từ thông tin đăng nhập.
+
+**Cần thấy:** HTTP 200, response có `token`, `accountId = {{customerId}}`, `role: "CUSTOMER"`. Lưu `token` vào `customerToken`. JWT ký bằng HS256 và token hết hạn sau 60 phút. Để thực hiện PC13/PC22, đăng nhập admin bằng cùng endpoint với email `admin@gmail.com`, mật khẩu `12345678`, rồi lưu `adminToken`.
 
 **Request Admin trong Postman:** `POST http://localhost:8000/api/v1/auth/login`, không Bearer, Body → raw → JSON:
 
 ```json
-{ "email": "admin@cabsystem.com", "password": "Admin@123456" }
+{ "email": "admin@gmail.com", "password": "12345678" }
 ```
 
 Lưu `token` response Customer vào `customerToken`; lưu `token` response Admin vào `adminToken`. Có thể dùng script Tests `pm.environment.set("customerToken", pm.response.json().token)` hoặc đổi tên biến thành `adminToken` trong request Admin.
@@ -303,7 +308,7 @@ Khi token hết hạn, chạy lại đúng request đăng nhập của Customer,
 
 **Postman:** `GET http://localhost:8000/api/v1/customers/{{customerId}}` với `Bearer {{customerToken}}`.
 
-**Hồ sơ của chính Customer:** `GET http://localhost:8000/api/v1/customers/me` với `Bearer {{customerToken}}`, không cần truyền ID. Response trả hồ sơ có `fullName`, `email`, `phone`, `dateOfBirth`, `gender`, `avatarUrl`, `status`, `createdAt`, `updatedAt`. Khách hàng đăng ký mới có `phone` từ dữ liệu được mã hóa trong customer-service; hồ sơ cũ từng tạo khi hệ thống chỉ lưu phone hash có thể trả `phone: null`. Token Admin/Driver không dùng được route `/me` của Customer (HTTP 403).
+**Hồ sơ của chính Customer:** `GET http://localhost:8000/api/v1/customers/me` với `Bearer {{customerToken}}`, không cần truyền ID. Response có `fullName`, `email`, `phone`, `balance`, `status` cùng các trường hồ sơ tùy chọn. Khách mới có số dư ban đầu 1.000.000đ. Token Admin/Driver không dùng được route `/me` của Customer (HTTP 403).
 
 **Cần thấy:** HTTP 200; `id`, `fullName`, `email` đúng khách hàng PC9. Nếu không có token: HTTP 401; nếu token Customer khác xem ID này: HTTP 403. Service chỉ trả hồ sơ của chính Customer, trừ vai trò nhân viên/admin được phép.
 
@@ -315,7 +320,7 @@ Khi token hết hạn, chạy lại đúng request đăng nhập của Customer,
 
 ## PC12 – Lấy thông tin tài xế theo ID
 
-**Postman:** `GET http://localhost:8000/api/v1/drivers/00000000-0000-0000-0000-000000000011` với `Bearer {{customerToken}}`.
+**Postman:** `GET http://localhost:8000/api/v1/drivers/20000000-0000-4000-8000-000000000001` với `Bearer {{customerToken}}` (driver mẫu `dr01@gmail.com`).
 
 **Cần thấy:** HTTP 200, `id` đúng, có `status`, `vehicle`, số điện thoại được che bằng dấu `•`. Đây là một tài xế mẫu. Sau PC21–PC22 có thể thay ID bằng `{{driverId}}` để xem hồ sơ vừa đăng ký.
 
@@ -327,11 +332,11 @@ Khi token hết hạn, chạy lại đúng request đăng nhập của Customer,
 
 **Postman:**
 
-1. **Chứng minh dữ liệu có nhiều trạng thái:** `GET http://localhost:8000/api/v1/drivers?page=1&limit=50` với `Bearer {{adminToken}}`. Trong `data`, tìm 5 ID seed kết thúc bằng `0011`–`0015`: lần lượt có trạng thái `ONLINE`, `ONLINE`, `BUSY`, `OFFLINE`, `PENDING_APPROVAL`. Có thể gọi thêm `GET /api/v1/drivers?status=OFFLINE` hoặc `?status=BUSY` để chứng minh bộ lọc. Đây là danh sách quản trị; token Customer trả HTTP 403.
-2. `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.7&lng=106.7&radius=1000&limit=5&page=1`, không token, không body.
-3. Để kiểm tra phân trang, gọi lại với `limit=2&page=1`, rồi `limit=2&page=2`.
+1. **Chứng minh dữ liệu có nhiều trạng thái:** `GET http://localhost:8000/api/v1/drivers?page=1&limit=50` với `Bearer {{adminToken}}`. Trong `data`, `dr01`–`dr02` có trạng thái `ONLINE`, `dr03`–`dr07` là `OFFLINE`, `dr08`–`dr10` là `PENDING_APPROVAL`. Có thể gọi thêm `GET /api/v1/drivers?status=OFFLINE` hoặc `?status=PENDING_APPROVAL` để chứng minh bộ lọc. Đây là danh sách quản trị; token Customer trả HTTP 403.
+2. `GET http://localhost:8000/api/v1/drivers/nearby?lat=10.7769&lng=106.7008&radius=1000&limit=5&page=1`, không token, không body.
+3. Để kiểm tra phân trang, gọi lại với `limit=1&page=1`, rồi `limit=1&page=2`.
 
-**Cần thấy:** bước 1 chứng minh **ít nhất 5 tài xế có nhiều trạng thái** theo yêu cầu smoke. Bước 2 trả `pagination.total: 5` và `data` có 5 tài xế mẫu PC13, mỗi người `distanceM <= 1000`, `status: "ONLINE"`. Endpoint `/drivers/nearby` mặc định chỉ tìm `ONLINE`, vì tài xế `BUSY`/`OFFLINE`/`PENDING_APPROVAL` không nhận chuyến. Ở bước 3, mỗi trang có 2 ID khác nhau. Các tài xế seed cũ ở quanh `10.776…` nằm ngoài bán kính `10.7, 106.7`. Để nạp seed mới vào DB đang chạy, build/chạy lại `driver-service` bằng `docker compose up -d --build driver-service` trong `backend/`.
+**Cần thấy:** bước 2 trả `pagination.total: 2` nếu chưa thay đổi trạng thái/vị trí mẫu; `data` có `dr01` và `dr02`, mỗi người `distanceM <= 1000`, `status: "ONLINE"`. Endpoint `/drivers/nearby` mặc định chỉ tìm `ONLINE`; `OFFLINE`/`PENDING_APPROVAL` không nhận chuyến. Ở bước 3, hai trang có ID khác nhau. Nếu đã chạy PC21–PC23 hoặc tạo chuyến mới, tổng số và trạng thái có thể đổi; kiểm tra bằng `GET /drivers` của Admin trước khi kết luận.
 
 **Kết luận:** “PC13 đạt khi có dữ liệu mẫu đủ trạng thái và danh sách quanh điểm đón được lọc/phân trang đúng.”
 
@@ -339,27 +344,27 @@ Khi token hết hạn, chạy lại đúng request đăng nhập của Customer,
 
 ## PC14 – Danh sách booking của Customer
 
-**Vì sao Customer xem danh sách?** Mỗi lần đặt xe là **một booking mới**, không phải một booking duy nhất trong cả đời tài khoản. Dù một chuyến đã hủy hoặc không tìm được tài xế, bản ghi vẫn nằm trong lịch sử để Customer xem lại. PC14 kiểm tra Customer chỉ đọc được booking của **chính mình**. Admin có thể xem tổng hợp bằng cùng endpoint khi cần quản trị. Code hiện tại chưa chặn Customer tạo nhiều booking đang `SEARCHING` cùng lúc, nên không dùng PC14 để chứng minh quy tắc “mỗi lúc chỉ một booking đang hoạt động”.
+**Vì sao Customer xem danh sách?** Mỗi lần đặt xe là **một booking mới** và các booking đã kết thúc vẫn nằm trong lịch sử. Mỗi Customer chỉ có tối đa **một** booking ở `SEARCHING` hoặc `ASSIGNED`; hai trạng thái này không thể cùng tồn tại cho cùng khách. `GET /bookings` lọc theo Customer ID trong JWT; Admin có thể lọc theo `customerId` để xem tổng hợp.
 
-**Dữ liệu mẫu cho tài khoản của bạn:** 5 booking ID kết thúc `0151`–`0155` có điểm đón quanh `lat=10.7`, `lng=106.7`, thuộc `thai@gmail.com` (`customerId = b597a08b-958d-4ac6-b8c6-9f9a2a26ad2a`). Các booking này đã `CANCELED` hoặc `NO_DRIVER_FOUND`, nên chỉ dùng để xem lịch sử, không tạo offer mới. Tài khoản này còn có thể có các booking đã tự tạo trước đó; `pagination.total` vì vậy có thể lớn hơn 5. Chúng khác với 5 tài xế `ONLINE` của PC13.
+**Dữ liệu mẫu:** `kh01@gmail.com` có ID `10000000-0000-4000-8000-000000000001`, 9 booking và 5 trip `COMPLETED` có đánh giá. Sau reset, một booking `SEARCHING` có `searchExpiresAt` sau 30 phút; khi quá hạn nó thành `EXPIRED`. Dữ liệu đang chạy có thể đã hết hạn hoặc thay đổi do các bước thực hành, nên dùng response thực tế thay vì giả định ID/trạng thái cố định.
 
 **Postman:**
 
-1. Đăng nhập tài khoản của bạn bằng `POST http://localhost:8000/api/v1/auth/login`, không Bearer, Body → raw → JSON:
+1. Đăng nhập `kh01` bằng `POST http://localhost:8000/api/v1/auth/login`, không Bearer, Body → raw → JSON:
 
 ```json
 {
-  "email": "thai@gmail.com",
-  "password": "<mật khẩu của tài khoản này>"
+  "email": "kh01@gmail.com",
+  "password": "12345678"
 }
 ```
 
-Thay chuỗi trong dấu `<...>` bằng mật khẩu thật của tài khoản; không gửi nguyên chuỗi giữ chỗ. Lưu `token` trả về thành `pc14CustomerToken` để không ghi đè `customerToken` của PC9.
+Lưu `token` thành `pc14CustomerToken` để không ghi đè `customerToken` của PC9.
 
-2. Gọi `GET http://localhost:8000/api/v1/bookings?limit=50&page=1` với Bearer `{{pc14CustomerToken}}`, không body. Tìm 5 ID kết thúc `0151`–`0155`; mỗi bản ghi có `customerId` như trên và `pickup.lat/lng` gần `10.7/106.7`.
+2. Gọi `GET http://localhost:8000/api/v1/bookings?limit=50&page=1` với Bearer `{{pc14CustomerToken}}`, không body. Các bản ghi mẫu có `customerId = 10000000-0000-4000-8000-000000000001`; xem `status`, `fare`, `currency` và `searchExpiresAt` của booking hiện tại. Lấy một `id` trong danh sách rồi gọi `GET http://localhost:8000/api/v1/bookings/<id>` để xem riêng booking đó với cùng giá tiền.
 3. Kiểm tra phân trang bằng `GET http://localhost:8000/api/v1/bookings?limit=2&page=1`, rồi `GET http://localhost:8000/api/v1/bookings?limit=2&page=2`, vẫn dùng Bearer `{{pc14CustomerToken}}`.
 
-**Cần thấy:** HTTP 200, `pagination.total >= 5`; hai trang có tối đa 2 booking/trang, ID không trùng. Mọi `customerId` trong response bằng ID của Customer đang đăng nhập. Booking-service lấy ID từ JWT để lọc, không yêu cầu Customer truyền ID trên URL. Nếu đăng nhập Admin, có thể gọi `GET /api/v1/bookings?customerId=b597a08b-958d-4ac6-b8c6-9f9a2a26ad2a` với `Bearer {{adminToken}}` để xem cùng lịch sử; đó là góc nhìn quản trị, còn PC14 kiểm tra góc nhìn Customer. Năm booking seed `0141`–`0145` của `customer1@example.com` vẫn có trong DB nếu cần tài khoản demo độc lập.
+**Cần thấy:** HTTP 200, `pagination.total >= 9` nếu chưa xóa dữ liệu mẫu; hai trang có tối đa 2 booking/trang, ID không trùng. Mọi `customerId` bằng ID của `kh01`. Admin có thể gọi `GET /api/v1/bookings?customerId=10000000-0000-4000-8000-000000000001` với `Bearer {{adminToken}}` để xem cùng lịch sử. Nếu một booking đang `SEARCHING` hoặc `ASSIGNED`, thử tạo thêm booking với **Idempotency-Key mới** sẽ trả HTTP 409 `ACTIVE_BOOKING_EXISTS`; hủy booking đó hoặc chờ `SEARCHING` hết hạn rồi mới tạo lại.
 
 **Kết luận:** “PC14 đạt khi Customer xem được ít nhất 5 booking của mình với limit/page.”
 
@@ -367,7 +372,7 @@ Thay chuỗi trong dấu `<...>` bằng mật khẩu thật của tài khoản; 
 
 ## PC21 – Đăng ký tài xế bằng OTP
 
-Chọn số điện thoại, CCCD và biển số chưa từng dùng. PC21 hiện mô phỏng OTP: service tạo và lưu mã nhưng **không gửi SMS thật**, kể cả khi nhập số điện thoại thật. Trong môi trường development, lấy mã từ `_dev_otp` của response; mã thử `123456` cũng được chấp nhận. Mã sinh ra có hạn 5 phút.
+Chọn số điện thoại chưa từng dùng. PC21 hiện mô phỏng OTP: service tạo và lưu mã nhưng **không gửi SMS thật**, kể cả khi nhập số điện thoại thật. Trong môi trường development, lấy mã từ `_dev_otp` của response; mã thử `123456` cũng được chấp nhận. Mã sinh ra có hạn 5 phút.
 
 **Postman:**
 
@@ -381,22 +386,13 @@ Chọn số điện thoại, CCCD và biển số chưa từng dùng. PC21 hiệ
   "phone": "0912345002",
   "password": "TaiXeDemo@123",
   "fullName": "Tai Xe Demo",
-  "nationalId": "012345678902",
   "licenseNumber": "GPLX-DEMO-02",
   "licenseClass": "A1",
-  "licenseExpiryDate": "2035-01-01",
-  "vehicle": {
-    "vehicleType": "BIKE",
-    "plateNumber": "59A-DEMO-02",
-    "brand": "Honda",
-    "model": "Wave"
-  }
+  "licenseExpiryDate": "2035-01-01"
 }
 ```
 
-**Cần thấy:** HTTP 201, `status: "PENDING_APPROVAL"`; lưu `id` vào `driverId`. Mật khẩu do tài xế nhập phải dài 8–128 ký tự và được lưu dạng bcrypt hash ở identity-service. Tài khoản đang `PENDING`, chưa thể đăng nhập; thử đăng nhập bằng số điện thoại và mật khẩu trên trước khi duyệt sẽ nhận HTTP 401. Hồ sơ Driver vẫn chờ duyệt. Số điện thoại, CCCD và GPLX được mã hóa khi lưu. Thiếu mật khẩu hoặc registration token OTP hợp lệ trả HTTP 400.
-
-`nationalId` phải là **chuỗi JSON**, kể cả khi chỉ gồm chữ số: `"nationalId": "012345678902"`. Nếu gửi `"nationalId": 1234`, API trả HTTP 400 với `code: "VALIDATION_ERROR"`; không dùng kiểu number vì có thể mất số `0` ở đầu.
+**Cần thấy:** HTTP 201, `status: "PENDING_APPROVAL"`; lưu `id` vào `driverId`. Mật khẩu do tài xế nhập phải dài 8–128 ký tự và được lưu dạng bcrypt hash ở identity-service. Tài khoản đang `PENDING`, chưa thể đăng nhập; thử đăng nhập bằng số điện thoại và mật khẩu trên trước khi duyệt sẽ nhận HTTP 401. Hồ sơ Driver vẫn chờ duyệt. Số điện thoại và GPLX được mã hóa khi lưu. `nationalId` và `dateOfBirth` không cần gửi; nếu bỏ `vehicle`, hệ thống tạo xe BIKE mẫu. Thiếu mật khẩu hoặc registration token OTP hợp lệ trả HTTP 400.
 
 Ba request trên dùng `Content-Type: application/json`. Trong môi trường development có thể dùng script Tests ở request OTP: `pm.environment.set("otp", pm.response.json()._dev_otp)`; ở request verify: `pm.environment.set("registrationToken", pm.response.json().registrationToken)`; ở request register: `pm.environment.set("driverId", pm.response.json().id)`.
 
@@ -414,7 +410,7 @@ Ba request trên dùng `Content-Type: application/json`. Trong môi trường de
 4. `POST http://localhost:8000/api/v1/auth/login`, không Bearer, JSON `{ "phone": "0912345002", "password": "TaiXeDemo@123" }`; lưu `token` vào `driverToken`.
 5. `GET http://localhost:8000/api/v1/notifications?limit=20` với `Bearer {{driverToken}}`; không body.
 
-**Hồ sơ của chính Driver:** Sau bước đăng nhập, gọi `GET http://localhost:8000/api/v1/drivers/me` với `Bearer {{driverToken}}`, không body. Response có thông tin cá nhân, số điện thoại, CCCD, GPLX, trạng thái, xe và vị trí gần nhất (nếu có). Token Admin/Customer trả HTTP 403; không có token trả HTTP 401.
+**Hồ sơ của chính Driver:** Sau bước đăng nhập, gọi `GET http://localhost:8000/api/v1/drivers/me` với `Bearer {{driverToken}}`, không body. Response có tên, số điện thoại, GPLX, `balance`, trạng thái, xe và vị trí gần nhất (nếu có). Token Admin/Customer trả HTTP 403; không có token trả HTTP 401.
 
 **Cần thấy:** bước 3 trả `status: "OFFLINE"` và kích hoạt tài khoản Driver ở identity-service; lúc này mới đăng nhập được bằng mật khẩu đã nhập ở PC21. Notification có `eventType: "driver.approved"` và `body` chứa `driverId` (có thể chờ 1–2 giây để Kafka xử lý). `APPROVED` là kết quả duyệt, còn `OFFLINE` là trạng thái tài xế đã được duyệt nhưng chưa bật nhận chuyến; chỉ từ `OFFLINE` tài xế mới có thể chuyển sang `ONLINE`. Muốn thử nhánh từ chối, đăng ký hồ sơ mới rồi gọi `POST http://localhost:8000/api/v1/drivers/{{driverIdMoi}}/reject` với `Bearer {{adminToken}}`, JSON `{ "reason": "Ho so khong hop le" }`; hồ sơ thành `REJECTED`, tài khoản ở identity-service bị xoá và không thể đăng nhập.
 
@@ -450,14 +446,15 @@ Các thao tác quản trị ở bước 1–3 và nhánh từ chối yêu cầu 
   "pickupLng": 106.7101,
   "destinationAddress": "Diem den Quan 1",
   "destinationLat": 10.8001,
-  "destinationLng": 106.7201,
-  "vehicleType": "BIKE"
+  "destinationLng": 106.7201
 }
 ```
 
-**Cần thấy:** HTTP 201, `status: "SEARCHING"`, có `id` để lưu vào `bookingId`. Booking-service tìm tài xế ở gần và tạo **offer** (lời mời nhận chuyến) ở bước chạy nền. Gọi `GET http://localhost:8000/api/v1/offers` với `Bearer {{driverToken}}` để tìm phần tử có `bookingId = {{bookingId}}`; nếu chưa thấy ngay, đợi khoảng 1 giây rồi gọi lại. `expiresAt` của offer là thời điểm hết hạn, cách lúc tạo **30 phút**. Đây là hạn nhận lời mời của tài xế, không phải hạn cố định của toàn bộ booking; khi offer hết hạn, hệ thống có thể mời tài xế khác.
+**Cần thấy:** HTTP 201, `status: "SEARCHING"`, có `id` để lưu vào `bookingId`, `fare` (VND), `paymentStatus: "HELD"` và `searchExpiresAt` cách lúc tạo khoảng **30 phút**. Gọi `GET http://localhost:8000/api/v1/bookings/{{bookingId}}` với Bearer `{{customerToken}}`, không body: `fare` phải bằng giá lúc tạo. Booking-service tìm tài xế gần điểm đón và tạo **offer**. Gọi `GET http://localhost:8000/api/v1/offers` với `Bearer {{driverToken}}` để tìm phần tử có `bookingId = {{bookingId}}`; nếu chưa thấy ngay, đợi khoảng 1 giây rồi gọi lại. `expiresAt` của offer cũng cách lúc tạo 30 phút. Sau `searchExpiresAt`, booking chuyển sang `EXPIRED` và tiền được hoàn cho Customer.
 
-GET offers không có body. Trong Postman, ở request tạo booking có thể đặt Tests `pm.environment.set("bookingId", pm.response.json().id)`; ở GET offers kiểm tra `data[]` có `bookingId` này. Mỗi offer gửi riêng cho một Driver: nếu tài xế đang đăng nhập không thấy offer sau vài lần kiểm tra, booking có thể đã được gửi cho tài xế gần hơn. Hãy đặt vị trí Driver thử nghiệm gần điểm đón và chọn khu vực ít tài xế khác trước khi tạo booking mới.
+GET offers không có body. Trong Postman, ở request tạo booking có thể đặt Tests `pm.environment.set("bookingId", pm.response.json().id)`; ở GET offers kiểm tra `data[]` có `bookingId` này. Mỗi offer gửi riêng cho một Driver: nếu tài xế đang đăng nhập không thấy offer sau vài lần kiểm tra, booking có thể đã được gửi cho tài xế gần hơn. Hãy đặt vị trí Driver thử nghiệm gần điểm đón và chọn khu vực ít tài xế khác **trước** khi tạo booking; đổi vị trí sau đó không điều phối lại booking cũ.
+
+**Thử ràng buộc một booking hoạt động:** khi `{{bookingId}}` còn `SEARCHING`, gửi lại `POST /api/v1/bookings` với cùng Customer nhưng **Idempotency-Key mới** (ví dụ `demo-ride-blocked-001`). Cần HTTP 409 `ACTIVE_BOOKING_EXISTS`; không có booking thứ hai. Dùng key cũ `demo-ride-001` chỉ trả lại response cũ do cơ chế idempotency, nên không dùng key cũ để thử ràng buộc. Nếu request đầu tiên đã trả 409, kiểm tra `GET /bookings` để tìm booking `SEARCHING`/`ASSIGNED` đang có; hủy theo PC18 hoặc chờ nó kết thúc rồi thử lại với key mới.
 
 **Kết luận:** “PC15 đạt khi booking SEARCHING được tạo và tài xế gần đó nhận offer.”
 
@@ -465,9 +462,9 @@ GET offers không có body. Trong Postman, ở request tạo booking có thể �
 
 ## PC16 – Tài xế nhận chuyến
 
-**Postman:** Sau khi `GET /api/v1/offers` xác nhận tài xế có offer cho `{{bookingId}}`, gọi `POST http://localhost:8000/api/v1/bookings/{{bookingId}}/accept` với `Bearer {{driverToken}}`, body `{}`. Không cần lưu `offerId`: backend lấy Driver ID từ token, tìm offer của Driver cho booking này và kiểm tra offer còn hạn.
+**Postman:** Sau khi `GET /api/v1/offers` xác nhận tài xế có offer cho `{{bookingId}}`, gọi `POST http://localhost:8000/api/v1/bookings/{{bookingId}}/accept` với `Bearer {{driverToken}}`, không body. Không cần lưu `offerId`: backend lấy Driver ID từ token, tìm offer của Driver cho booking này và kiểm tra offer còn hạn.
 
-**Cần thấy:** HTTP 200, `status: "ASSIGNED"`, có `tripId` để lưu. Customer gọi `GET http://localhost:8000/api/v1/trips/{{tripId}}` với `Bearer {{customerToken}}`: `driverId = {{driverId}}`, `status: "ASSIGNED"`, có `driverSnapshot`. Driver-service chuyển tài xế sang BUSY. Driver không được mời cho booking này nhận HTTP 404; offer đã hết hạn hoặc không còn chờ nhận trả HTTP 409.
+**Cần thấy:** HTTP 200, `status: "ASSIGNED"`, có `tripId` để lưu. Customer gọi `GET http://localhost:8000/api/v1/trips/{{tripId}}` với `Bearer {{customerToken}}`: `driverId = {{driverId}}`, `status: "ASSIGNED"`, `fare` bằng booking, `currency: "VND"`, `paymentStatus: "HELD"`. `GET /api/v1/bookings/{{bookingId}}` cũng trả `fare` và `tripId` tương ứng. Driver-service chuyển tài xế sang BUSY. Tạo booking mới lúc này trả 409 `ACTIVE_BOOKING_EXISTS`.
 
 Có thể đặt Tests trên request accept: `pm.environment.set("tripId", pm.response.json().tripId)`. Request GET trip không có body.
 
@@ -480,20 +477,20 @@ Có thể đặt Tests trên request accept: `pm.environment.set("tripId", pm.re
 **Postman:** Với `Bearer {{driverToken}}`, gọi lần lượt `PATCH http://localhost:8000/api/v1/trips/{{tripId}}/status`:
 
 ```json
-{ "status": "ARRIVED", "latitude": 10.7905, "longitude": 106.7105 }
+{ "status": "ARRIVED" }
 ```
 
 Sau đó **cùng method, URL và Bearer token**, thay toàn bộ JSON body lần lượt bằng:
 
 ```json
-{ "status": "IN_PROGRESS", "latitude": 10.795, "longitude": 106.715 }
+{ "status": "IN_PROGRESS" }
 ```
 
 ```json
-{ "status": "COMPLETED", "latitude": 10.8001, "longitude": 106.7201 }
+{ "status": "COMPLETED" }
 ```
 
-**Cần thấy:** mỗi bước HTTP 200, `previousStatus` và `status` đúng trình tự `ASSIGNED → ARRIVED → IN_PROGRESS → COMPLETED`; `GET http://localhost:8000/api/v1/trips/{{tripId}}` với Bearer `{{customerToken}}`, không body, trả `COMPLETED`. Nếu thử đi thẳng từ ASSIGNED tới COMPLETED trước các bước trên, API trả HTTP 409. Trip-service lưu lịch sử trạng thái và tọa độ cập nhật.
+**Cần thấy:** mỗi bước HTTP 200, `previousStatus` và `status` đúng trình tự `ASSIGNED → ARRIVED → IN_PROGRESS → COMPLETED`; `GET http://localhost:8000/api/v1/trips/{{tripId}}` với Bearer `{{customerToken}}`, không body, trả `COMPLETED`, `fare` và `paymentStatus: "PAID"`. `GET /api/v1/bookings/{{bookingId}}` trả cùng `fare`, trạng thái `COMPLETED`. Tài xế trở lại `ONLINE` và Customer có thể tạo booking mới. Nếu thử đi thẳng từ ASSIGNED tới COMPLETED trước các bước trên, API trả HTTP 409.
 
 **Kết luận:** “PC17 đạt khi trạng thái chỉ tiến theo thứ tự hợp lệ.”
 
@@ -510,14 +507,13 @@ Sau đó **cùng method, URL và Bearer token**, thay toàn bộ JSON body lần
   "pickupLng": 106.75,
   "destinationAddress": "Diem den huy booking",
   "destinationLat": 10.86,
-  "destinationLng": 106.76,
-  "vehicleType": "BIKE"
+  "destinationLng": 106.76
 }
 ```
 
-Sau đó `POST http://localhost:8000/api/v1/bookings/{{cancelBookingId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach doi lich" }`. Response HTTP 200 cần `status: "CANCELED"`; danh sách PC14 phản ánh trạng thái này.
+Sau đó `POST http://localhost:8000/api/v1/bookings/{{cancelBookingId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach doi lich" }`. Response HTTP 200 cần `status: "CANCELED"`; `GET /api/v1/bookings` với cùng token phản ánh trạng thái này.
 
-**Trường hợp đã gán tài xế:** Dùng **một Driver ONLINE khác** (đăng ký/duyệt như PC21–PC23; đổi phone/CCCD/biển số). Gọi `PUT http://localhost:8000/api/v1/drivers/me/location` với Bearer token của Driver mới và JSON `{ "latitude": 10.8001, "longitude": 106.7201 }`. Sau đó `POST http://localhost:8000/api/v1/bookings` với `Bearer {{customerToken}}`, header `Idempotency-Key: demo-cancel-trip-001`, JSON:
+**Trường hợp đã gán tài xế:** Sau PC17, Driver `{{driverToken}}` đã trở lại `ONLINE`, nên có thể dùng lại. Gọi `PUT http://localhost:8000/api/v1/drivers/me/location` với Bearer `{{driverToken}}` và JSON `{ "latitude": 10.8001, "longitude": 106.7201 }`. Sau đó `POST http://localhost:8000/api/v1/bookings` với `Bearer {{customerToken}}`, header `Idempotency-Key: demo-cancel-trip-001`, JSON:
 
 ```json
 {
@@ -526,59 +522,29 @@ Sau đó `POST http://localhost:8000/api/v1/bookings/{{cancelBookingId}}/cancel`
   "pickupLng": 106.7201,
   "destinationAddress": "Diem den huy trip",
   "destinationLat": 10.8101,
-  "destinationLng": 106.7301,
-  "vehicleType": "BIKE"
+  "destinationLng": 106.7301
 }
 ```
 
-Lưu `id` của booking mới vào `cancelTripBookingId`. Gọi `GET http://localhost:8000/api/v1/offers` với Bearer token Driver mới để kiểm tra có offer cho `cancelTripBookingId`; `POST http://localhost:8000/api/v1/bookings/{{cancelTripBookingId}}/accept` với cùng token và JSON `{}`; lưu `tripId` response vào `cancelTripId`. Chấp nhận trong 30 phút từ khi offer được tạo. Cuối cùng `POST http://localhost:8000/api/v1/trips/{{cancelTripId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach huy truoc khi bat dau" }`.
+Lưu `id` của booking mới vào `cancelTripBookingId`. Gọi `GET http://localhost:8000/api/v1/offers` với Bearer `{{driverToken}}` để kiểm tra có offer cho `cancelTripBookingId`; `POST http://localhost:8000/api/v1/bookings/{{cancelTripBookingId}}/accept` với cùng token, không body; lưu `tripId` response vào `cancelTripId`. Chấp nhận trước `searchExpiresAt` và `expiresAt`. Cuối cùng dùng **cùng endpoint hủy booking**: `POST http://localhost:8000/api/v1/bookings/{{cancelTripBookingId}}/cancel` với `Bearer {{customerToken}}`, JSON `{ "reason": "Khach huy truoc khi bat dau" }`. Booking-service sẽ hủy trip liên kết.
 
-**Cần thấy:** HTTP 200, trip trả `CANCELED`; `GET http://localhost:8000/api/v1/trips/{{cancelTripId}}` với Bearer `{{customerToken}}` xác nhận. Gọi `GET http://localhost:8000/api/v1/notifications?limit=20` bằng token Customer **và** token Driver của trip vừa hủy: mỗi bên có notification `eventType: "trip.canceled"`, `body` chứa `cancelTripId` sau khi Kafka xử lý. Các GET không có body. Không dùng trip PC17 đã COMPLETED vì trạng thái đó không được hủy.
+**Cần thấy:** HTTP 200, booking trả `CANCELED`; `GET /api/v1/bookings/{{cancelTripBookingId}}` trả `fare` và `paymentStatus: "REFUNDED"`; `GET http://localhost:8000/api/v1/trips/{{cancelTripId}}` với Bearer `{{customerToken}}` xác nhận trip cũng `CANCELED`, vẫn hiển thị `fare`. Số dư Customer tăng lại đúng khoản đã giữ. Dùng `Idempotency-Key` mới để tạo booking tiếp theo. Gọi `GET http://localhost:8000/api/v1/notifications?limit=20` bằng token Customer **và** token Driver của trip vừa hủy: mỗi bên có notification `eventType: "trip.canceled"`, `body` chứa `cancelTripId` sau khi Kafka xử lý.
 
 **Kết luận:** “PC18 đạt khi trip được hủy đúng thời điểm và hai bên nhận thông báo.”
 
 ---
 
-## PC19 – Thanh toán online và callback có chữ ký
+## PC19 – Giữ tiền trong sandbox và thanh toán tự động
 
-**Postman:** Dùng trip `{{tripId}}` đã COMPLETED ở PC17. Gọi `POST http://localhost:8000/api/v1/payments` với `Bearer {{customerToken}}`, header `Idempotency-Key: demo-pay-001`, Body → raw → JSON:
+**Postman:** Sau khi tạo booking, kiểm tra `fare` và `paymentStatus: "HELD"` trong response. Giá được tính theo khoảng cách tọa độ: mỗi 100 m (làm tròn lên) là 900đ. `GET /api/v1/customers/me` cho thấy số dư giảm từ 1.000.000đ đúng bằng `fare`. Khi tài xế nhận booking, trip có `paymentStatus: "HELD"`. Gọi `POST http://localhost:8000/api/v1/payments` với `Bearer {{customerToken}}`, Body → raw → JSON để xem trạng thái escrow:
 
 ```json
 { "tripId": "{{tripId}}" }
 ```
 
-**Cần thấy:** HTTP 201, `status: "PENDING"`; lưu `id` vào `paymentId`, `providerTransactionId` vào biến cùng tên và `amount` vào `paymentAmount`. Để mock provider gửi callback HMAC thật, từ terminal trong `backend/` chạy (thay ba giá trị bằng response vừa nhận):
+**Cần thấy:** HTTP 200, `amount` bằng `fare`, `id` là booking ID. Trước khi hoàn tất trip, `status: "HELD"`; nếu đã làm PC17, `status: "SETTLED"`. Lưu `id` vào `paymentId`, rồi gọi `GET /api/v1/payments/{{paymentId}}` để xem trạng thái. Request này chỉ cần `tripId`; không cần nhập `amount`, phương thức thanh toán hoặc thông tin ví.
 
-```bash
-docker compose exec -T mock-payment-provider node -e '
-fetch("http://localhost:4001/mock/transactions/" + process.argv[1] + "/complete", {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ paymentId: process.argv[2], amount: Number(process.argv[3]) })
-}).then(r => r.json()).then(console.log)
-' '<providerTransactionId>' '<paymentId>' '<paymentAmount>'
-```
-
-Sau đó dùng Postman gọi `GET http://localhost:8000/api/v1/payments/{{paymentId}}` và `GET http://localhost:8000/api/v1/trips/{{tripId}}` với `Bearer {{customerToken}}`; hai GET không có body. Có thể đặt Tests cho request tạo payment: `const p = pm.response.json(); pm.environment.set("paymentId", p.id); pm.environment.set("providerTransactionId", p.providerTransactionId); pm.environment.set("paymentAmount", p.amount);`.
-
-**Test callback sai chữ ký bằng Postman:** `POST http://localhost:8000/api/v1/payments/callback`, không Bearer, header `X-Signature: invalid`, JSON:
-
-```json
-{
-  "provider": "MOCK_PAYMENT",
-  "providerEventId": "demo-invalid-signature-001",
-  "providerTransactionId": "{{providerTransactionId}}",
-  "paymentId": "{{paymentId}}",
-  "status": "SUCCESS",
-  "amount": {{paymentAmount}}
-}
-```
-
-Request này phải trả HTTP 401 `INVALID_SIGNATURE`. `providerEventId` phải khác ID callback hợp lệ; nếu gửi lại cùng event ID đã xử lý, API trả `ALREADY_PROCESSED` trước bước xác minh chữ ký. Callback hợp lệ có chữ ký HMAC do mock provider tạo qua lệnh CLI ở trên.
-
-**Cần thấy:** payment `COMPLETED`, trip `paymentStatus: "PAID"`. Callback không đúng `X-Signature` bị HTTP 401. Mock provider tạo chữ ký HMAC SHA-256 từ body rồi gửi tới payment-service trong Docker network.
-
-**Kết luận:** “PC19 đạt khi callback hợp lệ hoàn tất payment và cập nhật trip.”
+Khi booking hết hạn hoặc booking/trip bị hủy trước lúc bắt đầu, `status` thành `REFUNDED` và tiền trở lại số dư khách. Khi trip `COMPLETED`, `status` thành `SETTLED`, trip có `paymentStatus: "PAID"`, và `GET /api/v1/drivers/me` cho thấy số dư tài xế tăng đúng bằng `fare`. Callback của mock provider chỉ áp dụng cho các trip cũ chưa có escrow.
 
 ---
 
@@ -604,10 +570,10 @@ Sau PC9 và PC21, dùng ID thật để xem **cột lưu trong DB**, không dùn
 psql -h localhost -U identity -d identity_db -c \
   "SELECT password_hash FROM accounts WHERE id = '<customerId>';"
 psql -h localhost -U driver -d driver_db -c \
-  "SELECT phone_enc, national_id_enc, license_number_enc FROM drivers WHERE id = '<driverId>';"
+  "SELECT phone_enc, license_number_enc FROM drivers WHERE id = '<driverId>';"
 ```
 
-**Cần thấy:** `password_hash` bắt đầu bằng `$2` (bcrypt), không phải mật khẩu gốc; ba cột Driver bắt đầu bằng `enc:v1:` (AES-256-GCM), không có số điện thoại/CCCD/GPLX plaintext. Key ID nằm trong ciphertext; module `backend/shared/src/crypto/index.js` hỗ trợ khóa qua `DATA_ENCRYPTION_KEYS` và `DATA_ENCRYPTION_ACTIVE_KEY_ID`. Compose development hiện dùng khóa fallback nếu chưa truyền hai biến này vào container. Smoke test xác minh dữ liệu đã mã hóa; xoay vòng khóa và quản lý secret production cần kiểm tra vận hành riêng.
+**Cần thấy:** `password_hash` bắt đầu bằng `$2` (bcrypt), không phải mật khẩu gốc; `phone_enc` và `license_number_enc` bắt đầu bằng `enc:v1:` (AES-256-GCM), không có số điện thoại/GPLX plaintext. Key ID nằm trong ciphertext; module `backend/shared/src/crypto/index.js` hỗ trợ khóa qua `DATA_ENCRYPTION_KEYS` và `DATA_ENCRYPTION_ACTIVE_KEY_ID`. Compose development hiện dùng khóa fallback nếu chưa truyền hai biến này vào container.
 
 **Kết luận:** “PC24 đạt ở mức dữ liệu lưu trong DB không đọc được plaintext.”
 
@@ -638,14 +604,15 @@ psql -h localhost -U driver -d driver_db -c \
   "pickupLng": 106.75,
   "destinationAddress": "Diem den XSS test",
   "destinationLat": 10.86,
-  "destinationLng": 106.76,
-  "vehicleType": "BIKE"
+  "destinationLng": 106.76
 }
 ```
 
 Lưu `id` response, rồi gọi `GET http://localhost:8000/api/v1/bookings?limit=50` với Bearer `{{customerToken}}`, không body; tìm đúng booking vừa tạo.
 
-**Cần thấy:** `pickup.address` trong **response danh sách** chứa `&lt;script&gt;` thay cho thẻ `<script>` gốc. Response ngay lúc tạo booking có thể echo input chưa escape, nên dùng GET danh sách để kiểm tra giá trị đã lưu. Có thể xem thêm review comment bằng payload tương tự trên một trip COMPLETED **chưa có review**.
+Sau khi kiểm tra, gọi `POST /api/v1/bookings/<id vừa lưu>/cancel` với Bearer `{{customerToken}}`, JSON `{ "reason": "Ket thuc test XSS" }`. Nếu booking đã `EXPIRED`, không cần hủy. Dùng `Idempotency-Key` mới khi tạo chuyến tiếp theo.
+
+**Cần thấy:** `pickup.address` trong **response danh sách** chứa `&lt;script&gt;` thay cho thẻ `<script>` gốc. Response ngay lúc tạo booking có thể echo input chưa escape, nên dùng GET danh sách để kiểm tra giá trị đã lưu. Có thể xem thêm review comment bằng payload tương tự nếu có một trip mới `COMPLETED` chưa được đánh giá; 25 trip trong dữ liệu mẫu đã có review.
 
 **Kết luận:** “PC26 đạt khi nội dung script không được trả ra dưới dạng HTML thực thi.”
 
@@ -699,16 +666,8 @@ curl -i http://localhost:8000/health
 
 ## PC30 – Chống replay/double charge
 
-**Postman:** Gửi lại **đúng** request tạo payment của PC19: `POST http://localhost:8000/api/v1/payments`, `Authorization: Bearer {{customerToken}}`, `Idempotency-Key: demo-pay-001`, JSON `{ "tripId": "{{tripId}}" }`. Gửi lần đầu trước callback hoặc sau callback đều phải nhận lại response đã lưu. Để thử conflict, vẫn URL/token/key này nhưng đổi JSON thành `{ "tripId": "<ID của trip khác>" }`; thay `<ID của trip khác>` bằng UUID trip thật hoặc UUID khác bất kỳ.
+**Postman:** Gửi lại đúng request `POST /api/v1/bookings` của PC15 với cùng Bearer Customer, cùng `Idempotency-Key: demo-ride-001` và cùng JSON. Sau đó gọi `GET /api/v1/customers/me`, `GET /api/v1/bookings/{{bookingId}}` và `GET /api/v1/payments/{{bookingId}}`.
 
-**Cần thấy:** response HTTP 201 có **cùng** `id`, `providerTransactionId`, `amount` như response ban đầu; không có payment thứ hai. Nếu giữ key nhưng đổi `tripId`, API trả HTTP 422 `IDEMPOTENCY_CONFLICT`. Booking PC15 cũng dùng cơ chế idempotency tương tự: gửi lại nguyên request `POST http://localhost:8000/api/v1/bookings` với cùng `Idempotency-Key: demo-ride-001` và JSON PC15 thì `id` booking giữ nguyên.
+**Cần thấy:** response tạo booking lặp lại vẫn có cùng `id` và `fare`; số dư Customer chỉ bị trừ một lần. Escrow vẫn là một bản ghi, dù lúc kiểm tra nó đã `HELD`, `SETTLED` hoặc `REFUNDED`. Giữ nguyên key nhưng đổi điểm đến phải nhận HTTP 422 `IDEMPOTENCY_CONFLICT`. Gửi lặp `POST /api/v1/payments` với JSON `{ "tripId": "{{tripId}}" }` chỉ đọc lại cùng `id`, `amount` và trạng thái escrow; không trừ tiền lần nữa.
 
-**Test replay callback qua Postman:** tạo `POST http://localhost:8000/api/v1/payments/callback`, không Bearer, header `X-Signature` là HMAC SHA-256 hex của **đúng raw JSON body** gửi đi. Dùng cùng body và chữ ký cho cả hai lần gửi:
-
-```json
-{"provider":"MOCK_PAYMENT","providerEventId":"demo-replay-001","providerTransactionId":"{{providerTransactionId}}","paymentId":"{{paymentId}}","status":"SUCCESS","amount":{{paymentAmount}}}
-```
-
-Trong Postman, sau khi biến được thay, copy **raw body đã thay biến** và tính chữ ký tại terminal bằng `node -e 'const c=require("crypto");const body=process.argv[1];console.log(c.createHmac("sha256",process.env.PAYMENT_CALLBACK_SECRET||"dev-callback-secret-key-32b!").update(body).digest("hex"))' '<raw JSON body đã thay biến>'`. Dán kết quả vào header `X-Signature`; giữ body y hệt khi gửi hai lần. Nếu payment đã COMPLETED ở PC19, lần đầu trả HTTP 200 `IGNORED`; lần hai trả HTTP 200 `ALREADY_PROCESSED`. Dùng `providerEventId` mới nếu từng thử trước đó.
-
-**Kết luận:** “PC30 đạt khi replay trả response cũ và không double charge.”
+**Kết luận:** “PC30 đạt khi request lặp không tạo booking, escrow hoặc biến động số dư thứ hai.”

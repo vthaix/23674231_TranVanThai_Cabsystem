@@ -11,5 +11,6 @@ app.use(express.json({
 app.use(sanitizeBody);
 registerHealthRoutes(app, SERVICE_NAME);
 app.use(paymentRoutes);
+app.use(require('./routes/escrow.routes'));
 
 module.exports = app;

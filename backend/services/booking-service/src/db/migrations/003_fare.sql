@@ -1,0 +1,3 @@
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS fare BIGINT CHECK (fare > 0);
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(10)
+  CHECK (payment_status IN ('HELD', 'REFUNDED', 'PAID'));

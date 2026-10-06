@@ -18,7 +18,7 @@ function insertTrips(db, params) {
         id, booking_id, customer_id, driver_id, vehicle_type,
         pickup_address, pickup_lat, pickup_lng, destination_address, destination_lat, destination_lng,
         distance_km, base_fare, per_km_fare, fare, status, payment_status, driver_snapshot
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'ASSIGNED', 'UNPAID', $16)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'ASSIGNED', 'HELD', $16)
     `, params);
 }
 

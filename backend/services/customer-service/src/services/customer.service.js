@@ -34,6 +34,7 @@ async function getCustomerById(id, user) {
     gender: customer.gender,
     avatarUrl: customer.avatar_url,
     status: customer.status,
+    balance: Number(customer.balance),
     createdAt: customer.created_at,
     updatedAt: customer.updated_at,
   };
@@ -72,6 +73,7 @@ async function listCustomers({ page, limit, offset }) {
       fullName: customer.full_name,
       email: customer.email,
       status: customer.status,
+      balance: Number(customer.balance),
       createdAt: customer.created_at
     })),
     pagination: { page, limit, total }

@@ -20,7 +20,7 @@ async function createCustomer({ id, fullName, email, phoneEnc, phoneHash }) {
 
 async function listCustomers({ limit, offset }) {
   const { rows } = await pool.query(
-    `SELECT id, full_name, email, status, created_at
+    `SELECT id, full_name, email, status, balance, created_at
      FROM customer_profiles
      ORDER BY created_at DESC, id DESC
      LIMIT $1 OFFSET $2`,

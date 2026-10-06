@@ -209,4 +209,11 @@ async function getInternalDriversIdSummary(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, getInternalDriversIdSummary };
+async function postInternalDriversIdAvailable(req, res) {
+  const result = await service.postInternalDriversIdAvailable({
+    headers: req.headers, body: req.body, params: req.params, requestId: req.requestId
+  });
+  return res.status(result.status).json(result.body);
+}
+
+module.exports = { postDriversOtpRequest, postDriversOtpVerify, postDriversRegister, getDrivers, getDriversMe, getAdminDriversId, postAdminDriversIdApprove, postAdminDriversIdReject, putDriversMeAvailability, putDriversMeLocation, getDriversNearby, getDriversId, getInternalDriversNearby, postInternalDriversIdReservations, deleteInternalDriversIdReservationsBookingid, postInternalDriversIdBusy, postInternalDriversIdAvailable, getInternalDriversIdSummary };

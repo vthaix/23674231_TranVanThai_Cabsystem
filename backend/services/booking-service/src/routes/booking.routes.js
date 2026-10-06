@@ -4,6 +4,7 @@ const { requireAuth } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 router.get("/bookings", requireAuth, controller.getBookings);
+router.get('/bookings/:id', requireAuth, controller.getBookingsId);
 router.post("/bookings", requireAuth, controller.postBookings);
 router.post("/bookings/:id/accept", requireAuth, controller.postBookingsIdAccept);
 router.get("/offers", requireAuth, controller.getOffers);
