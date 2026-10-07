@@ -317,20 +317,38 @@ components:
     CreateBookingRequest:
       type: object
       required:
-      - pickup
-      - destination
-      - vehicleType
+      - pickupAddress
+      - pickupLat
+      - pickupLng
+      - destinationAddress
+      - destinationLat
+      - destinationLng
       properties:
-        pickup:
-          $ref: '#/components/schemas/LocationInput'
-        destination:
-          $ref: '#/components/schemas/LocationInput'
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        destinationAddress:
+          type: string
+        destinationLat:
+          type: number
+        destinationLng:
+          type: number
         vehicleType:
           type: string
           enum:
           - BIKE
           - SEDAN
           - SUV
+          default: BIKE
+        paymentMethod:
+          type: string
+          enum:
+          - CASH
+          - BANK
+          default: BANK
         note:
           type: string
           maxLength: 255
@@ -347,6 +365,7 @@ components:
       - destinationLat
       - destinationLng
       - vehicleType
+      - paymentMethod
       - status
       - attemptCount
       - createdAt
@@ -376,6 +395,11 @@ components:
           - BIKE
           - SEDAN
           - SUV
+        paymentMethod:
+          type: string
+          enum:
+          - CASH
+          - BANK
         note:
           type: string
           nullable: true

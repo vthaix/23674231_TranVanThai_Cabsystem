@@ -474,8 +474,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 **Quy tắc**
 
 1. **Tạo Trip:** `POST /internal/trips` (chỉ `booking-service`) idempotent theo `bookingId` (`UNIQUE trips.booking_id`, gọi lại trả Trip đã có). Lấy `summary` tài xế → lưu `driver_snapshot`; gọi Map Provider lấy `distanceKm` (lỗi → Haversine); chọn `fare_rules` active theo `vehicleType`; `fare = round(base_fare + per_km × distanceKm)` và **khóa cố định** cùng snapshot `base_fare`, `per_km_fare`; Trip `ASSIGNED`, `payment_status = UNPAID`; outbox `trip.assigned`.
-2. **Chuyển trạng thái (PC17):** `PATCH /trips/{id}/status` do **Driver được phân công** gọi: `ASSIGNED → ARRIVED → IN_PROGRESS → COMPLETED`; nhảy bước hoặc không đúng Driver → `409`/`403`. Mỗi lần ghi `trip_status_history` (kèm vị trí, người thực hiện) + outbox. Nếu bật `ARRIVAL_CONFIRM_RADIUS_M` thì kiểm tra khoảng cách tới điểm đón/trả (mặc định tắt).
-3. **Hủy (PC18):** `POST /trips/{id}/cancel` với `reason` bắt buộc, chỉ `ASSIGNED`/`ARRIVED` (`IN_PROGRESS` → `409`); người gọi là Customer của Trip, Driver được phân công, hoặc Employee có quyền. Ghi người hủy, `trip.canceled` → Booking `CANCELED`, Driver `ONLINE`, Notification báo bên còn lại. Không có Payment nên không hoàn tiền.
+2. **Chuyển trạng thái (PC17):** `PATCH /trips/{id}/status` do **Driver được phân công** gọi: `ASSIGNED → ARRIVED → IN_PROGRESS → PAYMENT_PENDING`; sau đó Customer gọi `POST /payments/{tripId}` để Trip thành `COMPLETED`. Nhảy bước hoặc không đúng Driver → `409`/`403`. Mỗi lần ghi `trip_status_history` (kèm vị trí, người thực hiện) + outbox.
+3. **Hủy (PC18):** `POST /trips/{id}/cancel` với `reason` bắt buộc, chỉ `ASSIGNED` hoặc `ARRIVED` (từ `IN_PROGRESS` trở đi → `409`); người gọi là Customer của Trip, Driver được phân công, hoặc Employee có quyền. Ghi người hủy, `trip.canceled` → Booking `CANCELED`, Driver `ONLINE`, Notification báo bên còn lại. BANK hoàn escrow về ví Customer; CASH không phát sinh hoàn tiền ví.
 4. **Vị trí:** consumer `driver.location` ghi `trip:location:{tripId}`; `GET /trips/{id}/location` trả vị trí gần nhất (và `updatedAt`), chưa có thì trả `location: null`. Chỉ Customer của Trip, Driver được gán hoặc Employee có quyền.
 5. **Payment status:** `POST /internal/trips/{id}/payment-status` (chỉ `payment-service`) và event `payment.completed` cùng đặt `payment_status = PAID`; idempotent, không lùi từ `PAID`.
 6. **Review (PC20):** `POST /trips/{id}/reviews` với `stars` (1–5), `comment` (≤ 500 ký tự, đã escape); chỉ Customer của Trip, Trip phải `COMPLETED`, mỗi Trip một Review (`UNIQUE trip_id` → `409`); outbox `trip.reviewed` kèm `driverId`, `stars`.
@@ -674,8 +674,9 @@ sequenceDiagram
 | Tới điểm đón | Driver `PATCH /trips/{id}/status` | `ASSIGNED → ARRIVED` | `trip.arrived` | Notification báo khách |
 | Khách lên xe | Driver | `ARRIVED → IN_PROGRESS` | `trip.started` | Notification báo khách |
 | Trong chuyến | Driver `PUT /drivers/me/location` | — | `driver.location_updated` | Trip ghi vị trí; khách xem `GET /trips/{id}/location` |
-| Tới điểm trả | Driver | `IN_PROGRESS → COMPLETED` | `trip.completed` | Booking `COMPLETED` · Driver `ONLINE` · Notification mời thanh toán |
-| Thanh toán | Customer `POST /payments` | — | `payment.completed` | Trip `paymentStatus = PAID` · Notification |
+| Tới điểm trả | Driver | `IN_PROGRESS → PAYMENT_PENDING` | `trip.payment_pending` | Driver `ONLINE`; BANK giữ escrow `HELD`, CASH còn `UNPAID` |
+| Thanh toán BANK | Customer `POST /payments/{tripId}` | `PAYMENT_PENDING → COMPLETED` | `trip.completed` | Escrow `SETTLED` · ví Driver tăng · Booking `COMPLETED` · Trip `PAID` |
+| Thanh toán CASH | Driver xác nhận đã nhận tiền mặt qua `POST /payments/{tripId}` | `PAYMENT_PENDING → COMPLETED` | `trip.completed` | Không chuyển ví · Booking `COMPLETED` · Trip `PAID` |
 
 ```mermaid
 sequenceDiagram
@@ -684,41 +685,34 @@ sequenceDiagram
     participant GW as Gateway
     participant PY as Payment
     participant TR as Trip
-    participant PP as Payment Provider
-    participant KF as Kafka
-    participant NT as Notification
-    C->>GW: POST /payments (tripId, method, Idempotency-Key)
+    participant BK as Booking
+    participant DR as Driver wallet
+    C->>GW: POST /bookings
+    GW->>BK: tạo Booking BANK, giữ fare trong escrow HELD
+    TR->>TR: Driver chuyển IN_PROGRESS → PAYMENT_PENDING
+    C->>GW: POST /payments/{tripId} với Customer token
     GW->>PY: forward
-    PY->>PY: kiểm tra Idempotency-Key
     PY->>TR: GET /internal/trips/id
-    TR-->>PY: status COMPLETED, fare, customerId
-    PY->>PY: TX payment PENDING, amount = fare
-    PY->>PP: POST /transactions (merchantRef = paymentId)
-    PP-->>PY: providerTransactionId, PENDING
-    PY-->>C: 201 PENDING
-    Note over PP: sau MOCK_CALLBACK_DELAY_MS hoặc khi Postman kích hoạt
-    PP->>GW: POST /payments/callback (X-Signature)
-    GW->>PY: forward raw body
-    PY->>PY: verify HMAC, kiểm tra trùng, khớp amount
-    PY->>PY: TX payment COMPLETED + outbox payment.completed
-    PY->>TR: POST /internal/trips/id/payment-status PAID (best-effort)
-    PY-)KF: payment.completed
-    KF-)TR: đặt PAID (đảm bảo)
-    KF-)NT: thông báo cho khách
+    TR-->>PY: PAYMENT_PENDING, fare, customerId, bookingId
+    PY->>BK: yêu cầu hoàn tất Booking
+    BK->>DR: chuyển fare đã giữ cho Driver
+    BK->>TR: payment-status PAID
+    TR->>TR: PAYMENT_PENDING → COMPLETED
+    PY-->>C: 200 COMPLETED
 ```
 
 - Số tiền luôn là `Trip.fare`; client không gửi `amount`.
-- `POST /payments` lặp lại với cùng `Idempotency-Key` và payload trả **response cũ**, không tạo giao dịch thứ hai (PC30). Ngay cả khi thiếu key, partial unique index theo `trip_id` vẫn chặn Payment thứ hai.
-- Callback có chữ ký sai → `401`; callback trùng `provider_event_id` → `200` nhưng không xử lý lại.
+- Gọi lại `POST /payments/{tripId}` trả `duplicate: true`; BANK không chuyển ví lần hai, CASH không xác nhận lần hai (PC30).
+- Luồng provider callback cũ chỉ áp dụng cho Trip không có escrow.
 
 ### 6.4 Hủy và các nhánh kết thúc sớm (PC18)
 
 | Tình huống | Điều kiện | Người thực hiện | Hệ quả |
 |---|---|---|---|
-| Hủy khi đang tìm tài xế | Booking `SEARCHING`, chưa có Offer `ACCEPTED` | Customer `POST /bookings/{id}/cancel` | Offer `PENDING → CANCELED`, nhả reservation, `booking.canceled`. Không có Trip, không có Payment |
+| Hủy khi đang tìm tài xế | Booking `SEARCHING`, chưa có Offer `ACCEPTED` | Customer `POST /bookings/{id}/cancel` | Offer `PENDING → CANCELED`, nhả reservation, `booking.canceled`, escrow hoàn tiền Customer |
 | Hủy giữa lúc nhận chuyến | Có Offer `ACCEPTED`, Booking chưa `ASSIGNED` | Customer | `409 BOOKING_ASSIGNING` |
-| Hủy Booking đã có Trip | Booking `ASSIGNED` | Customer | `409 BOOKING_ALREADY_ASSIGNED`; hủy qua Trip |
-| Hủy chuyến | Trip `ASSIGNED` hoặc `ARRIVED`, bắt buộc `reason` | Customer, Driver, Employee | Trip `CANCELED` → `trip.canceled` → Booking `CANCELED` · Driver `ONLINE` · Notification báo bên còn lại. Không có Payment nên không có hoàn tiền |
+| Hủy Booking đã có Trip | Booking `ASSIGNED` | Customer | Booking API chuyển yêu cầu sang Trip Service để hủy và hoàn tiền |
+| Hủy chuyến | Trip `ASSIGNED` hoặc `ARRIVED`, bắt buộc `reason` | Customer, Driver, Employee | Trip `CANCELED` → `trip.canceled` → Booking `CANCELED` · escrow `REFUNDED` về ví Customer · Driver `ONLINE` · Notification báo bên còn lại |
 | Hủy khi đang chạy | Trip `IN_PROGRESS` | — | `409` |
 | Không tìm được tài xế | Hết lượt hoặc hết ứng viên | Hệ thống | Booking `NO_DRIVER_FOUND`, `booking.no_driver_found` |
 
@@ -747,7 +741,7 @@ sequenceDiagram
 | Driver | Driver | `PENDING_APPROVAL`, `REJECTED`, `OFFLINE`, `ONLINE`, `BUSY` | `PENDING_APPROVAL→OFFLINE/REJECTED`, `REJECTED→PENDING_APPROVAL`, `OFFLINE↔ONLINE`, `ONLINE→BUSY`, `BUSY→ONLINE` |
 | Booking | Booking | `SEARCHING`, `ASSIGNED`, `NO_DRIVER_FOUND`, `COMPLETED`, `CANCELED` | `SEARCHING→ASSIGNED/NO_DRIVER_FOUND/CANCELED`, `ASSIGNED→COMPLETED/CANCELED` |
 | Offer | Booking | `PENDING`, `ACCEPTED`, `REJECTED`, `EXPIRED`, `CANCELED` | `PENDING→` các trạng thái còn lại |
-| Trip | Trip | `ASSIGNED`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED` | `ASSIGNED→ARRIVED/CANCELED`, `ARRIVED→IN_PROGRESS/CANCELED`, `IN_PROGRESS→COMPLETED` |
+| Trip | Trip | `ASSIGNED`, `ARRIVED`, `IN_PROGRESS`, `PAYMENT_PENDING`, `COMPLETED`, `CANCELED` | `ASSIGNED→ARRIVED/CANCELED`, `ARRIVED→IN_PROGRESS/CANCELED`, `IN_PROGRESS→PAYMENT_PENDING`, thanh toán → `COMPLETED` |
 | Trip.paymentStatus | Trip | `UNPAID`, `PAID` | `UNPAID→PAID` |
 | Payment | Payment | `PENDING`, `COMPLETED`, `FAILED` | `PENDING→COMPLETED/FAILED`; Payment mới được tạo sau `FAILED` |
 | Notification delivery | Notification | `PENDING`, `SENT`, `FAILED` | `PENDING→SENT/FAILED`, `FAILED→PENDING` (retry) |
@@ -2078,9 +2072,9 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 14 | Danh sách Booking | `GET /bookings?page&limit` | booking | Chỉ Booking của Customer, có `pagination` |
 | 15 | Đặt xe | `POST /bookings` | booking, driver | `201 SEARCHING`; sau đó có Offer cho Driver gần nhất |
 | 16 | Tài xế nhận chuyến | `GET /offers`, `POST /bookings/{id}/accept` | booking, trip, driver | Trip `ASSIGNED`, Driver `BUSY`, Booking `ASSIGNED`, khách thấy thông tin tài xế |
-| 17 | Trạng thái chuyến | `PATCH /trips/{id}/status`, `PUT /drivers/me/location`, `GET /trips/{id}/location` | trip, driver | `ARRIVED → IN_PROGRESS → COMPLETED` đúng thứ tự; vị trí cập nhật |
+| 17 | Trạng thái chuyến | `PATCH /trips/{id}/status`, `PUT /drivers/me/location`, `GET /trips/{id}/location` | trip, driver | `ARRIVED → IN_PROGRESS → PAYMENT_PENDING` đúng thứ tự; vị trí cập nhật |
 | 18 | Hủy chuyến | `POST /trips/{id}/cancel` (+ `reason`) | trip | Trip `CANCELED`, Booking `CANCELED`, các bên có Notification |
-| 19 | Thanh toán online | `POST /payments` → callback → `GET /payments/{id}` | payment, trip | `PENDING` → callback hợp lệ → `COMPLETED`; Trip `PAID` |
+| 19 | Thanh toán | Customer `POST /payments/{tripId}` → `GET /payments/{bookingId}` | payment, booking, trip | Escrow `SETTLED`, Trip `COMPLETED` và `PAID` |
 | 20 | Đánh giá | `POST /trips/{id}/reviews` | trip | Review lưu và gắn với Trip |
 | 21 | Đăng ký Driver | `POST /drivers/otp/request` → `verify` → `register` | driver, identity | Hồ sơ `PENDING_APPROVAL` |
 | 22 | Duyệt Driver | `GET /drivers`, `POST /drivers/{id}/approve` hoặc `/reject` | driver, identity | Duyệt kích hoạt Account; từ chối xoá Account |
@@ -2119,7 +2113,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | # | Trên sơ đồ hình | Theo thiết kế v15 |
 |---|---|---|
 | 1 | Chú thích "gRPC (synchronous)" | Đổi thành **Internal REST** |
-| 2 | "Luồng thanh toán" gồm đặt cọc, capture, hoàn tiền | Vẽ lại: Trip `COMPLETED` → `POST /payments` → Payment `PENDING` → Provider → callback → `COMPLETED`; hủy chuyến thì không có Payment |
+| 2 | "Luồng thanh toán" gồm đặt cọc, capture, hoàn tiền | Vẽ lại: Booking → escrow `HELD`; hủy trước `IN_PROGRESS` → `REFUNDED`; Driver kết thúc → Trip `PAYMENT_PENDING`; Customer `POST /payments/{tripId}` → escrow `SETTLED` → Trip `COMPLETED` |
 | 3 | Payment Provider nối vào ô Payment DB | Nối với Payment Service (REST + callback HMAC qua Gateway) |
 | 4 | Nhãn "REST/HTTPS (Callback)" giữa Payment và Notification | Đặt ở nhánh Payment Provider; Notification không liên quan |
 | 5 | Map Provider nối từ Driver DB, gRPC | Booking Service và Trip Service gọi Map Provider (REST) |

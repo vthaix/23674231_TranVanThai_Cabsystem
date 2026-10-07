@@ -180,7 +180,7 @@ Kafka là event streaming backbone cho các event nghiệp vụ và notification
 - Machine Learning dự đoán nhu cầu.
 - GPS history chi tiết không phục vụ nghiệp vụ.
 - Hoa hồng/phí nền tảng: hệ thống **không thu hoa hồng**; số tiền Payment bằng đúng `Trip.fare`.
-- Chi trả (payout) cho Driver, giữ tiền (hold/authorization) và hoàn tiền (refund): Payment chỉ xử lý thanh toán của Customer cho Trip đã `COMPLETED`.
+- Với BANK, ví nội bộ giữ tiền khi tạo Booking và hoàn tiền nếu hủy trước `IN_PROGRESS`; với CASH, Driver xác nhận đã nhận tiền mặt sau chuyến.
 
 ---
 
@@ -314,6 +314,20 @@ Distance / ETA / Geocoding
 ---
 ## 6.7 Thanh toán
 
+Luồng ví/escrow cho Booking mới:
+
+```text
+Customer tạo Booking với paymentMethod BANK hoặc CASH
+├── BANK: ví Customer trừ fare → escrow HELD
+│   ├── Hủy khi Trip còn ASSIGNED/ARRIVED → escrow REFUNDED → ví Customer nhận lại fare
+│   └── Driver kết thúc → Trip PAYMENT_PENDING → Customer POST /payments/{tripId}
+│       → escrow SETTLED → ví Driver nhận fare → Trip COMPLETED
+└── CASH: không trừ ví → Driver kết thúc → Trip PAYMENT_PENDING
+    └── Driver nhận tiền mặt và POST /payments/{tripId} → Trip COMPLETED
+```
+
+Sơ đồ callback dưới đây mô tả luồng provider cũ cho Trip không có escrow:
+
 ```text
 Trip COMPLETED
     ↓
@@ -335,8 +349,8 @@ Số tiền do server lấy từ `Trip.fare`; client không được gửi `amou
 
 Quy tắc bổ sung:
 
-1. Payment chỉ phát sinh **sau khi** Trip `COMPLETED`. Hủy Booking/Trip không tạo Payment nên không có refund.
-2. `POST /payments` nhận `tripId`, `method` (`ONLINE`) và `paymentMethodId` tùy chọn; không nhận `amount`.
+1. Booking chọn `BANK` hoặc `CASH`. BANK giữ tiền tự động trong escrow khi tạo Booking (`HELD`); hủy trước `IN_PROGRESS` hoàn tiền (`REFUNDED`); Customer gọi `POST /payments/{tripId}` sau `PAYMENT_PENDING` để chuyển tiền cho Driver (`SETTLED`). CASH không trừ ví, không có escrow; Driver gọi cùng route sau khi nhận tiền mặt để xác nhận. Cả hai nhánh chỉ hoàn tất Trip sau bước xác nhận thanh toán.
+2. `POST /payments` và callback ở sơ đồ trên là luồng provider cũ dành cho Trip không có escrow; endpoint không nhận `amount` từ client.
 3. Payment `PENDING` quá `PAYMENT_PENDING_TIMEOUT_MIN` phút mà chưa có callback chuyển `FAILED` (`failureCode = TIMEOUT`). Callback `SUCCESS` đến muộn sau đó được ghi nhận, không tự đổi trạng thái và phát cảnh báo cho Finance.
 4. Payment Provider là hệ thống ngoài (mock trong môi trường test); hợp đồng giao tiếp ở [FR-P03–FR-P05](#96-payment-provider--fr).
 
@@ -405,7 +419,7 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 | Driver | `PENDING_APPROVAL`, `REJECTED`, `OFFLINE`, `ONLINE`, `BUSY` |
 | Booking | `SEARCHING`, `ASSIGNED`, `NO_DRIVER_FOUND`, `COMPLETED`, `CANCELED` |
 | Offer | `PENDING`, `ACCEPTED`, `REJECTED`, `EXPIRED`, `CANCELED` |
-| Trip | `ASSIGNED`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED` |
+| Trip | `ASSIGNED`, `ARRIVED`, `IN_PROGRESS`, `PAYMENT_PENDING`, `COMPLETED`, `CANCELED` |
 | Payment | `PENDING`, `COMPLETED`, `FAILED` |
 | Incident | `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED` |
 
@@ -418,7 +432,7 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 | Driver | `PENDING_APPROVAL → OFFLINE`; `REJECTED → PENDING_APPROVAL` khi được cho đăng ký lại; `OFFLINE ↔ ONLINE`; `ONLINE → BUSY`; `BUSY → ONLINE` | `PENDING_APPROVAL → ONLINE`, `REJECTED → ONLINE`, `BUSY → OFFLINE` |
 | Booking | `SEARCHING → ASSIGNED/NO_DRIVER_FOUND/CANCELED`; `ASSIGNED → COMPLETED/CANCELED` | Mọi chuyển từ `COMPLETED`, `CANCELED`, `NO_DRIVER_FOUND` sang trạng thái khác |
 | Offer | `PENDING → ACCEPTED/REJECTED/EXPIRED/CANCELED` | Chuyển từ trạng thái cuối |
-| Trip | `ASSIGNED → ARRIVED/CANCELED`; `ARRIVED → IN_PROGRESS/CANCELED`; `IN_PROGRESS → COMPLETED` | `IN_PROGRESS → CANCELED`, nhảy bước, hoặc chuyển từ trạng thái cuối |
+| Trip | `ASSIGNED → ARRIVED/CANCELED`; `ARRIVED → IN_PROGRESS/CANCELED`; `IN_PROGRESS → PAYMENT_PENDING`; thanh toán → `COMPLETED` | Hủy từ `IN_PROGRESS` trở đi, nhảy bước, hoặc chuyển từ trạng thái cuối |
 | Payment | `PENDING → COMPLETED/FAILED`; Payment mới được tạo lại sau `FAILED` | `COMPLETED → FAILED/PENDING` hoặc xử lý thành công lần hai |
 | Incident | `OPEN → IN_PROGRESS → RESOLVED → CLOSED` | Nhảy trạng thái hoặc thay đổi sau `CLOSED` |
 
@@ -426,8 +440,9 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 
 1. Khi Trip chuyển `COMPLETED`, Booking tương ứng chuyển `COMPLETED`.
 2. Khi Trip chuyển `CANCELED`, Booking tương ứng chuyển `CANCELED`.
-3. Khi Customer hủy Booking ở `SEARCHING`, không tạo Trip và không phát sinh Payment.
-4. Khi Trip bị hủy từ `ASSIGNED`/`ARRIVED`, Driver trở về `ONLINE`; các Offer còn `PENDING` chuyển `CANCELED`.
+3. Khi tạo Booking BANK, hệ thống tự giữ `fare` từ ví Customer vào escrow (`HELD`); hủy Booking ở `SEARCHING` hoàn toàn bộ tiền. Booking CASH không trừ ví.
+4. Khi Trip bị hủy từ `ASSIGNED` hoặc `ARRIVED` trước `IN_PROGRESS`, escrow hoàn tiền (`REFUNDED`), Driver trở về `ONLINE`; các Offer còn `PENDING` chuyển `CANCELED`.
+5. Driver chuyển Trip sang `PAYMENT_PENDING` khi tới điểm trả. Với BANK, Customer gọi `POST /payments/{tripId}` để chuyển tiền escrow cho Driver; với CASH, Driver xác nhận đã nhận tiền mặt qua cùng route. Booking và Trip chuyển `COMPLETED` sau xác nhận.
 
 ## 7.4 Quy tắc Dispatch/Offer
 
@@ -463,7 +478,7 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 | UC08 | Driver | Xem và nhận Offer | FR-D07, FR-D08 | 16 |
 | UC09 | Customer / Driver | Theo dõi và cập nhật vòng đời Trip | FR-C08, FR-D09 | 17 |
 | UC10 | Customer / Driver | Hủy Booking/Trip | FR-C09, FR-D10 | 18 |
-| UC11 | Customer / Payment Provider | Thanh toán online và callback | FR-C10, FR-P01, FR-P02 | 19 |
+| UC11 | Customer | Chủ động thanh toán fare đã giữ trong escrow sau chuyến | FR-C10 | 19 |
 | UC12 | Customer | Đánh giá Trip | FR-C11 | 20 |
 | UC13 | Driver | Đăng ký Driver bằng OTP và gửi hồ sơ | FR-D01, FR-D02, FR-D03 | 21 |
 | UC14 | Administrator | Xem và duyệt/từ chối Driver | FR-A01, FR-A02, FR-A03 | 22 |
@@ -512,7 +527,7 @@ PC1, PC2 và PC4 là các tiêu chí kỹ thuật/quality attribute nên đượ
 | FR-C07 | Hệ thống tự động matching sau khi tạo Booking, tìm Driver phù hợp, tạo Offer theo TTL và giới hạn số lần thử | 15 |
 | FR-C08 | Customer theo dõi trạng thái Trip, thông tin Driver/Vehicle được gán và vị trí hiện tại của Driver trong Trip | 16, 17 |
 | FR-C09 | Customer hủy Booking/Trip khi state cho phép và cung cấp reason; Booking ở `SEARCHING` có thể chuyển `CANCELED` trước khi có Driver | 18 |
-| FR-C10 | Customer tạo Payment và theo dõi kết quả | 19 |
+| FR-C10 | Customer chủ động quyết toán escrow sau khi Trip `PAYMENT_PENDING` và theo dõi kết quả | 19 |
 | FR-C11 | Customer đánh giá Trip đã hoàn thành bằng `stars` từ 1–5 và `comment` tối đa 500 ký tự; mỗi Trip chỉ có một Review | 20 |
 | FR-C12 | Customer xem danh sách Notification của mình (`GET /notifications`, có paging) và đánh dấu đã đọc | 15, 16 |
 
@@ -529,7 +544,7 @@ PC1, PC2 và PC4 là các tiêu chí kỹ thuật/quality attribute nên đượ
 | FR-D07 | Driver xem Offer được giao | 16 |
 | FR-D08 | Driver accept Offer theo state machine | 16 |
 | FR-D09 | Driver cập nhật trạng thái Trip | 17 |
-| FR-D10 | Driver hủy Trip từ `ASSIGNED` hoặc `ARRIVED`, bắt buộc reason; `IN_PROGRESS` không được hủy | 18 |
+| FR-D10 | Driver hủy Trip khi còn `ASSIGNED` hoặc `ARRIVED`, bắt buộc reason; từ `IN_PROGRESS` trở đi không được hủy | 18 |
 | FR-D11 | Driver xem Notification của mình |  |
 
 ## 9.3 Administrator — FR
@@ -774,11 +789,11 @@ Mã HTTP chuẩn: `400` validation, `401` chưa xác thực/token không hợp l
 |---|---|
 | BR-F01 | Fare do server tính theo `vehicleType` và `distanceKm`; không nhận `amount` từ client. |
 | BR-F02 | Công thức mặc định: `fare = round(baseFare[vehicleType] + perKm[vehicleType] × distanceKm)`. Bảng giá được seed/config theo môi trường test. |
-| BR-F03 | Chỉ Trip `COMPLETED` mới được tạo Payment. |
-| BR-F04 | Một Trip chỉ có tối đa một Payment `COMPLETED`. Payment `FAILED` có thể tạo Payment mới. |
-| BR-F05 | `Payment.amount` = `Trip.fare` tại thời điểm Trip `COMPLETED`; không có hoa hồng, không có payout cho Driver. |
-| BR-F06 | Chỉ Customer sở hữu Trip mới được tạo Payment cho Trip đó. |
-| BR-F07 | Trong lúc một Payment `PENDING` còn hiệu lực, không cho tạo Payment khác cho cùng Trip (`409`). |
+| BR-F03 | Booking BANK giữ `fare` vào escrow ngay khi đặt; Booking CASH không trừ ví. |
+| BR-F04 | Mỗi Booking có một escrow; giữ, hoàn và chuyển tiền theo khóa idempotency để tránh thu/chi hai lần. |
+| BR-F05 | BANK: escrow.amount = Booking.fare, Customer xác nhận để chuyển toàn bộ tiền vào ví Driver. CASH: Driver xác nhận đã nhận tiền trực tiếp. Sau xác nhận Trip `COMPLETED`. |
+| BR-F06 | Chỉ Customer sở hữu Booking được xem escrow của mình. |
+| BR-F07 | Hủy Booking/Trip trước `IN_PROGRESS` hoàn tiền; từ `IN_PROGRESS` trở đi trả `409` khi hủy. |
 
 ## 10.10 OTP / Registration — BR
 

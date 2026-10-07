@@ -88,6 +88,31 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /payments/{id}:
+    post:
+      tags:
+      - Public
+      summary: Settle BANK escrow or confirm CASH for a PAYMENT_PENDING trip
+      description: Use trip ID in the path. BANK requires the owning Customer bearer token and settles held funds into the Driver wallet. CASH requires the assigned Driver bearer token to confirm physical receipt. No request body is required. Replays are idempotent.
+      operationId: payTripFromEscrow
+      servers: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Escrow settled and trip completed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     get:
       tags:
       - Public
@@ -249,6 +274,7 @@ components:
           type: string
           enum:
           - ONLINE
+          - WALLET
         paymentMethodId:
           type: string
           format: uuid
@@ -258,6 +284,9 @@ components:
           enum:
           - PENDING
           - COMPLETED
+          - HELD
+          - SETTLED
+          - REFUNDED
           - FAILED
         failureCode:
           type: string
