@@ -5,7 +5,7 @@ The seven application services, gateway, Kafka, Redis, MongoDB, and mock provide
 ## First-time setup
 
 1. Start PostgreSQL on the Mac and confirm `psql -d postgres -c 'SELECT 1'` works. The setup script needs a local PostgreSQL superuser.
-2. Fill in the seven database passwords in `backend/.env` (copy `.env.example` if needed). The six PostgreSQL passwords must be URL-safe because Compose inserts them into `DATABASE_URL`.
+2. Create `backend/.env` locally and fill in the seven database passwords (`IDENTITY_DB_PASSWORD`, `CUSTOMER_DB_PASSWORD`, `DRIVER_DB_PASSWORD`, `BOOKING_DB_PASSWORD`, `TRIP_DB_PASSWORD`, `PAYMENT_DB_PASSWORD`, `NOTIFICATION_DB_PASSWORD`). The six PostgreSQL passwords must be URL-safe because Compose inserts them into `DATABASE_URL`. Keep this file only on your machine.
 3. From `backend/`, run `python3 scripts/setup-host-postgres.py`. This creates `identity_db`, `customer_db`, `driver_db`, `booking_db`, `trip_db`, and `payment_db`, each owned by its matching service user. It can be run again after changing passwords.
 4. Run `docker compose up -d --build`. Each service applies its SQL migrations at startup.
 
