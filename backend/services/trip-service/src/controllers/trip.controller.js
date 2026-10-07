@@ -34,7 +34,8 @@ async function postInternalTripsIdPaymentStatus(req, res) {
     query: req.query,
     user: req.user,
     requestId: req.requestId,
-    rawBody: req.rawBody
+    rawBody: req.rawBody,
+    serviceIssuer: req.serviceIssuer
   });
   return res.status(result.status).json(result.body);
 }
@@ -91,6 +92,14 @@ async function getTripsId(req, res) {
   return res.status(result.status).json(result.body);
 }
 
+async function getTrips(req, res) {
+  const result = await service.getTrips({
+    headers: req.headers, body: req.body, params: req.params, query: req.query,
+    user: req.user, requestId: req.requestId
+  });
+  return res.status(result.status).json(result.body);
+}
+
 async function getTripsIdLocation(req, res) {
   const result = await service.getTripsIdLocation({
     headers: req.headers,
@@ -104,4 +113,4 @@ async function getTripsIdLocation(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTripsId, getTripsIdLocation };
+module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };

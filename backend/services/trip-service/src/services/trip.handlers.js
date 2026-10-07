@@ -5,10 +5,73 @@ const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
 const { sanitizeString } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME, DRIVER_SERVICE_URL, BOOKING_SERVICE_URL } = require("../config");
 const { haversineDistanceKm, STATUS_TRANSITIONS } = require("../services/trip.service");
+const { parsePagination } = require('../../../../shared/src/pagination');
 
 function response(status, body) { return { status, body }; }
 function errorResult(status, code, message, requestId) {
   return response(status, { code, message, requestId });
+}
+
+function canViewTrip(user, trip) {
+  return user.role === 'ADMIN' ||
+    (user.role === 'CUSTOMER' && trip.customer_id === user.sub) ||
+    (user.role === 'DRIVER' && trip.driver_id === user.sub);
+}
+
+function tripListView(trip) {
+  return {
+    id: trip.id,
+    bookingId: trip.booking_id,
+    customerId: trip.customer_id,
+    driverId: trip.driver_id,
+    vehicleType: trip.vehicle_type,
+    paymentMethod: trip.payment_method,
+    pickup: { address: trip.pickup_address, lat: Number(trip.pickup_lat), lng: Number(trip.pickup_lng) },
+    destination: { address: trip.destination_address, lat: Number(trip.destination_lat), lng: Number(trip.destination_lng) },
+    distanceKm: Number(trip.distance_km),
+    fare: Number(trip.fare),
+    currency: trip.currency,
+    status: trip.status,
+    paymentStatus: trip.payment_status,
+    createdAt: trip.created_at,
+    completedAt: trip.completed_at,
+    canceledAt: trip.canceled_at
+  };
+}
+
+async function getTrips(input) {
+  const requestId = input.requestId;
+  const { sub: userId, role } = input.user;
+  const query = input.query || {};
+  if (!['CUSTOMER', 'DRIVER', 'ADMIN'].includes(role)) {
+    return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+  }
+  const pagination = parsePagination(query);
+  if (!pagination) return errorResult(400, 'VALIDATION_ERROR', 'Invalid page or limit', requestId);
+  const { status } = query;
+  if (status && !['ASSIGNED', 'ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING', 'COMPLETED', 'CANCELED'].includes(status)) {
+    return errorResult(400, 'VALIDATION_ERROR', 'Invalid trip status', requestId);
+  }
+  const filters = {
+    customerId: role === 'CUSTOMER' ? userId : role === 'ADMIN' ? query.customerId : undefined,
+    driverId: role === 'DRIVER' ? userId : role === 'ADMIN' ? query.driverId : undefined,
+    status
+  };
+  try {
+    const [trips, total] = await Promise.all([
+      repository.listTrips(pool, { ...filters, ...pagination }),
+      repository.countTrips(pool, filters)
+    ]);
+    return response(200, {
+      data: trips.rows.map(tripListView),
+      pagination: { page: pagination.page, limit: pagination.limit, total: Number(total.rows[0].total) },
+      requestId
+    });
+  } catch (error) {
+    if (error.code === '22P02') return errorResult(400, 'VALIDATION_ERROR', 'Invalid filter ID', requestId);
+    console.error('[trips/list]', error.message);
+    return errorResult(500, 'INTERNAL_ERROR', 'Failed to list trips', requestId);
+  }
 }
 
 async function syncBookingStatus(trip, status, reason, requestId) {
@@ -53,10 +116,11 @@ async function postInternalTrips(input) {
     destinationAddress,
     destinationLat,
     destinationLng,
-    fare: bookingFare
+    fare: bookingFare,
+    paymentMethod = 'BANK'
   } = input.body;
 
-  if (!bookingId || !customerId || !driverId) {
+  if (!bookingId || !customerId || !driverId || !['CASH', 'BANK'].includes(paymentMethod)) {
     return errorResult(400, "VALIDATION_ERROR", "bookingId, customerId, driverId required", requestId);
   }
 
@@ -95,16 +159,16 @@ async function postInternalTrips(input) {
 
     await repository.begin(client);
     await repository.insertTrips(client, [
-      tripId, bookingId, customerId, driverId, normalizedVehicle,
+      tripId, bookingId, customerId, driverId, normalizedVehicle, paymentMethod,
       pickupAddress, pickupLat, pickupLng, destinationAddress, destinationLat, destinationLng,
-      distKm, baseFare, perKm, fare, JSON.stringify(driverSnapshot)
+      distKm, baseFare, perKm, fare, paymentMethod === 'BANK' ? 'HELD' : 'UNPAID', JSON.stringify(driverSnapshot)
     ]);
 
     await repository.insertTripStatusHistory(client, [tripId, requestId]);
 
     await repository.insertOutboxEvents(client, [
       tripId,
-      JSON.stringify({ tripId, bookingId, customerId, driverId, fare }),
+      JSON.stringify({ tripId, bookingId, customerId, driverId, fare, paymentMethod }),
       requestId
     ]);
 
@@ -116,10 +180,11 @@ async function postInternalTrips(input) {
       customerId,
       driverId,
       vehicleType: normalizedVehicle,
+      paymentMethod,
       distanceKm: distKm,
       fare,
       status: "ASSIGNED",
-      paymentStatus: "HELD",
+      paymentStatus: paymentMethod === 'BANK' ? 'HELD' : 'UNPAID',
       driverSnapshot
     });
   } catch (err) {
@@ -147,6 +212,7 @@ async function getInternalTripsId(input) {
       customerId: t.customer_id,
       driverId: t.driver_id,
       fare: Number(t.fare),
+      paymentMethod: t.payment_method,
       status: t.status,
       paymentStatus: t.payment_status,
       distanceKm: Number(t.distance_km)
@@ -168,11 +234,34 @@ async function postInternalTripsIdPaymentStatus(input) {
   try {
     const { rows } = await repository.findTrips2(pool, [id]);
     if (!rows.length) return errorResult(404, 'NOT_FOUND', 'Trip not found', requestId);
-    if ((status === 'PAID' && rows[0].status !== 'COMPLETED') ||
+    if ((status === 'PAID' && !['PAYMENT_PENDING', 'COMPLETED'].includes(rows[0].status)) ||
         (status === 'REFUNDED' && rows[0].status !== 'CANCELED')) {
       return errorResult(409, 'INVALID_STATE', 'Trip state does not permit this payment status', requestId);
     }
-    await repository.updateTrips(pool, [status, paymentId || null, id]);
+    if (status === 'PAID' && rows[0].status === 'PAYMENT_PENDING' && input.serviceIssuer !== 'booking-service') {
+      return errorResult(403, 'FORBIDDEN', 'Only Booking Service may finalize escrow settlement', requestId);
+    }
+    if (status === 'PAID' && rows[0].status === 'PAYMENT_PENDING') {
+      const client = await pool.connect();
+      try {
+        await repository.begin(client);
+        const locked = (await repository.findTrips3(client, [id])).rows[0];
+        if (locked.status === 'PAYMENT_PENDING') {
+          await client.query(`UPDATE trips SET status='COMPLETED', payment_status='PAID',
+            payment_id=COALESCE($2,payment_id), completed_at=NOW(), updated_at=NOW() WHERE id=$1`, [id, paymentId || null]);
+          await repository.insertTripStatusHistory2(client,
+            [id, 'PAYMENT_PENDING', 'COMPLETED', null, 'SYSTEM', null, null, requestId]);
+          await repository.insertOutboxEvents2(client, [id, 'trip.completed',
+            JSON.stringify({ tripId: id, status: 'COMPLETED', driverId: locked.driver_id, customerId: locked.customer_id }), requestId]);
+        }
+        await repository.commit(client);
+      } catch (error) {
+        await repository.rollback(client).catch(() => {});
+        throw error;
+      } finally { client.release(); }
+    } else {
+      await repository.updateTrips(pool, [status, paymentId || null, id]);
+    }
 
     return response(200, { id, paymentStatus: status });
   } catch (err) {
@@ -183,11 +272,19 @@ async function postInternalTripsIdPaymentStatus(input) {
 async function patchTripsIdStatus(input) {
   const { sub: userId, role } = input.user;
   const { id: tripId } = input.params;
-  const { status: targetStatus, latitude, longitude } = input.body;
+  const { status: targetStatus, lat, lng } = input.body;
   const requestId = input.requestId;
 
   if (!targetStatus) {
     return errorResult(400, "VALIDATION_ERROR", "status is required", requestId);
+  }
+  if (Object.keys(input.body).some(key => /latitude|longitude|longtitude/i.test(key))) {
+    return errorResult(400, "VALIDATION_ERROR", "Use lat and lng for coordinates", requestId);
+  }
+  const hasCoordinates = lat !== undefined || lng !== undefined;
+  if (hasCoordinates && (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180)) {
+    return errorResult(400, "VALIDATION_ERROR", "lat and lng must be valid coordinates", requestId);
   }
 
   const client = await pool.connect();
@@ -207,7 +304,7 @@ async function patchTripsIdStatus(input) {
       return errorResult(403, "FORBIDDEN", "Only assigned driver can update trip status", requestId);
     }
 
-    // Validate state transition (PC17)
+    // Cancellation must use /cancel so the booking and escrow are updated.
     const allowedNext = STATUS_TRANSITIONS[trip.status] || [];
     if (!allowedNext.includes(targetStatus)) {
       await repository.rollback(client);
@@ -229,8 +326,8 @@ async function patchTripsIdStatus(input) {
     // Record history
     await repository.insertTripStatusHistory2(client, [
       tripId, trip.status, targetStatus, userId, role,
-      latitude ? Number(latitude) : null,
-      longitude ? Number(longitude) : null,
+      hasCoordinates ? lat : null,
+      hasCoordinates ? lng : null,
       requestId
     ]);
 
@@ -244,8 +341,7 @@ async function patchTripsIdStatus(input) {
 
     await repository.commit(client);
 
-    if (targetStatus === 'COMPLETED') {
-      await syncBookingStatus(trip, 'COMPLETED', null, requestId);
+    if (targetStatus === 'PAYMENT_PENDING') {
       await releaseDriver(trip, requestId);
     }
 
@@ -299,8 +395,8 @@ async function postTripsIdCancel(input) {
       return errorResult(403, "FORBIDDEN", "Cannot cancel another driver's trip", requestId);
     }
 
-    // Cancellation is only allowed before IN_PROGRESS
-    if (["IN_PROGRESS", "COMPLETED", "CANCELED"].includes(trip.status)) {
+    // The held fare can be refunded until the ride starts.
+    if (!["ASSIGNED", "ARRIVED"].includes(trip.status)) {
       await repository.rollback(client);
       return errorResult(409, "CANNOT_CANCEL", `Trip cannot be canceled in status ${trip.status}`, requestId);
     }
@@ -414,7 +510,6 @@ async function postTripsIdReviews(input) {
 }
 
 async function getTripsId(input) {
-  const { sub: userId, role } = input.user;
   const { id: tripId } = input.params;
   const requestId = input.requestId;
 
@@ -427,10 +522,7 @@ async function getTripsId(input) {
     const trip = rows[0];
 
     // Authorization
-    if (role === "CUSTOMER" && trip.customer_id !== userId) {
-      return errorResult(403, "FORBIDDEN", "Access denied", requestId);
-    }
-    if (role === "DRIVER" && trip.driver_id !== userId) {
+    if (!canViewTrip(input.user, trip)) {
       return errorResult(403, "FORBIDDEN", "Access denied", requestId);
     }
 
@@ -443,6 +535,7 @@ async function getTripsId(input) {
       customerId: trip.customer_id,
       driverId: trip.driver_id,
       vehicleType: trip.vehicle_type,
+      paymentMethod: trip.payment_method,
       pickup: {
         address: trip.pickup_address,
         lat: Number(trip.pickup_lat),
@@ -483,13 +576,16 @@ async function getTripsIdLocation(input) {
       return errorResult(404, "NOT_FOUND", "Trip not found", requestId);
     }
     const trip = rows[0];
+    if (!canViewTrip(input.user, trip)) {
+      return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
+    }
 
     // Return pickup coordinates or latest destination coords as simulated progress
     return response(200, {
       tripId,
       location: {
-        latitude: Number(trip.pickup_lat),
-        longitude: Number(trip.pickup_lng)
+        lat: Number(trip.pickup_lat),
+        lng: Number(trip.pickup_lng)
       },
       status: trip.status,
       updatedAt: trip.updated_at,
@@ -500,4 +596,4 @@ async function getTripsIdLocation(input) {
   }
 }
 
-module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTripsId, getTripsIdLocation };
+module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };

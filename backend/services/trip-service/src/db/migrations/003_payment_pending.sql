@@ -1,0 +1,7 @@
+ALTER TABLE trips ALTER COLUMN status TYPE VARCHAR(16);
+ALTER TABLE trips DROP CONSTRAINT IF EXISTS trips_status_check;
+ALTER TABLE trips ADD CONSTRAINT trips_status_check
+  CHECK (status IN ('ASSIGNED', 'ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING', 'COMPLETED', 'CANCELED'));
+
+ALTER TABLE trip_status_history ALTER COLUMN from_status TYPE VARCHAR(16);
+ALTER TABLE trip_status_history ALTER COLUMN to_status TYPE VARCHAR(16);

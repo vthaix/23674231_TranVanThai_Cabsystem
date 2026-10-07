@@ -25,6 +25,7 @@ function bookingView(r) {
     id: r.id,
     customerId: r.customer_id,
     vehicleType: r.vehicle_type,
+    paymentMethod: r.payment_method,
     pickup: { address: r.pickup_address, lat: Number(r.pickup_lat), lng: Number(r.pickup_lng) },
     destination: { address: r.destination_address, lat: Number(r.destination_lat), lng: Number(r.destination_lng) },
     fare,
@@ -39,6 +40,22 @@ function bookingView(r) {
     completedAt: r.completed_at,
     canceledAt: r.canceled_at
   };
+}
+
+async function syncTerminalPayment(client, booking, bookingId, tripId, status) {
+  if (booking.payment_method === 'CASH') {
+    if (status === 'COMPLETED' && booking.payment_status !== 'PAID') {
+      await escrowClient.syncTripPayment(tripId, 'PAID');
+      await client.query("UPDATE bookings SET payment_status='PAID' WHERE id=$1", [bookingId]);
+    }
+    return;
+  }
+  if (booking.payment_status !== 'HELD') return;
+  if (status === 'COMPLETED') await escrowClient.settle(bookingId, tripId, booking.current_driver_id);
+  else await escrowClient.refund(bookingId);
+  await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
+  await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
+    [bookingId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
 }
 
 async function postInternalBookingsIdTripStatus(input) {
@@ -63,13 +80,7 @@ async function postInternalBookingsIdTripStatus(input) {
     }
     if (booking.status === status) {
       await client.query('ROLLBACK');
-      if (booking.payment_status === 'HELD') {
-        if (status === 'COMPLETED') await escrowClient.settle(id, tripId, booking.current_driver_id);
-        else await escrowClient.refund(id);
-        await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
-        await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
-          [id, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
-      }
+      await syncTerminalPayment(client, booking, id, tripId, status);
       return response(200, { id, status, requestId });
     }
     if (booking.status !== 'ASSIGNED') {
@@ -87,13 +98,7 @@ async function postInternalBookingsIdTripStatus(input) {
     await client.query(`INSERT INTO booking_status_history(booking_id,from_status,to_status,reason,request_id)
       VALUES($1,'ASSIGNED',$2,$3,$4)`, [id, status, reason || null, requestId]);
     await client.query('COMMIT');
-    if (booking.payment_status === 'HELD') {
-      if (status === 'COMPLETED') await escrowClient.settle(id, tripId, booking.current_driver_id);
-      else await escrowClient.refund(id);
-      await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
-      await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
-        [id, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
-    }
+    await syncTerminalPayment(client, booking, id, tripId, status);
     return response(200, { id, status, requestId });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -205,6 +210,7 @@ async function postBookings(input) {
     destinationLat,
     destinationLng,
     vehicleType = "BIKE",
+    paymentMethod = "BANK",
     note
   } = input.body;
 
@@ -222,6 +228,10 @@ async function postBookings(input) {
     return errorResult(400, "VALIDATION_ERROR", "Invalid coordinates", requestId);
   }
 
+  if (!['CASH', 'BANK'].includes(paymentMethod)) {
+    return errorResult(400, 'VALIDATION_ERROR', 'paymentMethod must be CASH or BANK', requestId);
+  }
+
   const normalizedVehicle = ["BIKE", "SEDAN", "SUV"].includes(vehicleType.toUpperCase())
     ? vehicleType.toUpperCase()
     : "BIKE";
@@ -234,7 +244,8 @@ async function postBookings(input) {
     destinationAddress,
     dLat,
     dLng,
-    vehicleType: normalizedVehicle
+    vehicleType: normalizedVehicle,
+    paymentMethod
   };
   const requestHash = crypto.createHash("sha256").update(JSON.stringify(payloadToHash)).digest("hex");
 
@@ -271,16 +282,19 @@ async function postBookings(input) {
     const digest = crypto.createHash('sha256').update(`${customerId}:${idempotencyKey}`).digest('hex');
     const bookingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
     const fare = calculateFare(pLat, pLng, dLat, dLng).amount;
-    heldBookingId = bookingId;
-    await escrowClient.hold(bookingId, customerId, fare);
+    if (paymentMethod === 'BANK') {
+      heldBookingId = bookingId;
+      await escrowClient.hold(bookingId, customerId, fare);
+    }
 
     // Insert booking
     await repository.insertBookings(client, [
       bookingId, customerId, normalizedVehicle, sanitizeString(pickupAddress),
       pLat, pLng, sanitizeString(destinationAddress), dLat, dLng,
-      note ? sanitizeString(note) : null, OFFER_TTL_SEC
+      note ? sanitizeString(note) : null, paymentMethod, OFFER_TTL_SEC
     ]);
-    await client.query("UPDATE bookings SET fare=$2,payment_status='HELD' WHERE id=$1", [bookingId, fare]);
+    await client.query("UPDATE bookings SET fare=$2,payment_status=$3 WHERE id=$1",
+      [bookingId, fare, paymentMethod === 'BANK' ? 'HELD' : 'UNPAID']);
 
     // History
     await repository.insertBookingStatusHistory(client, [bookingId, customerId, role, requestId]);
@@ -288,7 +302,7 @@ async function postBookings(input) {
     // Outbox event
     await repository.insertOutboxEvents(client, [
       bookingId,
-      JSON.stringify({ bookingId, customerId, vehicleType: normalizedVehicle }),
+      JSON.stringify({ bookingId, customerId, vehicleType: normalizedVehicle, paymentMethod }),
       requestId
     ]);
 
@@ -296,12 +310,13 @@ async function postBookings(input) {
       id: bookingId,
       customerId,
       vehicleType: normalizedVehicle,
+      paymentMethod,
       pickup: { address: pickupAddress, lat: pLat, lng: pLng },
       destination: { address: destinationAddress, lat: dLat, lng: dLng },
       status: "SEARCHING",
       fare,
       currency: 'VND',
-      paymentStatus: 'HELD',
+      paymentStatus: paymentMethod === 'BANK' ? 'HELD' : 'UNPAID',
       searchExpiresAt: new Date(Date.now() + OFFER_TTL_SEC * 1000).toISOString(),
       message: "Booking created, searching for nearby driver",
       createdAt: new Date().toISOString(),
@@ -443,6 +458,7 @@ async function postOffersIdAccept(input) {
           customerId: offer.customer_id,
           driverId,
           vehicleType: offer.vehicle_type,
+          paymentMethod: offer.payment_method,
           pickupAddress: offer.pickup_address,
           pickupLat: Number(offer.pickup_lat),
           pickupLng: Number(offer.pickup_lng),

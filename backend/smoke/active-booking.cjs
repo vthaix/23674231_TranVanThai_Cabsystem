@@ -3,7 +3,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
-const { MongoClient } = require('mongodb');
+const { runMongoScript } = require('../scripts/mongo-internal');
 
 const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
   .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
@@ -13,7 +13,6 @@ const db = name => new Pool({ host: 'localhost', user: name, database: `${name}_
 const bookingDb = db('booking');
 const tripDb = db('trip');
 const driverDb = db('driver');
-const mongo = new MongoClient(`mongodb://notification:${encodeURIComponent(env.NOTIFICATION_DB_PASSWORD)}@localhost:27017/notification_db?authSource=admin`);
 const bookingIds = [];
 let tripId;
 let driverBefore;
@@ -46,13 +45,10 @@ async function cleanup() {
     await bookingDb.query('DELETE FROM idempotency_records WHERE resource_id=ANY($1::uuid[])', [bookingIds]);
     await bookingDb.query('DELETE FROM outbox_events WHERE aggregate_id=ANY($1::uuid[])', [bookingIds]);
     await bookingDb.query('DELETE FROM bookings WHERE id=ANY($1::uuid[])', [bookingIds]);
-    await mongo.connect();
     await new Promise(resolve => setTimeout(resolve, 1000));
-    await mongo.db('notification_db').collection('notifications').deleteMany({
-      body: { $regex: bookingIds.join('|') },
-    });
+    runMongoScript(`db.notifications.deleteMany({body: {$regex: ${JSON.stringify(bookingIds.join('|'))}}});`);
   }
-  await Promise.all([bookingDb.end(), tripDb.end(), driverDb.end(), mongo.close()]);
+  await Promise.all([bookingDb.end(), tripDb.end(), driverDb.end()]);
 }
 
 async function main() {

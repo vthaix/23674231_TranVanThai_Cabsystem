@@ -23,10 +23,12 @@ function requireTripService(req, res, next) {
     const token = req.headers['x-service-token'];
     if (!token) throw new Error('Missing service token');
     const payload = verifyServiceToken(token, 'booking-service');
-    if (payload.iss !== 'trip-service') throw new Error('Wrong service');
+    if ((payload.iss === 'trip-service' && req.body.status !== 'CANCELED') ||
+        (payload.iss === 'payment-service' && req.body.status !== 'COMPLETED') ||
+        !['trip-service', 'payment-service'].includes(payload.iss)) throw new Error('Wrong service or status');
     next();
   } catch {
-    return errorResponse(res, 401, 'UNAUTHORIZED', 'Trip service token required',
+    return errorResponse(res, 401, 'UNAUTHORIZED', 'Authorized service token required',
       req.headers['x-request-id'] || crypto.randomUUID());
   }
 }

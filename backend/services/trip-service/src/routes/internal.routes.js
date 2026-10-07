@@ -10,6 +10,7 @@ router.post("/internal/trips/:id/payment-status", (req, res, next) => {
   try {
     const payload = verifyServiceToken(req.headers['x-service-token'], 'trip-service');
     if (!['booking-service', 'payment-service'].includes(payload.iss)) throw new Error('Invalid issuer');
+    req.serviceIssuer = payload.iss;
     next();
   } catch { res.status(401).json({ code: 'UNAUTHORIZED' }); }
 }, controller.postInternalTripsIdPaymentStatus);

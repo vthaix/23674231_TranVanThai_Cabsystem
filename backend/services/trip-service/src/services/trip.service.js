@@ -12,9 +12,10 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 }
 
 const STATUS_TRANSITIONS = {
-  ASSIGNED: ["ARRIVED", "CANCELED"],
-  ARRIVED: ["IN_PROGRESS", "CANCELED"],
-  IN_PROGRESS: ["COMPLETED"],
+  ASSIGNED: ["ARRIVED"],
+  ARRIVED: ["IN_PROGRESS"],
+  IN_PROGRESS: ["PAYMENT_PENDING"],
+  PAYMENT_PENDING: [],
   COMPLETED: [],
   CANCELED: []
 };

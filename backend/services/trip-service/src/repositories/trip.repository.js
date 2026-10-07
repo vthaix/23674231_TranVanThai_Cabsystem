@@ -15,10 +15,10 @@ function begin(db) {
 function insertTrips(db, params) {
   return db.query(`
       INSERT INTO trips (
-        id, booking_id, customer_id, driver_id, vehicle_type,
+        id, booking_id, customer_id, driver_id, vehicle_type, payment_method,
         pickup_address, pickup_lat, pickup_lng, destination_address, destination_lat, destination_lng,
         distance_km, base_fare, per_km_fare, fare, status, payment_status, driver_snapshot
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'ASSIGNED', 'HELD', $16)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'ASSIGNED', $17, $18)
     `, params);
 }
 
@@ -46,6 +46,33 @@ function rollback(db) {
 
 function findTrips2(db, params) {
   return db.query("SELECT * FROM trips WHERE id = $1", params);
+}
+
+function listTrips(db, { customerId, driverId, status, limit, offset }) {
+  const conditions = [];
+  const params = [];
+  for (const [column, value] of [['customer_id', customerId], ['driver_id', driverId], ['status', status]]) {
+    if (value != null) {
+      params.push(value);
+      conditions.push(`${column} = $${params.length}`);
+    }
+  }
+  const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit, offset);
+  return db.query(`SELECT * FROM trips${where} ORDER BY created_at DESC, id DESC
+    LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+}
+
+function countTrips(db, { customerId, driverId, status }) {
+  const conditions = [];
+  const params = [];
+  for (const [column, value] of [['customer_id', customerId], ['driver_id', driverId], ['status', status]]) {
+    if (value != null) {
+      params.push(value);
+      conditions.push(`${column} = $${params.length}`);
+    }
+  }
+  return db.query(`SELECT COUNT(*) AS total FROM trips${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''}`, params);
 }
 
 function updateTrips(db, params) {
@@ -138,4 +165,4 @@ function findReviews2(db, params) {
   return db.query("SELECT stars, comment, created_at FROM reviews WHERE trip_id = $1", params);
 }
 
-module.exports = { findTrips, findFareRules, begin, insertTrips, insertTripStatusHistory, insertOutboxEvents, commit, rollback, findTrips2, updateTrips, findTrips3, updateTrips2, insertTripStatusHistory2, insertOutboxEvents2, updateTrips3, insertTripStatusHistory3, insertOutboxEvents3, findReviews, insertReviews, insertOutboxEvents4, findReviews2 };
+module.exports = { findTrips, findFareRules, begin, insertTrips, insertTripStatusHistory, insertOutboxEvents, commit, rollback, findTrips2, listTrips, countTrips, updateTrips, findTrips3, updateTrips2, insertTripStatusHistory2, insertOutboxEvents2, updateTrips3, insertTripStatusHistory3, insertOutboxEvents3, findReviews, insertReviews, insertOutboxEvents4, findReviews2 };

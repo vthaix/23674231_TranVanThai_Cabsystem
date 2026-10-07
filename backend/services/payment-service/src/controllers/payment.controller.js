@@ -26,6 +26,13 @@ async function postPaymentsCallback(req, res) {
   return res.status(result.status).json(result.body);
 }
 
+async function postPaymentsTrip(req, res) {
+  const result = await service.postPaymentsTrip({
+    headers: req.headers, params: req.params, user: req.user, requestId: req.requestId
+  });
+  return res.status(result.status).json(result.body);
+}
+
 async function getPaymentsId(req, res) {
   const result = await service.getPaymentsId({
     headers: req.headers,
@@ -39,4 +46,4 @@ async function getPaymentsId(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postPayments, postPaymentsCallback, getPaymentsId };
+module.exports = { postPayments, postPaymentsTrip, postPaymentsCallback, getPaymentsId };

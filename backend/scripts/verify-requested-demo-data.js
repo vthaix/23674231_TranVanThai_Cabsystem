@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-const { MongoClient } = require('mongodb');
+const { runMongoScript } = require('./mongo-internal');
 
 const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
   .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
@@ -23,7 +23,6 @@ const distance = (a, b) => {
 };
 
 async function main() {
-  const mongo = new MongoClient(`mongodb://notification:${encodeURIComponent(env.NOTIFICATION_DB_PASSWORD)}@localhost:27017/notification_db?authSource=admin`);
   try {
     expect(await count('identity', 'accounts'), 16, 'Accounts');
     expect((await pools.identity.query(`SELECT COUNT(*)::int AS n FROM accounts a
@@ -81,13 +80,12 @@ async function main() {
           booking.trip_id !== trip.id || booking.status !== 'COMPLETED')
         throw new Error(`Inconsistent trip ${trip.id}`);
     }
-    await mongo.connect();
-    const collections = await mongo.db('notification_db').listCollections().toArray();
-    const mongoCounts = await Promise.all(collections.map(c => mongo.db('notification_db').collection(c.name).countDocuments()));
-    expect(mongoCounts.reduce((a, b) => a + b, 0), 0, 'Mongo notifications');
+    const notificationCount = Number(runMongoScript(
+      'print(db.getCollectionNames().reduce((sum, name) => sum + db.getCollection(name).countDocuments({}), 0));'
+    ));
+    expect(notificationCount, 0, 'Mongo notifications');
     console.log('All checks passed');
   } finally {
-    await mongo.close();
     await Promise.all(Object.values(pools).map(pool => pool.end()));
   }
 }

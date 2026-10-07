@@ -2,7 +2,7 @@ const repository = require("../repositories/payment.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { TRIP_SERVICE_URL, SERVICE_NAME } = require("../config");
+const { TRIP_SERVICE_URL, BOOKING_SERVICE_URL, SERVICE_NAME } = require("../config");
 const { hashPaymentRequest, isValidCallbackSignature } = require("../services/payment.service");
 
 function response(status, body) { return { status, body }; }
@@ -64,20 +64,12 @@ async function postPayments(input) {
       return errorResult(502, "SERVICE_UNAVAILABLE", "Cannot contact Trip service", requestId);
     }
 
-    // Wallet bookings are funded at booking time. PC19 reads the escrow instead
-    // of creating a second charge after the ride.
+    // Wallet bookings are funded at booking time and settled on customer request.
     const escrowResult = await client.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [trip.bookingId]);
     if (escrowResult.rows.length) {
       const escrow = escrowResult.rows[0];
       await repository.rollback(client);
-      if (role === 'CUSTOMER' && escrow.customer_id !== userId) {
-        return errorResult(403, 'FORBIDDEN', 'Only customer of this trip can view payment', requestId);
-      }
-      return response(200, {
-        id: trip.bookingId, bookingId: trip.bookingId, tripId, customerId: escrow.customer_id,
-        amount: Number(escrow.amount), currency: 'VND', method: 'WALLET',
-        status: escrow.status, requestId
-      });
+      return postPaymentsTrip({ ...input, params: { tripId } });
     }
 
     // Legacy trips without an escrow retain the provider callback flow.
@@ -135,6 +127,74 @@ async function postPayments(input) {
     return errorResult(500, "INTERNAL_ERROR", "Failed to initiate payment", requestId);
   } finally {
     client.release();
+  }
+}
+
+async function postPaymentsTrip(input) {
+  const { sub: userId, role } = input.user;
+  const { tripId } = input.params;
+  const requestId = input.requestId;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tripId)) {
+    return errorResult(400, 'VALIDATION_ERROR', 'Valid tripId required', requestId);
+  }
+  try {
+    const token = generateServiceToken(SERVICE_NAME, 'trip-service');
+    const tripResponse = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${tripId}`, {
+      headers: { 'x-service-token': token, 'x-request-id': requestId }, signal: AbortSignal.timeout(5000)
+    });
+    if (!tripResponse.ok) return errorResult(tripResponse.status, 'TRIP_ERROR', 'Trip not found', requestId);
+    const trip = await tripResponse.json();
+    const method = trip.paymentMethod || 'BANK';
+    let amount = Number(trip.fare);
+    if (method === 'CASH') {
+      if (role !== 'DRIVER' || trip.driverId !== userId) {
+        return errorResult(403, 'FORBIDDEN', 'Only assigned driver can confirm cash payment', requestId);
+      }
+      if (trip.status === 'COMPLETED' && trip.paymentStatus === 'PAID') {
+        return response(200, { tripId, bookingId: trip.bookingId, amount,
+          paymentMethod: method, status: 'COMPLETED', paymentStatus: 'PAID', duplicate: true, requestId });
+      }
+    } else {
+      if (role !== 'CUSTOMER' || trip.customerId !== userId) {
+        return errorResult(403, 'FORBIDDEN', 'Only trip customer can pay by bank', requestId);
+      }
+      const { rows } = await pool.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [trip.bookingId]);
+      if (!rows.length) return errorResult(409, 'ESCROW_NOT_FOUND', 'Trip has no held booking fare', requestId);
+      const escrow = rows[0];
+      if (escrow.customer_id !== userId) return errorResult(403, 'FORBIDDEN', 'Escrow owner mismatch', requestId);
+      amount = Number(escrow.amount);
+      if (trip.status === 'COMPLETED' && escrow.status === 'SETTLED') {
+        return response(200, { tripId, bookingId: trip.bookingId, amount,
+          paymentMethod: method, status: 'COMPLETED', paymentStatus: 'PAID', duplicate: true, requestId });
+      }
+      if (!['HELD', 'SETTLED'].includes(escrow.status)) {
+        return errorResult(409, 'ESCROW_NOT_HELD', `Escrow is ${escrow.status}`, requestId);
+      }
+    }
+    if (trip.status !== 'PAYMENT_PENDING') {
+      return errorResult(409, 'TRIP_NOT_READY_FOR_PAYMENT', `Trip is ${trip.status}`, requestId);
+    }
+    const settleResponse = await fetch(`${BOOKING_SERVICE_URL}/internal/bookings/${trip.bookingId}/trip-status`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-request-id': requestId,
+        'x-service-token': generateServiceToken(SERVICE_NAME, 'booking-service') },
+      body: JSON.stringify({ tripId, status: 'COMPLETED' }), signal: AbortSignal.timeout(10000)
+    });
+    if (!settleResponse.ok) {
+      return errorResult(503, 'PAYMENT_PENDING', 'Settlement is pending; retry payment request', requestId);
+    }
+    const finalTripResponse = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${tripId}`, {
+      headers: { 'x-service-token': token, 'x-request-id': requestId }, signal: AbortSignal.timeout(5000)
+    });
+    const finalTrip = finalTripResponse.ok ? await finalTripResponse.json() : null;
+    if (finalTrip?.status !== 'COMPLETED' || finalTrip.paymentStatus !== 'PAID') {
+      return errorResult(503, 'PAYMENT_PENDING', 'Settlement is pending; retry payment request', requestId);
+    }
+    return response(200, { tripId, bookingId: trip.bookingId, amount, paymentMethod: method,
+      status: 'COMPLETED', paymentStatus: 'PAID', requestId });
+  } catch (error) {
+    console.error('[payments/trip]', error.message);
+    return errorResult(503, 'SERVICE_UNAVAILABLE', 'Payment cannot be completed now; retry', requestId);
   }
 }
 
@@ -293,4 +353,4 @@ async function getPaymentsId(input) {
   }
 }
 
-module.exports = { postPayments, postPaymentsCallback, getPaymentsId };
+module.exports = { postPayments, postPaymentsTrip, postPaymentsCallback, getPaymentsId };

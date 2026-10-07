@@ -20,10 +20,10 @@ function insertBookings(db, params) {
   return db.query(`
       INSERT INTO bookings (
         id, customer_id, vehicle_type, pickup_address, pickup_lat, pickup_lng,
-        destination_address, destination_lat, destination_lng, note, status,
+        destination_address, destination_lat, destination_lng, note, payment_method, status,
         next_dispatch_at, attempt_count, search_expires_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SEARCHING', NOW(), 0,
-        NOW() + $11::int * INTERVAL '1 second')
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'SEARCHING', NOW(), 0,
+        NOW() + $12::int * INTERVAL '1 second')
     `, params);
 }
 
@@ -68,7 +68,7 @@ function findOffers(db, params) {
 
 function findOffers2(db, params) {
   return db.query(`
-      SELECT o.*, b.customer_id, b.vehicle_type, b.pickup_address, b.pickup_lat, b.pickup_lng,
+      SELECT o.*, b.customer_id, b.vehicle_type, b.payment_method, b.pickup_address, b.pickup_lat, b.pickup_lng,
              b.destination_address, b.destination_lat, b.destination_lng, b.status as booking_status,
              b.trip_id, b.search_expires_at, b.fare
       FROM offers o

@@ -284,8 +284,8 @@ async function getDriversMe(input) {
         seatCount: d.seat_count
       } : null,
       location: d.latitude === null ? null : {
-        latitude: Number(d.latitude),
-        longitude: Number(d.longitude),
+        lat: Number(d.latitude),
+        lng: Number(d.longitude),
         heading: d.heading === null ? null : Number(d.heading),
         speedKmh: d.speed_kmh === null ? null : Number(d.speed_kmh),
         recordedAt: d.location_recorded_at
@@ -584,11 +584,12 @@ async function putDriversMeLocation(input) {
     return errorResult(403, "FORBIDDEN", "Driver access required", requestId);
   }
 
-  const { latitude, longitude, heading, speedKmh } = input.body;
-  const lat = Number(latitude);
-  const lng = Number(longitude);
+  const { lat, lng, heading, speedKmh } = input.body;
 
-  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (Object.keys(input.body).some(key => /latitude|longitude|longtitude/i.test(key))) {
+    return errorResult(400, "VALIDATION_ERROR", "Use lat and lng for coordinates", requestId);
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return errorResult(400, "VALIDATION_ERROR", "Invalid coordinates: lat in [-90, 90], lng in [-180, 180]", requestId);
   }
 
@@ -610,8 +611,8 @@ async function putDriversMeLocation(input) {
     return response(200, {
       success: true,
       driverId,
-      latitude: lat,
-      longitude: lng,
+      lat,
+      lng,
       requestId
     });
   } catch (err) {
@@ -648,8 +649,8 @@ async function getDriversNearby(input) {
         ratingAvg: Number(r.rating_avg),
         completedTrips: r.completed_trips,
         location: {
-          latitude: Number(r.latitude),
-          longitude: Number(r.longitude)
+          lat: Number(r.latitude),
+          lng: Number(r.longitude)
         },
         distanceM: dist,
         vehicle: r.plate_number ? {

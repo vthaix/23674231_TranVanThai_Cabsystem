@@ -8,7 +8,7 @@ const base = (process.env.CAB_BASE_URL || 'http://localhost:8000').replace(/\/$/
 const runId = crypto.randomBytes(5).toString('hex');
 const results = [];
 let requestNo = 0;
-let customer, customerToken, adminToken, driver, driverToken, booking, trip, payment, paymentEvent, paymentSignature;
+let customer, customerToken, adminToken, driver, driverToken, booking, trip, customerBalanceBeforeBooking, driverBalanceBeforeCompletion;
 
 function compose(args, input) {
   const r = spawnSync('docker', ['compose', ...args], {
@@ -88,7 +88,7 @@ function bookingPayload(lat = 10.7901, lng = 106.7101) {
   return {
     pickupAddress: `Smoke pickup ${runId}`, pickupLat: lat, pickupLng: lng,
     destinationAddress: `Smoke destination ${runId}`, destinationLat: lat + 0.01,
-    destinationLng: lng + 0.01, vehicleType: 'BIKE'
+    destinationLng: lng + 0.01, vehicleType: 'BIKE', paymentMethod: 'BANK'
   };
 }
 
@@ -245,7 +245,10 @@ await check(22, 'admin approves driver', async () => {
 });
 
 await check(23, 'driver offline and online availability', async () => {
-  status(await call('PUT', '/api/v1/drivers/me/location', { latitude: 10.7901, longitude: 106.7101 }, driverToken), 200);
+  const location = status(await call('PUT', '/api/v1/drivers/me/location', { lat: 10.7901, lng: 106.7101 }, driverToken), 200);
+  assert.equal(location.lat, 10.7901);
+  assert.equal(location.lng, 106.7101);
+  status(await call('PUT', '/api/v1/drivers/me/location', { latitude: 10.7901, longitude: 106.7101 }, driverToken), 400);
   assert.equal(status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'ONLINE' }, driverToken), 200).status, 'ONLINE');
   assert.equal(status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'OFFLINE' }, driverToken), 200).status, 'OFFLINE');
   assert.equal(status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'ONLINE' }, driverToken), 200).status, 'ONLINE');
@@ -254,10 +257,15 @@ await check(23, 'driver offline and online availability', async () => {
 await check(15, 'booking dispatches an offer to nearby driver', async () => {
   const pickupLat = 11 + Number.parseInt(runId.slice(0, 4), 16) / 0xffff;
   const pickupLng = 107 + Number.parseInt(runId.slice(4, 8), 16) / 0xffff;
-  status(await call('PUT', '/api/v1/drivers/me/location', { latitude: pickupLat, longitude: pickupLng }, driverToken), 200);
+  status(await call('PUT', '/api/v1/drivers/me/location', { lat: pickupLat, lng: pickupLng }, driverToken), 200);
+  customerBalanceBeforeBooking = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
   booking = status(await call('POST', '/api/v1/bookings', bookingPayload(pickupLat, pickupLng), customerToken,
     { 'idempotency-key': `smoke-${runId}-ride` }), 201);
   assert.equal(booking.status, 'SEARCHING');
+  assert.equal(booking.paymentStatus, 'HELD');
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance,
+    customerBalanceBeforeBooking - booking.fare);
+  assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'HELD');
   let offer;
   for (let i = 0; i < 20; i++) {
     const offers = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200);
@@ -282,34 +290,64 @@ await check(16, 'driver accepts offer and trip is assigned', async () => {
 });
 
 await check(17, 'trip status transition and location', async () => {
+  driverBalanceBeforeCompletion = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
+  status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, {
+    status: 'ARRIVED', latitude: 10.791, longitude: 106.711
+  }, driverToken), 400);
   const invalid = await call('PATCH', `/api/v1/trips/${trip.id}/status`, { status: 'COMPLETED' }, driverToken);
   status(invalid, 409);
-  for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
+  status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, { status: 'CANCELED' }, driverToken), 409);
+  status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 409);
+  for (const next of ['ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING']) {
     assert.equal(status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, {
-      status: next, latitude: 10.791, longitude: 106.711
+      status: next, lat: 10.791, lng: 106.711
     }, driverToken), 200).status, next);
+    if (next === 'IN_PROGRESS') {
+      status(await call('POST', `/api/v1/bookings/${booking.id}/cancel`,
+        { reason: 'Too late to cancel' }, customerToken), 409);
+      assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'HELD');
+    }
   }
-  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'PAYMENT_PENDING');
 });
 
-await check(19, 'signed payment callback marks trip paid', async () => {
-  payment = status(await call('POST', '/api/v1/payments', { tripId: trip.id }, customerToken,
-    { 'idempotency-key': `smoke-${runId}-payment` }), 201);
-  assert.equal(payment.status, 'PENDING');
-  const event = { provider: 'MOCK_PAYMENT', providerEventId: `smoke-${runId}`,
-    providerTransactionId: payment.providerTransactionId, paymentId: payment.id,
-    status: 'SUCCESS', amount: payment.amount };
-  status(await call('POST', '/api/v1/payments/callback', {
-    ...event, providerEventId: `smoke-invalid-${runId}`
-  }, undefined, { 'x-signature': 'invalid' }), 401);
-  const signature = crypto.createHmac('sha256', process.env.PAYMENT_CALLBACK_SECRET || 'dev-callback-secret-key-32b!')
-    .update(JSON.stringify(event)).digest('hex');
-  paymentEvent = event;
-  paymentSignature = signature;
-  assert.equal(status(await call('POST', '/api/v1/payments/callback', event, undefined,
-    { 'x-signature': signature }), 200).status, 'COMPLETED');
-  assert.equal(status(await call('GET', `/api/v1/payments/${payment.id}`, undefined, customerToken), 200).status, 'COMPLETED');
+await check(19, 'customer payment settles escrow and completes trip', async () => {
+  status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, driverToken), 403);
+  const paid = status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200);
+  assert.equal(paid.status, 'COMPLETED');
+  const payment = status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200);
+  assert.equal(payment.method, 'WALLET');
+  assert.equal(payment.status, 'SETTLED');
+  assert.equal(payment.amount, booking.fare);
   assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).paymentStatus, 'PAID');
+  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance,
+    driverBalanceBeforeCompletion + booking.fare);
+
+  const customerBalance = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
+  const driverBalance = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
+  const cashBooking = status(await call('POST', '/api/v1/bookings', {
+    ...bookingPayload(booking.pickup.lat, booking.pickup.lng), paymentMethod: 'CASH'
+  }, customerToken, { 'idempotency-key': `smoke-${runId}-cash` }), 201);
+  assert.equal(cashBooking.paymentStatus, 'UNPAID');
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, customerBalance);
+  let cashOffer;
+  for (let i = 0; i < 20; i++) {
+    cashOffer = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200).data
+      .find(o => o.bookingId === cashBooking.id);
+    if (cashOffer) break;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  assert(cashOffer, 'cash offer missing');
+  const cashTripId = status(await call('POST', `/api/v1/bookings/${cashBooking.id}/accept`, {}, driverToken), 200).tripId;
+  for (const next of ['ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING']) {
+    status(await call('PATCH', `/api/v1/trips/${cashTripId}/status`, { status: next }, driverToken), 200);
+  }
+  status(await call('POST', `/api/v1/payments/${cashTripId}`, undefined, customerToken), 403);
+  assert.equal(status(await call('POST', `/api/v1/payments/${cashTripId}`, undefined, driverToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('GET', `/api/v1/trips/${cashTripId}`, undefined, customerToken), 200).paymentStatus, 'PAID');
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, customerBalance);
+  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance, driverBalance);
 });
 
 await check(20, 'review persists on completed trip', async () => {
@@ -321,10 +359,14 @@ await check(20, 'review persists on completed trip', async () => {
 });
 
 await check(18, 'customer cancels booking and assigned trip; both parties receive notice', async () => {
+  const balanceBeforeCancel = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
   const b = status(await call('POST', '/api/v1/bookings', bookingPayload(10.88, 106.78), customerToken,
     { 'idempotency-key': `smoke-${runId}-cancel` }), 201);
+  assert.equal(status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 200).status, 'HELD');
   const canceled = status(await call('POST', `/api/v1/bookings/${b.id}/cancel`, { reason: 'Smoke customer request' }, customerToken), 200);
   assert.equal(canceled.status, 'CANCELED');
+  assert.equal(status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 200).status, 'REFUNDED');
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeCancel);
   const listed = status(await call('GET', '/api/v1/bookings?limit=50', undefined, customerToken), 200);
   assert.equal(listed.data.find(x => x.id === b.id)?.status, 'CANCELED');
 
@@ -333,7 +375,7 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
   const cancelToken = status(await call('POST', '/api/v1/auth/login', {
     phone: cancelDriver.phone, password: cancelDriver.password
   }), 200).token;
-  status(await call('PUT', '/api/v1/drivers/me/location', { latitude: 10.8001, longitude: 106.7201 }, cancelToken), 200);
+  status(await call('PUT', '/api/v1/drivers/me/location', { lat: 10.8001, lng: 106.7201 }, cancelToken), 200);
   status(await call('PUT', '/api/v1/drivers/me/availability', { status: 'ONLINE' }, cancelToken), 200);
   const b2 = status(await call('POST', '/api/v1/bookings', bookingPayload(10.8001, 106.7201), customerToken,
     { 'idempotency-key': `smoke-${runId}-cancel-trip` }), 201);
@@ -341,10 +383,14 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
   const offer = offers.data.find(o => o.bookingId === b2.id);
   assert(offer, 'second driver did not receive cancellation test offer');
   const assigned = status(await call('POST', `/api/v1/bookings/${b2.id}/accept`, {}, cancelToken), 200);
+  assert.equal(status(await call('PATCH', `/api/v1/trips/${assigned.tripId}/status`,
+    { status: 'ARRIVED' }, cancelToken), 200).status, 'ARRIVED');
   const tripCanceled = status(await call('POST', `/api/v1/trips/${assigned.tripId}/cancel`,
     { reason: 'Smoke cancellation' }, customerToken), 200);
   assert.equal(tripCanceled.status, 'CANCELED');
   assert.equal(status(await call('GET', `/api/v1/trips/${assigned.tripId}`, undefined, customerToken), 200).status, 'CANCELED');
+  assert.equal(status(await call('GET', `/api/v1/payments/${b2.id}`, undefined, customerToken), 200).status, 'REFUNDED');
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeCancel);
 
   for (const token of [customerToken, cancelToken]) {
     let found = false;
@@ -408,15 +454,22 @@ await check(29, 'request flood receives 429', async () => {
   status(await call('GET', '/health'), 200);
 });
 
-await check(30, 'payment replay returns original response and no second charge', async () => {
-  const replay = status(await call('POST', '/api/v1/payments', { tripId: trip.id }, customerToken,
-    { 'idempotency-key': `smoke-${runId}-payment` }), 201);
-  assert.deepEqual(replay, payment);
-  const conflict = await call('POST', '/api/v1/payments', { tripId: crypto.randomUUID() }, customerToken,
-    { 'idempotency-key': `smoke-${runId}-payment` });
+await check(30, 'booking replay preserves one escrow and one charge', async () => {
+  const balanceBeforeReplay = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
+  const replay = status(await call('POST', '/api/v1/bookings', bookingPayload(booking.pickup.lat, booking.pickup.lng), customerToken,
+    { 'idempotency-key': `smoke-${runId}-ride` }), 201);
+  assert.equal(replay.id, booking.id);
+  assert.equal(replay.fare, booking.fare);
+  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeReplay);
+  assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'SETTLED');
+  const conflict = await call('POST', '/api/v1/bookings', {
+    ...bookingPayload(booking.pickup.lat, booking.pickup.lng), destinationAddress: 'Different destination'
+  }, customerToken, { 'idempotency-key': `smoke-${runId}-ride` });
   status(conflict, 422);
-  assert.equal(status(await call('POST', '/api/v1/payments/callback', paymentEvent, undefined,
-    { 'x-signature': paymentSignature }), 200).status, 'ALREADY_PROCESSED');
+  const driverBalanceBeforeReplay = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
+  assert.equal(status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200).duplicate, true);
+  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance,
+    driverBalanceBeforeReplay);
 });
 
 const passed = results.filter(r => r.ok).length;

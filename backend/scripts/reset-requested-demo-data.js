@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { Pool } = require('pg');
-const { MongoClient } = require('mongodb');
+const { runMongoScript } = require('./mongo-internal');
 const { encrypt, hashPhone, hashNationalId } = require('../shared/src/crypto');
 const { calculateFare } = require('../shared/src/fare');
 const { ensureDemoAdmin, passwordHash } = require('./add-demo-admin');
@@ -162,13 +162,12 @@ async function seedRides() {
 async function main() {
   if (driverPhones.length !== 10 || new Set(driverPhones).size !== 10) throw new Error('Invalid driver phones');
   redisCli('PING');
-  const mongo = new MongoClient(`mongodb://notification:${encodeURIComponent(env.NOTIFICATION_DB_PASSWORD)}@localhost:27017/notification_db?authSource=admin`);
   try {
     for (const name of dbNames) await resetPg(name);
-    await mongo.connect();
-    const collections = await mongo.db('notification_db').listCollections().toArray();
-    for (const collection of collections) await mongo.db('notification_db').collection(collection.name).deleteMany({});
-    console.log(`Cleared notification_db (${collections.length} collections)`);
+    const collectionCount = Number(runMongoScript(
+      'const names = db.getCollectionNames(); names.forEach(name => db.getCollection(name).deleteMany({})); print(names.length);'
+    ));
+    console.log(`Cleared notification_db (${collectionCount} collections)`);
     redisCli('FLUSHDB');
     console.log('Cleared Redis');
     await seedIdentity();
@@ -180,7 +179,6 @@ async function main() {
     }
     console.log('Seeded 1 admin, 5 customers, 10 drivers, 45 bookings, 25 completed trips, 25 reviews, 25 payments, 2 offers');
   } finally {
-    await mongo.close();
     await Promise.all(Object.values(pools).map(pool => pool.end()));
   }
 }
