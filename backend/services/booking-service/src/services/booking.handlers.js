@@ -2,7 +2,7 @@ const repository = require("../repositories/booking.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { sanitizeString } = require("../../../../shared/src/validation/index");
+const { escapeHTML } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME, DRIVER_SERVICE_URL, TRIP_SERVICE_URL } = require("../config");
 const { producer, isKafkaReady } = require("../events/kafka.producer");
 const { dispatchBooking } = require("../services/booking.service");
@@ -118,7 +118,7 @@ async function postInternalTestKafka(input) {
     producer: SERVICE_NAME,
     data: {
       bookingId: input.body.bookingId || "TEST-BOOKING-001",
-      message: input.body.message || "Kafka PC7 test event"
+      message: escapeHTML(input.body.message || "Kafka PC7 test event")
     }
   };
   try {
@@ -214,8 +214,16 @@ async function postBookings(input) {
     note
   } = input.body;
 
-  if (!pickupAddress || !destinationAddress || pickupLat === undefined || pickupLng === undefined || destinationLat === undefined || destinationLng === undefined) {
+  if (typeof pickupAddress !== "string" || !pickupAddress.trim() ||
+      typeof destinationAddress !== "string" || !destinationAddress.trim() ||
+      pickupLat === undefined || pickupLng === undefined || destinationLat === undefined || destinationLng === undefined) {
     return errorResult(400, "VALIDATION_ERROR", "Pickup and destination address with coordinates are required", requestId);
+  }
+  if (note != null && typeof note !== "string") {
+    return errorResult(400, "VALIDATION_ERROR", "note must be a string", requestId);
+  }
+  if (typeof vehicleType !== "string") {
+    return errorResult(400, "VALIDATION_ERROR", "vehicleType must be a string", requestId);
   }
 
   const pLat = Number(pickupLat);
@@ -231,6 +239,9 @@ async function postBookings(input) {
   if (!['CASH', 'BANK'].includes(paymentMethod)) {
     return errorResult(400, 'VALIDATION_ERROR', 'paymentMethod must be CASH or BANK', requestId);
   }
+  const safePickupAddress = escapeHTML(pickupAddress);
+  const safeDestinationAddress = escapeHTML(destinationAddress);
+  const safeNote = note ? escapeHTML(note) : null;
 
   const normalizedVehicle = ["BIKE", "SEDAN", "SUV"].includes(vehicleType.toUpperCase())
     ? vehicleType.toUpperCase()
@@ -289,9 +300,9 @@ async function postBookings(input) {
 
     // Insert booking
     await repository.insertBookings(client, [
-      bookingId, customerId, normalizedVehicle, sanitizeString(pickupAddress),
-      pLat, pLng, sanitizeString(destinationAddress), dLat, dLng,
-      note ? sanitizeString(note) : null, paymentMethod, OFFER_TTL_SEC
+      bookingId, customerId, normalizedVehicle, safePickupAddress,
+      pLat, pLng, safeDestinationAddress, dLat, dLng,
+      safeNote, paymentMethod, OFFER_TTL_SEC
     ]);
     await client.query("UPDATE bookings SET fare=$2,payment_status=$3 WHERE id=$1",
       [bookingId, fare, paymentMethod === 'BANK' ? 'HELD' : 'UNPAID']);
@@ -311,8 +322,8 @@ async function postBookings(input) {
       customerId,
       vehicleType: normalizedVehicle,
       paymentMethod,
-      pickup: { address: pickupAddress, lat: pLat, lng: pLng },
-      destination: { address: destinationAddress, lat: dLat, lng: dLng },
+      pickup: { address: safePickupAddress, lat: pLat, lng: pLng },
+      destination: { address: safeDestinationAddress, lat: dLat, lng: dLng },
       status: "SEARCHING",
       fare,
       currency: 'VND',
@@ -603,9 +614,10 @@ async function postBookingsIdCancel(input) {
   const { reason } = input.body;
   const requestId = input.requestId;
 
-  if (!reason) {
+  if (typeof reason !== "string" || !reason.trim()) {
     return errorResult(400, "VALIDATION_ERROR", "Cancellation reason is required", requestId);
   }
+  const safeReason = escapeHTML(reason);
   if (role !== 'CUSTOMER' && role !== 'ADMIN') {
     return errorResult(403, 'FORBIDDEN', 'Customer or admin access required', requestId);
   }
@@ -629,11 +641,11 @@ async function postBookingsIdCancel(input) {
       const tripBody = await tripResponse.json();
       if (!tripResponse.ok) return response(tripResponse.status, tripBody);
       const synced = await postInternalBookingsIdTripStatus({
-        params: { id: bookingId }, body: { tripId: booking.trip_id, status: 'CANCELED', reason }, requestId
+        params: { id: bookingId }, body: { tripId: booking.trip_id, status: 'CANCELED', reason: safeReason }, requestId
       });
       if (synced.status !== 200) return synced;
       return response(200, { id: bookingId, status: 'CANCELED', tripId: booking.trip_id,
-        cancelReason: reason, requestId });
+        cancelReason: safeReason, requestId });
     } catch (error) {
       console.error('[bookings/cancel-trip]', error.message);
       return errorResult(503, 'DEPENDENCY_ERROR', 'Failed to cancel assigned trip', requestId);
@@ -682,13 +694,13 @@ async function postBookingsIdCancel(input) {
     await repository.updateOffers4(client, [bookingId]);
 
     // Update booking to CANCELED
-    await repository.updateBookings2(client, [sanitizeString(reason), userId, role, bookingId]);
+    await repository.updateBookings2(client, [safeReason, userId, role, bookingId]);
 
-    await repository.insertBookingStatusHistory3(client, [bookingId, booking.status, sanitizeString(reason), userId, role, requestId]);
+    await repository.insertBookingStatusHistory3(client, [bookingId, booking.status, safeReason, userId, role, requestId]);
 
     await repository.insertOutboxEvents3(client, [
       bookingId,
-      JSON.stringify({ bookingId, reason, customerId: booking.customer_id }),
+      JSON.stringify({ bookingId, reason: safeReason, customerId: booking.customer_id }),
       requestId
     ]);
 
@@ -704,7 +716,7 @@ async function postBookingsIdCancel(input) {
       id: bookingId,
       status: "CANCELED",
       paymentStatus,
-      cancelReason: reason,
+      cancelReason: safeReason,
       message: "Booking canceled successfully",
       requestId
     });

@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { getRedisClient } = require("../db/redis");
 const { encrypt, decrypt, hashPhone } = require("../../../../shared/src/crypto/index");
-const { isValidPhone, isValidPassword } = require("../../../../shared/src/validation/index");
+const { isValidPhone, isValidPassword, isPlainCode, escapeHTML } = require("../../../../shared/src/validation/index");
 const { maskPhone } = require("../utils/maskPhone");
 const { inMemStore, haversineDistanceMeters } = require("../services/driver.service");
 const { parsePagination } = require("../../../../shared/src/pagination");
@@ -143,6 +143,15 @@ async function postDriversRegister(input) {
   if (vehicle?.vehicleType != null && typeof vehicle.vehicleType !== "string") {
     return errorResult(400, "VALIDATION_ERROR", "vehicle.vehicleType must be a string", requestId);
   }
+  if (!isPlainCode(licenseNumber) || !isPlainCode(licenseClass) ||
+      (vehicle?.plateNumber != null && !isPlainCode(vehicle.plateNumber))) {
+    return errorResult(400, "VALIDATION_ERROR", "License and plate codes contain invalid characters", requestId);
+  }
+  for (const field of ["brand", "model", "color"]) {
+    if (vehicle?.[field] != null && typeof vehicle[field] !== "string") {
+      return errorResult(400, "VALIDATION_ERROR", `vehicle.${field} must be a string`, requestId);
+    }
+  }
 
   // Validate license expiry
   const expiryDate = new Date(licenseExpiryDate);
@@ -152,12 +161,13 @@ async function postDriversRegister(input) {
 
   // Normalize vehicle
   const vType = (vehicle?.vehicleType || "BIKE").toUpperCase();
+  const displayName = escapeHTML(fullName.trim());
   const normalizedVehicle = {
     vehicleType: ["BIKE", "SEDAN", "SUV"].includes(vType) ? vType : "BIKE",
     plateNumber: vehicle?.plateNumber || `59X-${Math.floor(10000 + Math.random() * 90000)}`,
-    brand: vehicle?.brand || "Honda",
-    model: vehicle?.model || "Wave",
-    color: vehicle?.color || "Đen",
+    brand: escapeHTML(vehicle?.brand || "Honda"),
+    model: escapeHTML(vehicle?.model || "Wave"),
+    color: escapeHTML(vehicle?.color || "Đen"),
     manufactureYear: Number(vehicle?.manufactureYear || 2022),
     seatCount: Number(vehicle?.seatCount || (vType === "BIKE" ? 1 : 4))
   };
@@ -173,7 +183,7 @@ async function postDriversRegister(input) {
       id: driverId,
       phone: verifiedPhone,
       password,
-      displayName: fullName.trim()
+      displayName
     }, requestId);
   } catch (err) {
     return errorResult(err.status || 503, err.code || "DEPENDENCY_ERROR", err.message, requestId);
@@ -187,7 +197,7 @@ async function postDriversRegister(input) {
     // Insert driver in PENDING_APPROVAL
     await repository.insertDrivers(client, [
       driverId, phoneEnc, phoneH,
-      fullName, `${driverId.slice(0, 8)}@driver.cab`,
+      displayName, `${driverId.slice(0, 8)}@driver.cab`,
       licenseEnc, licenseClass, licenseExpiryDate
     ]);
 
@@ -201,7 +211,7 @@ async function postDriversRegister(input) {
     // Outbox event
     await repository.insertOutboxEvents(client, [
       driverId,
-      JSON.stringify({ driverId, fullName, phoneHash: phoneH, vehicleType: normalizedVehicle.vehicleType }),
+      JSON.stringify({ driverId, fullName: displayName, phoneHash: phoneH, vehicleType: normalizedVehicle.vehicleType }),
       requestId
     ]);
 
@@ -214,7 +224,7 @@ async function postDriversRegister(input) {
 
     return response(201, {
       id: driverId,
-      fullName,
+      fullName: displayName,
       status: "PENDING_APPROVAL",
       message: "Driver application submitted, awaiting approval",
       requestId
@@ -455,9 +465,10 @@ async function postAdminDriversIdReject(input) {
 
   const { id } = input.params;
   const { reason } = input.body;
-  if (!reason) {
+  if (typeof reason !== "string" || !reason.trim()) {
     return errorResult(400, "VALIDATION_ERROR", "Rejection reason is required", requestId);
   }
+  const safeReason = escapeHTML(reason);
 
   const client = await pool.connect();
   let committed = false;
@@ -479,13 +490,13 @@ async function postAdminDriversIdReject(input) {
       return errorResult(409, "INVALID_STATE", `Cannot reject driver in status ${driver.status}`, requestId);
     }
 
-    await repository.updateDrivers2(client, [reason, actorId, id]);
+    await repository.updateDrivers2(client, [safeReason, actorId, id]);
 
-    await repository.insertDriverStatusHistory2(client, [id, actorId, role, reason, requestId]);
+    await repository.insertDriverStatusHistory2(client, [id, actorId, role, safeReason, requestId]);
 
-    await repository.insertAuditLogs2(client, [actorId, role, id, reason, requestId]);
+    await repository.insertAuditLogs2(client, [actorId, role, id, safeReason, requestId]);
 
-    await repository.insertOutboxEvents3(client, [id, JSON.stringify({ driverId: id, status: "REJECTED", reason, rejectedBy: actorId }), requestId]);
+    await repository.insertOutboxEvents3(client, [id, JSON.stringify({ driverId: id, status: "REJECTED", reason: safeReason, rejectedBy: actorId }), requestId]);
 
     await repository.commit(client);
     committed = true;
@@ -494,7 +505,7 @@ async function postAdminDriversIdReject(input) {
     return response(200, {
       id,
       status: "REJECTED",
-      reason,
+      reason: safeReason,
       message: "Driver application rejected",
       requestId
     });

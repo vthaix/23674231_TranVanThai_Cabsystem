@@ -7,7 +7,7 @@
 function isValidEmail(email) {
   if (typeof email !== "string") return false;
   // Simple, safe email validation
-  const emailRegex = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/;
+  const emailRegex = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,}$/;
   return emailRegex.test(email.toLowerCase()) && email.length <= 255;
 }
 
@@ -26,11 +26,15 @@ function isValidPassword(password) {
   return typeof password === "string" && password.length >= 8 && password.length <= 128;
 }
 
+function isPlainCode(value) {
+  return typeof value === "string" && /^[A-Za-z0-9._/-]+$/.test(value);
+}
+
 /**
  * Sanitize string for XSS (PC26)
  * Escapes HTML special characters
  */
-function sanitizeString(str) {
+function escapeHTML(str) {
   if (typeof str !== "string") return str;
   return str
     .replace(/&/g, "&amp;")
@@ -39,6 +43,9 @@ function sanitizeString(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
 }
+
+// Keep the existing name for callers that already use it.
+const sanitizeString = escapeHTML;
 
 /**
  * Validate and sanitize a request body field
@@ -78,6 +85,8 @@ module.exports = {
   isValidEmail,
   isValidPhone,
   isValidPassword,
+  isPlainCode,
+  escapeHTML,
   sanitizeString,
   validateRequired,
   sanitizeBody,

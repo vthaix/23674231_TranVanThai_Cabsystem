@@ -2,7 +2,7 @@ const repository = require("../repositories/trip.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { sanitizeString } = require("../../../../shared/src/validation/index");
+const { escapeHTML } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME, DRIVER_SERVICE_URL, BOOKING_SERVICE_URL } = require("../config");
 const { haversineDistanceKm, STATUS_TRANSITIONS } = require("../services/trip.service");
 const { parsePagination } = require('../../../../shared/src/pagination');
@@ -370,9 +370,10 @@ async function postTripsIdCancel(input) {
   const { reason } = input.body;
   const requestId = input.requestId;
 
-  if (!reason) {
+  if (typeof reason !== "string" || !reason.trim()) {
     return errorResult(400, "VALIDATION_ERROR", "Cancellation reason is required", requestId);
   }
+  const safeReason = escapeHTML(reason);
 
   const client = await pool.connect();
   try {
@@ -401,25 +402,25 @@ async function postTripsIdCancel(input) {
       return errorResult(409, "CANNOT_CANCEL", `Trip cannot be canceled in status ${trip.status}`, requestId);
     }
 
-    await repository.updateTrips3(client, [sanitizeString(reason), userId, role, tripId]);
+    await repository.updateTrips3(client, [safeReason, userId, role, tripId]);
 
-    await repository.insertTripStatusHistory3(client, [tripId, trip.status, sanitizeString(reason), userId, role, requestId]);
+    await repository.insertTripStatusHistory3(client, [tripId, trip.status, safeReason, userId, role, requestId]);
 
     await repository.insertOutboxEvents3(client, [
       tripId,
-      JSON.stringify({ tripId, reason, canceledBy: userId, customerId: trip.customer_id, driverId: trip.driver_id }),
+      JSON.stringify({ tripId, reason: safeReason, canceledBy: userId, customerId: trip.customer_id, driverId: trip.driver_id }),
       requestId
     ]);
 
     await repository.commit(client);
 
-    await syncBookingStatus(trip, 'CANCELED', sanitizeString(reason), requestId);
+    await syncBookingStatus(trip, 'CANCELED', safeReason, requestId);
     await releaseDriver(trip, requestId);
 
     return response(200, {
       id: tripId,
       status: "CANCELED",
-      cancelReason: reason,
+      cancelReason: safeReason,
       message: "Trip canceled successfully",
       requestId
     });
@@ -441,10 +442,13 @@ async function postTripsIdReviews(input) {
   if (stars === undefined || isNaN(Number(stars)) || Number(stars) < 1 || Number(stars) > 5) {
     return errorResult(400, "VALIDATION_ERROR", "stars must be an integer between 1 and 5", requestId);
   }
+  if (comment != null && typeof comment !== "string") {
+    return errorResult(400, "VALIDATION_ERROR", "comment must be a string", requestId);
+  }
 
   const numStars = Math.round(Number(stars));
   // PC26: Sanitize comment against XSS
-  const sanitizedComment = comment ? sanitizeString(comment.slice(0, 500)) : "";
+  const sanitizedComment = comment ? escapeHTML(comment.slice(0, 500)) : "";
 
   const client = await pool.connect();
   try {

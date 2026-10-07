@@ -43,7 +43,7 @@ node scripts/verify-requested-demo-data.js
 
 The reset script clears all application tables in the six PostgreSQL databases and all notification collections in MongoDB, then creates 1 admin (`admin@gmail.com`), 5 customers, 10 drivers, 45 bookings, 25 completed trips with reviews, 25 payments, and 2 pending offers. Each customer has one booking in each of `SEARCHING`, `EXPIRED`, `NO_DRIVER_FOUND`, and `CANCELED`, plus five `COMPLETED` bookings linked to the five completed trips. All accounts use password `12345678`. Driver phone `0391234568` appeared twice in the supplied list; the duplicate was removed. The reset and verification scripts access MongoDB through `docker compose exec`, because MongoDB has no published host port.
 
-The reset script also clears Redis, rebuilds its driver GEO index, and reserves the two drivers with pending offers.
+The reset script also clears Redis, rebuilds its driver GEO index, and reserves the two drivers with pending offers. All ten demo drivers are ONLINE and spaced about 100 m apart around (10.7769, 106.7008); a 500 m nearby search covers all ten locations.
 
 ## Active booking rule
 

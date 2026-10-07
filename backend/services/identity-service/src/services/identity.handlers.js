@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { hashPhone } = require("../../../../shared/src/crypto/index");
 const { generateToken } = require("../../../../shared/src/auth/jwt");
-const { isValidEmail, isValidPhone, isValidPassword } = require("../../../../shared/src/validation/index");
+const { isValidEmail, isValidPhone, isValidPassword, escapeHTML } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME } = require("../config");
 const { notifyCustomerService } = require("../clients/customer.client");
 const { validateRegistration } = require("../services/identity.service");
@@ -25,6 +25,7 @@ async function postAuthRegister(input) {
     return errorResult(400, "VALIDATION_ERROR", errors.join("; "), requestId);
   }
 
+  const displayName = escapeHTML(fullName.trim());
   const normalizedEmail = email.toLowerCase().trim();
   const phoneHashVal = hashPhone(phone.trim());
   const passwordHash = await bcrypt.hash(password, 10);
@@ -42,14 +43,14 @@ async function postAuthRegister(input) {
     }
 
     // Create account PENDING
-    await repository.insertAccounts(client, [accountId, normalizedEmail, phoneHashVal, passwordHash, fullName.trim()]);
+    await repository.insertAccounts(client, [accountId, normalizedEmail, phoneHashVal, passwordHash, displayName]);
 
     await repository.insertAccountRoles(client, [accountId]);
 
     await repository.commit(client);
 
     // Call customer-service to create profile
-    const customerOk = await notifyCustomerService(accountId, fullName.trim(), normalizedEmail, phone.trim(), phoneHashVal, requestId);
+    const customerOk = await notifyCustomerService(accountId, displayName, normalizedEmail, phone.trim(), phoneHashVal, requestId);
 
     if (!customerOk) {
       // Rollback: delete PENDING account
@@ -71,7 +72,7 @@ async function postAuthRegister(input) {
       aggregateId: accountId,
       requestId,
       recipientIds: [accountId],
-      data: { accountId, role: "CUSTOMER", displayName: fullName.trim() },
+      data: { accountId, role: "CUSTOMER", displayName },
     };
 
     await repository.insertOutboxEvents(pool, [event.eventId, "Account", accountId, "account.registered", "identity.events", accountId, JSON.stringify(event), requestId]);
@@ -79,7 +80,7 @@ async function postAuthRegister(input) {
     return response(201, {
       id: accountId,
       email: normalizedEmail,
-      fullName: fullName.trim(),
+      fullName: displayName,
       role: "CUSTOMER",
       status: "ACTIVE",
     });

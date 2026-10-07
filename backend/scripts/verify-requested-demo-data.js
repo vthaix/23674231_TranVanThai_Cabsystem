@@ -56,9 +56,18 @@ async function main() {
       expect(review?.hi, 5, `${c} max stars`);
       expect(review?.missing, 0, `${c} missing comments`);
     }
-    const drivers = (await pools.driver.query(`SELECT d.id,d.status,l.latitude,l.longitude
-      FROM drivers d JOIN driver_locations l ON l.driver_id=d.id`)).rows;
-    expect(drivers.filter(d => d.status === 'ONLINE').length, 2, 'Online drivers');
+    const drivers = (await pools.driver.query(`SELECT d.id,d.email,d.status,l.latitude,l.longitude
+      FROM drivers d JOIN driver_locations l ON l.driver_id=d.id ORDER BY d.email`)).rows;
+    expect(drivers.filter(d => d.status === 'ONLINE').length, 10, 'Online drivers');
+    for (let i = 1; i < drivers.length; i++) {
+      const previous = drivers[i - 1], current = drivers[i];
+      const meters = distance(
+        { lat: Number(previous.latitude), lng: Number(previous.longitude) },
+        { lat: Number(current.latitude), lng: Number(current.longitude) }
+      );
+      if (Math.abs(meters - 100) > 1)
+        throw new Error(`${previous.email} to ${current.email}: expected ~100m, got ${meters.toFixed(1)}m`);
+    }
     const bookings = (await pools.booking.query(`SELECT pickup_lat,pickup_lng,status FROM bookings`)).rows;
     for (const d of drivers) {
       const pos = { lat: Number(d.latitude), lng: Number(d.longitude) };
