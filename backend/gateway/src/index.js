@@ -189,6 +189,26 @@ app.use("/api/v1", rateLimiter, async (req, res) => {
     }
   }
 
+  // Development-only PC27 helper: change claims but preserve the original signature.
+  // It accepts only a verified Customer token and returns a token that cannot verify.
+  if (req.path === "/demo/jwt-tampered" && req.method === "POST") {
+    if (process.env.NODE_ENV !== "development") {
+      return res.status(404).json({ code: "NOT_FOUND", requestId });
+    }
+    if (!user) {
+      return res.status(401).json({ code: "UNAUTHORIZED", message: "Bearer token required", requestId });
+    }
+    if (user.role !== "CUSTOMER") {
+      return res.status(403).json({ code: "FORBIDDEN", message: "Customer token required", requestId });
+    }
+
+    const parts = authHeader.slice(7).split(".");
+    const payload = { ...user, sub: "admin_001", role: "ADMIN" };
+    parts[1] = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ tamperedToken: parts.join("."), requestId });
+  }
+
   // 2. RBAC check (PC28)
   // Customer role cannot call driver-only routes:
   // /drivers/me/**, /offers/**
