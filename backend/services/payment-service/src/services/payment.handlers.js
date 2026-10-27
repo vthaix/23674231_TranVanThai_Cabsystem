@@ -1,356 +1,110 @@
-const repository = require("../repositories/payment.repository");
-const crypto = require("crypto");
-const { pool } = require("../db/postgres");
-const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { TRIP_SERVICE_URL, BOOKING_SERVICE_URL, SERVICE_NAME } = require("../config");
-const { hashPaymentRequest, isValidCallbackSignature } = require("../services/payment.service");
+const crypto = require('crypto');
+const { pool } = require('../db/postgres');
+const { generateServiceToken } = require('../../../../shared/src/auth/jwt');
+const { TRIP_SERVICE_URL, BOOKING_SERVICE_URL, SERVICE_NAME } = require('../config');
 
-function response(status, body) { return { status, body }; }
-function errorResult(status, code, message, requestId) {
-  return response(status, { code, message, requestId });
-}
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const response = (status, body) => ({ status, body });
+const error = (status, code, message, requestId) => response(status, { code, message, requestId });
 
-async function postPayments(input) {
-  const { sub: userId, role } = input.user;
-  const requestId = input.requestId;
-
-  // Idempotency-Key header is required for safe payment processing
-  // But also accept idempotencyKey in body or fallback key
-  const idempotencyKey = input.headers["idempotency-key"] || input.body.idempotencyKey || `auto_${userId}_${input.body.tripId}`;
-
-  const { tripId } = input.body;
-  if (!tripId) {
-    return errorResult(400, "VALIDATION_ERROR", "tripId is required", requestId);
-  }
-
-  // Payload hash for idempotency check (PC30)
-  const requestHash = hashPaymentRequest(userId, tripId);
-
-  const client = await pool.connect();
-  try {
-    await repository.begin(client);
-
-    // Check idempotency records
-    const idempRes = await repository.findIdempotencyRecords(client, [userId, idempotencyKey]);
-
-    if (idempRes.rows.length > 0) {
-      const record = idempRes.rows[0];
-      if (record.request_hash !== requestHash) {
-        await repository.rollback(client);
-        return errorResult(422, "IDEMPOTENCY_CONFLICT", "Payload does not match original request for this Idempotency-Key", requestId);
-      }
-      // Replay old response without double processing (PC30)
-      await repository.rollback(client);
-      return response(record.response_code || 200, record.response_body);
-    }
-
-    // Call Trip Service to verify trip (internal REST)
-    let trip = null;
-    try {
-      const svcToken = generateServiceToken(SERVICE_NAME, "trip-service");
-      const tripResp = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${tripId}`, {
-        headers: {
-          "x-service-token": svcToken,
-          "x-request-id": requestId
-        }
-      });
-      if (!tripResp.ok) {
-        await repository.rollback(client);
-        return errorResult(tripResp.status, "TRIP_ERROR", "Trip not found or inaccessible", requestId);
-      }
-      trip = await tripResp.json();
-    } catch (e) {
-      await repository.rollback(client);
-      return errorResult(502, "SERVICE_UNAVAILABLE", "Cannot contact Trip service", requestId);
-    }
-
-    // Wallet bookings are funded at booking time and settled on customer request.
-    const escrowResult = await client.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [trip.bookingId]);
-    if (escrowResult.rows.length) {
-      const escrow = escrowResult.rows[0];
-      await repository.rollback(client);
-      return postPaymentsTrip({ ...input, params: { tripId } });
-    }
-
-    // Legacy trips without an escrow retain the provider callback flow.
-    if (trip.status !== "COMPLETED") {
-      await repository.rollback(client);
-      return errorResult(409, "TRIP_NOT_COMPLETED", `Trip is not completed (status: ${trip.status})`, requestId);
-    }
-
-    // Verify caller is customer
-    if (role === "CUSTOMER" && trip.customerId !== userId) {
-      await repository.rollback(client);
-      return errorResult(403, "FORBIDDEN", "Only customer of this trip can pay", requestId);
-    }
-
-    // Verify not already paid
-    if (trip.paymentStatus === "PAID") {
-      await repository.rollback(client);
-      return errorResult(409, "TRIP_ALREADY_PAID", "Trip has already been paid", requestId);
-    }
-
-    const amount = Number(trip.fare);
-    const paymentId = crypto.randomUUID();
-    const providerTransactionId = "txn_" + crypto.randomBytes(16).toString("hex");
-
-    // Insert payment in PENDING
-    await repository.insertPayments(client, [paymentId, tripId, userId, amount, providerTransactionId, idempotencyKey]);
-
-    const responseBody = {
-      id: paymentId,
-      tripId,
-      customerId: userId,
-      amount,
-      currency: "VND",
-      status: "PENDING",
-      provider: "MOCK_PAYMENT",
-      providerTransactionId,
-      callbackUrl: "/api/v1/payments/callback",
-      createdAt: new Date().toISOString(),
-      requestId
-    };
-
-    // Save in idempotency_records
-    await repository.insertIdempotencyRecords(client, [userId, idempotencyKey, requestHash, JSON.stringify(responseBody), paymentId]);
-
-    await repository.commit(client);
-
-    return response(201, responseBody);
-  } catch (err) {
-    await repository.rollback(client);
-    if (err.code === "23505") {
-      // Partial unique index violation on active trip payment
-      return errorResult(409, "PAYMENT_IN_PROGRESS", "A payment for this trip is already pending or completed", requestId);
-    }
-    console.error("[payments/create]", err.message);
-    return errorResult(500, "INTERNAL_ERROR", "Failed to initiate payment", requestId);
-  } finally {
-    client.release();
-  }
+async function servicePost(url, audience, body, requestId) {
+  const result = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-service-token': generateServiceToken(SERVICE_NAME, audience),
+      'x-request-id': requestId
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000)
+  });
+  if (!result.ok) throw new Error(audience + ' returned ' + result.status);
 }
 
 async function postPaymentsTrip(input) {
-  const { sub: userId, role } = input.user;
   const { tripId } = input.params;
-  const requestId = input.requestId;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tripId)) {
-    return errorResult(400, 'VALIDATION_ERROR', 'Valid tripId required', requestId);
-  }
+  const { sub: userId, role } = input.user;
+  const { requestId } = input;
+  if (!uuid.test(tripId)) return error(400, 'VALIDATION_ERROR', 'Valid tripId required', requestId);
+
   try {
-    const token = generateServiceToken(SERVICE_NAME, 'trip-service');
-    const tripResponse = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${tripId}`, {
-      headers: { 'x-service-token': token, 'x-request-id': requestId }, signal: AbortSignal.timeout(5000)
+    const tripResponse = await fetch(TRIP_SERVICE_URL + '/internal/trips/' + tripId, {
+      headers: { 'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service'), 'x-request-id': requestId },
+      signal: AbortSignal.timeout(5000)
     });
-    if (!tripResponse.ok) return errorResult(tripResponse.status, 'TRIP_ERROR', 'Trip not found', requestId);
+    if (!tripResponse.ok) return error(tripResponse.status, 'TRIP_ERROR', 'Trip not found', requestId);
     const trip = await tripResponse.json();
-    const method = trip.paymentMethod || 'BANK';
-    let amount = Number(trip.fare);
-    if (method === 'CASH') {
-      if (role !== 'DRIVER' || trip.driverId !== userId) {
-        return errorResult(403, 'FORBIDDEN', 'Only assigned driver can confirm cash payment', requestId);
+    if (role !== 'ADMIN' &&
+        !(role === 'CUSTOMER' && trip.customerId === userId) &&
+        !(role === 'DRIVER' && trip.driverId === userId)) {
+      return error(403, 'FORBIDDEN', 'Only trip participants can confirm payment', requestId);
+    }
+    if (trip.status !== 'COMPLETED') {
+      return error(409, 'TRIP_NOT_COMPLETED', 'Trip is ' + trip.status, requestId);
+    }
+
+    const client = await pool.connect();
+    let payment;
+    let duplicate;
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [tripId]);
+      const existing = await client.query("SELECT * FROM payments WHERE trip_id=$1 AND status='COMPLETED'", [tripId]);
+      duplicate = existing.rows.length > 0;
+      if (duplicate) {
+        payment = existing.rows[0];
+      } else {
+        const inserted = await client.query("INSERT INTO payments (id,trip_id,customer_id,amount,method,status,provider,completed_at) VALUES($1,$2,$3,$4,$5,'COMPLETED','SIMULATED',NOW()) RETURNING *",
+          [crypto.randomUUID(), tripId, trip.customerId, trip.fare, trip.paymentMethod]);
+        payment = inserted.rows[0];
       }
-      if (trip.status === 'COMPLETED' && trip.paymentStatus === 'PAID') {
-        return response(200, { tripId, bookingId: trip.bookingId, amount,
-          paymentMethod: method, status: 'COMPLETED', paymentStatus: 'PAID', duplicate: true, requestId });
-      }
-    } else {
-      if (role !== 'CUSTOMER' || trip.customerId !== userId) {
-        return errorResult(403, 'FORBIDDEN', 'Only trip customer can pay by bank', requestId);
-      }
-      const { rows } = await pool.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [trip.bookingId]);
-      if (!rows.length) return errorResult(409, 'ESCROW_NOT_FOUND', 'Trip has no held booking fare', requestId);
-      const escrow = rows[0];
-      if (escrow.customer_id !== userId) return errorResult(403, 'FORBIDDEN', 'Escrow owner mismatch', requestId);
-      amount = Number(escrow.amount);
-      if (trip.status === 'COMPLETED' && escrow.status === 'SETTLED') {
-        return response(200, { tripId, bookingId: trip.bookingId, amount,
-          paymentMethod: method, status: 'COMPLETED', paymentStatus: 'PAID', duplicate: true, requestId });
-      }
-      if (!['HELD', 'SETTLED'].includes(escrow.status)) {
-        return errorResult(409, 'ESCROW_NOT_HELD', `Escrow is ${escrow.status}`, requestId);
-      }
-    }
-    if (trip.status !== 'PAYMENT_PENDING') {
-      return errorResult(409, 'TRIP_NOT_READY_FOR_PAYMENT', `Trip is ${trip.status}`, requestId);
-    }
-    const settleResponse = await fetch(`${BOOKING_SERVICE_URL}/internal/bookings/${trip.bookingId}/trip-status`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-request-id': requestId,
-        'x-service-token': generateServiceToken(SERVICE_NAME, 'booking-service') },
-      body: JSON.stringify({ tripId, status: 'COMPLETED' }), signal: AbortSignal.timeout(10000)
-    });
-    if (!settleResponse.ok) {
-      return errorResult(503, 'PAYMENT_PENDING', 'Settlement is pending; retry payment request', requestId);
-    }
-    const finalTripResponse = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${tripId}`, {
-      headers: { 'x-service-token': token, 'x-request-id': requestId }, signal: AbortSignal.timeout(5000)
-    });
-    const finalTrip = finalTripResponse.ok ? await finalTripResponse.json() : null;
-    if (finalTrip?.status !== 'COMPLETED' || finalTrip.paymentStatus !== 'PAID') {
-      return errorResult(503, 'PAYMENT_PENDING', 'Settlement is pending; retry payment request', requestId);
-    }
-    return response(200, { tripId, bookingId: trip.bookingId, amount, paymentMethod: method,
-      status: 'COMPLETED', paymentStatus: 'PAID', requestId });
-  } catch (error) {
-    console.error('[payments/trip]', error.message);
-    return errorResult(503, 'SERVICE_UNAVAILABLE', 'Payment cannot be completed now; retry', requestId);
-  }
-}
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { client.release(); }
 
-async function postPaymentsCallback(input) {
-  const requestId = input.headers["x-request-id"] || crypto.randomUUID();
-  const signatureHeader = input.headers["x-signature"];
-  const rawBody = input.rawBody || Buffer.from(JSON.stringify(input.body));
-
-  const {
-    provider = "MOCK_PAYMENT",
-    providerEventId = crypto.randomUUID(),
-    providerTransactionId,
-    paymentId,
-    status: paymentResult = "SUCCESS",
-    amount
-  } = input.body;
-
-  // 1. Verify HMAC Signature
-  const signatureValid = isValidCallbackSignature(signatureHeader, rawBody);
-
-  const client = await pool.connect();
-  try {
-    await repository.begin(client);
-
-    // Check webhook_events for idempotency (PC19, PC30: prevent replay/double charge)
-    const existingEv = await repository.findWebhookEvents(client, [provider, providerEventId]);
-
-    if (existingEv.rows.length > 0) {
-      await repository.rollback(client);
-      // Already processed, return 200 without re-executing transaction
-      return response(200, { status: "ALREADY_PROCESSED", message: "Duplicate callback ignored" });
-    }
-
-    if (!signatureValid) {
-      await repository.insertWebhookEvents(client, [provider, providerEventId, providerTransactionId, signatureHeader || "", JSON.stringify(input.body)]);
-      await repository.commit(client);
-      return errorResult(401, "INVALID_SIGNATURE", "Invalid callback signature", requestId);
-    }
-
-    // Find target payment
-    let payment = null;
-    if (paymentId) {
-      const pRes = await repository.findPayments(client, [paymentId]);
-      if (pRes.rows.length > 0) payment = pRes.rows[0];
-    } else if (providerTransactionId) {
-      const pRes = await repository.findPayments2(client, [providerTransactionId]);
-      if (pRes.rows.length > 0) payment = pRes.rows[0];
-    }
-
-    if (!payment) {
-      await repository.insertWebhookEvents2(client, [provider, providerEventId, providerTransactionId, signatureHeader || "", JSON.stringify(input.body)]);
-      await repository.commit(client);
-      return errorResult(404, "PAYMENT_NOT_FOUND", "Associated payment not found", requestId);
-    }
-
-    // If payment already COMPLETED, ignore to prevent double charge
-    if (payment.status === "COMPLETED") {
-      await repository.insertWebhookEvents3(client, [payment.id, provider, providerEventId, providerTransactionId, signatureHeader || "", JSON.stringify(input.body)]);
-      await repository.commit(client);
-      return response(200, { status: "IGNORED", message: "Payment already completed" });
-    }
-
-    // Update payment status
-    const targetStatus = paymentResult === "SUCCESS" ? "COMPLETED" : "FAILED";
-    await repository.updatePayments(client, [targetStatus, payment.id]);
-
-    // Record webhook event as PROCESSED
-    await repository.insertWebhookEvents4(client, [payment.id, provider, providerEventId, providerTransactionId, signatureHeader || "", JSON.stringify(input.body), paymentResult, payment.amount]);
-
-    // Outbox event
-    await repository.insertOutboxEvents(client, [
-      payment.id,
-      targetStatus === "COMPLETED" ? "payment.completed" : "payment.failed",
-      JSON.stringify({ paymentId: payment.id, tripId: payment.trip_id, status: targetStatus, amount: payment.amount }),
-      requestId
-    ]);
-
-    await repository.commit(client);
-
-    // If COMPLETED, notify Trip Service (best effort)
-    if (targetStatus === "COMPLETED") {
-      try {
-        const svcToken = generateServiceToken(SERVICE_NAME, "trip-service");
-        await fetch(`${TRIP_SERVICE_URL}/internal/trips/${payment.trip_id}/payment-status`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-service-token": svcToken,
-            "x-request-id": requestId
-          },
-          body: JSON.stringify({ paymentId: payment.id, status: "PAID" })
-        });
-      } catch (e) {
-        console.warn("[payment/callback] Trip update payment status warning:", e.message);
-      }
-    }
+    // A repeated request also repairs a status sync interrupted after the insert.
+    await servicePost(TRIP_SERVICE_URL + '/internal/trips/' + tripId + '/payment-status', 'trip-service',
+      { paymentId: payment.id, status: 'PAID' }, requestId);
+    await servicePost(BOOKING_SERVICE_URL + '/internal/bookings/' + trip.bookingId + '/payment-status', 'booking-service',
+      { tripId, status: 'PAID' }, requestId);
 
     return response(200, {
-      status: targetStatus,
-      paymentId: payment.id,
-      tripId: payment.trip_id,
-      message: `Payment updated to ${targetStatus}`
+      id: payment.id, tripId, bookingId: trip.bookingId, amount: Number(payment.amount),
+      currency: 'VND', paymentMethod: trip.paymentMethod, status: 'COMPLETED',
+      paymentStatus: 'PAID', duplicate, requestId
     });
-  } catch (err) {
-    await repository.rollback(client);
-    console.error("[payments/callback]", err.message);
-    return errorResult(500, "INTERNAL_ERROR", "Callback processing failed", requestId);
-  } finally {
-    client.release();
+  } catch (e) {
+    console.error('[payments/trip]', e.message);
+    return error(503, 'SERVICE_UNAVAILABLE', 'Payment confirmation failed; retry', requestId);
   }
 }
 
 async function getPaymentsId(input) {
-  const { sub: userId, role } = input.user;
   const { id } = input.params;
-  const requestId = input.requestId;
-
+  const { sub: userId, role } = input.user;
+  const { requestId } = input;
+  if (!uuid.test(id)) return error(400, 'VALIDATION_ERROR', 'Valid payment or trip ID required', requestId);
   try {
-    const p = await repository.findById(id);
-    if (!p) {
-      const { rows } = await pool.query('SELECT * FROM booking_escrows WHERE booking_id=$1', [id]);
-      if (!rows.length) return errorResult(404, "NOT_FOUND", "Payment not found", requestId);
-      const escrow = rows[0];
-      if (role === 'CUSTOMER' && escrow.customer_id !== userId) {
-        return errorResult(403, 'FORBIDDEN', 'Access denied', requestId);
-      }
-      return response(200, {
-        id: escrow.booking_id, bookingId: escrow.booking_id, tripId: escrow.trip_id,
-        customerId: escrow.customer_id, driverId: escrow.driver_id,
-        amount: Number(escrow.amount), currency: 'VND', method: 'WALLET',
-        status: escrow.status, createdAt: escrow.created_at, requestId
+    const { rows } = await pool.query('SELECT * FROM payments WHERE id=$1 OR trip_id=$1 LIMIT 1', [id]);
+    if (!rows.length) return error(404, 'NOT_FOUND', 'Payment not found', requestId);
+    const p = rows[0];
+    if (role === 'CUSTOMER' && p.customer_id !== userId) return error(403, 'FORBIDDEN', 'Access denied', requestId);
+    if (role === 'DRIVER') {
+      const tripResponse = await fetch(TRIP_SERVICE_URL + '/internal/trips/' + p.trip_id, {
+        headers: { 'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service') },
+        signal: AbortSignal.timeout(5000)
       });
+      if (!tripResponse.ok || (await tripResponse.json()).driverId !== userId)
+        return error(403, 'FORBIDDEN', 'Access denied', requestId);
     }
-
-    // Authorization
-    if (role === "CUSTOMER" && p.customer_id !== userId) {
-      return errorResult(403, "FORBIDDEN", "Access denied", requestId);
-    }
-
-    return response(200, {
-      id: p.id,
-      tripId: p.trip_id,
-      customerId: p.customer_id,
-      amount: Number(p.amount),
-      currency: p.currency,
-      method: p.method,
-      status: p.status,
-      provider: p.provider,
-      providerTransactionId: p.provider_transaction_id,
-      completedAt: p.completed_at,
-      createdAt: p.created_at,
-      requestId
-    });
-  } catch (err) {
-    return errorResult(500, "INTERNAL_ERROR", "Failed to get payment", requestId);
+    return response(200, { id: p.id, tripId: p.trip_id, customerId: p.customer_id,
+      amount: Number(p.amount), currency: p.currency, method: p.method, status: p.status,
+      completedAt: p.completed_at, createdAt: p.created_at, requestId });
+  } catch (e) {
+    return error(503, 'SERVICE_UNAVAILABLE', 'Payment lookup failed', requestId);
   }
 }
 
-module.exports = { postPayments, postPaymentsTrip, postPaymentsCallback, getPaymentsId };
+module.exports = { postPaymentsTrip, getPaymentsId };

@@ -1,6 +1,5 @@
 const { generateServiceToken } = require('../../../../shared/src/auth/jwt');
-const { SERVICE_NAME, DRIVER_SERVICE_URL, TRIP_SERVICE_URL } = require('../config');
-const escrowClient = require('./escrow.client');
+const { SERVICE_NAME, DRIVER_SERVICE_URL } = require('../config');
 
 async function expireRows(client, rows) {
   const releases = [];
@@ -46,33 +45,6 @@ async function expireStaleSearches(pool) {
     const releases = await expireRows(client, rows);
     await client.query('COMMIT');
     await releaseReservations(releases);
-    const terminal = await client.query(`SELECT id,status,trip_id,current_driver_id FROM bookings
-      WHERE status IN ('EXPIRED','CANCELED','COMPLETED') AND payment_status='HELD'
-      ORDER BY updated_at DESC LIMIT 100`);
-    for (const booking of terminal.rows) {
-      try {
-        if (booking.status === 'COMPLETED' && booking.trip_id && booking.current_driver_id) {
-          await escrowClient.settle(booking.id, booking.trip_id, booking.current_driver_id);
-        } else if (booking.status !== 'COMPLETED') {
-          await escrowClient.refund(booking.id);
-        }
-        if (booking.trip_id) {
-          const tripStatus = booking.status === 'COMPLETED' ? 'PAID' : 'REFUNDED';
-          const tripResponse = await fetch(`${TRIP_SERVICE_URL}/internal/trips/${booking.trip_id}/payment-status`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json',
-              'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service') },
-            body: JSON.stringify({ status: tripStatus }),
-            signal: AbortSignal.timeout(3000)
-          });
-          if (!tripResponse.ok) throw new Error(`Trip payment sync returned ${tripResponse.status}`);
-        }
-        await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
-          [booking.id, booking.status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
-      } catch (error) {
-        if (error.status !== 404 && error.status !== 409) console.warn('[booking/escrow-reconcile]', booking.id, error.message);
-      }
-    }
   } catch (error) {
     if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('[booking/expiry]', error.message);

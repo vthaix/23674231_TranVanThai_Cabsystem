@@ -8,7 +8,7 @@ const base = (process.env.CAB_BASE_URL || 'http://localhost:8000').replace(/\/$/
 const runId = crypto.randomBytes(5).toString('hex');
 const results = [];
 let requestNo = 0;
-let customer, customerToken, adminToken, driver, driverToken, booking, trip, customerBalanceBeforeBooking, driverBalanceBeforeCompletion;
+let customer, customerToken, adminToken, driver, driverToken, booking, trip;
 
 function compose(args, input) {
   const r = spawnSync('docker', ['compose', ...args], {
@@ -258,14 +258,12 @@ await check(15, 'booking dispatches an offer to nearby driver', async () => {
   const pickupLat = 11 + Number.parseInt(runId.slice(0, 4), 16) / 0xffff;
   const pickupLng = 107 + Number.parseInt(runId.slice(4, 8), 16) / 0xffff;
   status(await call('PUT', '/api/v1/drivers/me/location', { lat: pickupLat, lng: pickupLng }, driverToken), 200);
-  customerBalanceBeforeBooking = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
+  assert.equal('balance' in status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200), false);
   booking = status(await call('POST', '/api/v1/bookings', bookingPayload(pickupLat, pickupLng), customerToken,
     { 'idempotency-key': `smoke-${runId}-ride` }), 201);
   assert.equal(booking.status, 'SEARCHING');
-  assert.equal(booking.paymentStatus, 'HELD');
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance,
-    customerBalanceBeforeBooking - booking.fare);
-  assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'HELD');
+  assert.equal(booking.paymentStatus, 'UNPAID');
+  status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 404);
   let offer;
   for (let i = 0; i < 20; i++) {
     const offers = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200);
@@ -290,7 +288,7 @@ await check(16, 'driver accepts offer and trip is assigned', async () => {
 });
 
 await check(17, 'trip status transition and location', async () => {
-  driverBalanceBeforeCompletion = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
+  assert.equal('balance' in status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200), false);
   status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, {
     status: 'ARRIVED', latitude: 10.791, longitude: 106.711
   }, driverToken), 400);
@@ -298,39 +296,33 @@ await check(17, 'trip status transition and location', async () => {
   status(invalid, 409);
   status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, { status: 'CANCELED' }, driverToken), 409);
   status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 409);
-  for (const next of ['ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING']) {
+  for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
     assert.equal(status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, {
       status: next, lat: 10.791, lng: 106.711
     }, driverToken), 200).status, next);
     if (next === 'IN_PROGRESS') {
       status(await call('POST', `/api/v1/bookings/${booking.id}/cancel`,
         { reason: 'Too late to cancel' }, customerToken), 409);
-      assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'HELD');
+      status(await call('GET', `/api/v1/payments/${trip.id}`, undefined, customerToken), 404);
     }
   }
-  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'PAYMENT_PENDING');
+  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).paymentStatus, 'UNPAID');
 });
 
-await check(19, 'customer payment settles escrow and completes trip', async () => {
-  status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, driverToken), 403);
+await check(19, 'payment confirmation completes payment after trip', async () => {
   const paid = status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200);
   assert.equal(paid.status, 'COMPLETED');
-  const payment = status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200);
-  assert.equal(payment.method, 'WALLET');
-  assert.equal(payment.status, 'SETTLED');
+  const payment = status(await call('GET', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200);
+  assert.equal(payment.status, 'COMPLETED');
   assert.equal(payment.amount, booking.fare);
   assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).paymentStatus, 'PAID');
   assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
-  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance,
-    driverBalanceBeforeCompletion + booking.fare);
-
-  const customerBalance = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
-  const driverBalance = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
+  assert.equal(status(await call('GET', `/api/v1/bookings/${booking.id}`, undefined, customerToken), 200).paymentStatus, 'PAID');
   const cashBooking = status(await call('POST', '/api/v1/bookings', {
     ...bookingPayload(booking.pickup.lat, booking.pickup.lng), paymentMethod: 'CASH'
   }, customerToken, { 'idempotency-key': `smoke-${runId}-cash` }), 201);
   assert.equal(cashBooking.paymentStatus, 'UNPAID');
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, customerBalance);
   let cashOffer;
   for (let i = 0; i < 20; i++) {
     cashOffer = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200).data
@@ -340,14 +332,11 @@ await check(19, 'customer payment settles escrow and completes trip', async () =
   }
   assert(cashOffer, 'cash offer missing');
   const cashTripId = status(await call('POST', `/api/v1/bookings/${cashBooking.id}/accept`, {}, driverToken), 200).tripId;
-  for (const next of ['ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING']) {
+  for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
     status(await call('PATCH', `/api/v1/trips/${cashTripId}/status`, { status: next }, driverToken), 200);
   }
-  status(await call('POST', `/api/v1/payments/${cashTripId}`, undefined, customerToken), 403);
   assert.equal(status(await call('POST', `/api/v1/payments/${cashTripId}`, undefined, driverToken), 200).status, 'COMPLETED');
   assert.equal(status(await call('GET', `/api/v1/trips/${cashTripId}`, undefined, customerToken), 200).paymentStatus, 'PAID');
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, customerBalance);
-  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance, driverBalance);
 });
 
 await check(20, 'review persists on completed trip', async () => {
@@ -359,14 +348,12 @@ await check(20, 'review persists on completed trip', async () => {
 });
 
 await check(18, 'customer cancels booking and assigned trip; both parties receive notice', async () => {
-  const balanceBeforeCancel = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
   const b = status(await call('POST', '/api/v1/bookings', bookingPayload(10.88, 106.78), customerToken,
     { 'idempotency-key': `smoke-${runId}-cancel` }), 201);
-  assert.equal(status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 200).status, 'HELD');
+  status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 404);
   const canceled = status(await call('POST', `/api/v1/bookings/${b.id}/cancel`, { reason: 'Smoke customer request' }, customerToken), 200);
   assert.equal(canceled.status, 'CANCELED');
-  assert.equal(status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 200).status, 'REFUNDED');
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeCancel);
+  status(await call('GET', `/api/v1/payments/${b.id}`, undefined, customerToken), 404);
   const listed = status(await call('GET', '/api/v1/bookings?limit=50', undefined, customerToken), 200);
   assert.equal(listed.data.find(x => x.id === b.id)?.status, 'CANCELED');
 
@@ -389,8 +376,7 @@ await check(18, 'customer cancels booking and assigned trip; both parties receiv
     { reason: 'Smoke cancellation' }, customerToken), 200);
   assert.equal(tripCanceled.status, 'CANCELED');
   assert.equal(status(await call('GET', `/api/v1/trips/${assigned.tripId}`, undefined, customerToken), 200).status, 'CANCELED');
-  assert.equal(status(await call('GET', `/api/v1/payments/${b2.id}`, undefined, customerToken), 200).status, 'REFUNDED');
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeCancel);
+  status(await call('GET', `/api/v1/payments/${b2.id}`, undefined, customerToken), 404);
 
   for (const token of [customerToken, cancelToken]) {
     let found = false;
@@ -454,22 +440,17 @@ await check(29, 'request flood receives 429', async () => {
   status(await call('GET', '/health'), 200);
 });
 
-await check(30, 'booking replay preserves one escrow and one charge', async () => {
-  const balanceBeforeReplay = status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance;
+await check(30, 'booking and payment replay are idempotent', async () => {
   const replay = status(await call('POST', '/api/v1/bookings', bookingPayload(booking.pickup.lat, booking.pickup.lng), customerToken,
     { 'idempotency-key': `smoke-${runId}-ride` }), 201);
   assert.equal(replay.id, booking.id);
   assert.equal(replay.fare, booking.fare);
-  assert.equal(status(await call('GET', '/api/v1/customers/me', undefined, customerToken), 200).balance, balanceBeforeReplay);
-  assert.equal(status(await call('GET', `/api/v1/payments/${booking.id}`, undefined, customerToken), 200).status, 'SETTLED');
+  assert.equal(status(await call('GET', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
   const conflict = await call('POST', '/api/v1/bookings', {
     ...bookingPayload(booking.pickup.lat, booking.pickup.lng), destinationAddress: 'Different destination'
   }, customerToken, { 'idempotency-key': `smoke-${runId}-ride` });
   status(conflict, 422);
-  const driverBalanceBeforeReplay = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance;
   assert.equal(status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200).duplicate, true);
-  assert.equal(status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200).balance,
-    driverBalanceBeforeReplay);
 });
 
 const passed = results.filter(r => r.ok).length;

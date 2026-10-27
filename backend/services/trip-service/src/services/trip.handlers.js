@@ -49,7 +49,7 @@ async function getTrips(input) {
   const pagination = parsePagination(query);
   if (!pagination) return errorResult(400, 'VALIDATION_ERROR', 'Invalid page or limit', requestId);
   const { status } = query;
-  if (status && !['ASSIGNED', 'ARRIVED', 'IN_PROGRESS', 'PAYMENT_PENDING', 'COMPLETED', 'CANCELED'].includes(status)) {
+  if (status && !['ASSIGNED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED'].includes(status)) {
     return errorResult(400, 'VALIDATION_ERROR', 'Invalid trip status', requestId);
   }
   const filters = {
@@ -84,7 +84,6 @@ async function syncBookingStatus(trip, status, reason, requestId) {
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) { console.warn('[trip/booking-sync]', status, trip.id, res.status, await res.text()); return false; }
-    await repository.updateTrips(pool, [status === 'COMPLETED' ? 'PAID' : 'REFUNDED', null, trip.id]);
     return true;
   } catch (error) { console.warn('[trip/booking-sync]', status, trip.id, error.message); }
   return false;
@@ -161,7 +160,7 @@ async function postInternalTrips(input) {
     await repository.insertTrips(client, [
       tripId, bookingId, customerId, driverId, normalizedVehicle, paymentMethod,
       pickupAddress, pickupLat, pickupLng, destinationAddress, destinationLat, destinationLng,
-      distKm, baseFare, perKm, fare, paymentMethod === 'BANK' ? 'HELD' : 'UNPAID', JSON.stringify(driverSnapshot)
+      distKm, baseFare, perKm, fare, 'UNPAID', JSON.stringify(driverSnapshot)
     ]);
 
     await repository.insertTripStatusHistory(client, [tripId, requestId]);
@@ -184,7 +183,7 @@ async function postInternalTrips(input) {
       distanceKm: distKm,
       fare,
       status: "ASSIGNED",
-      paymentStatus: paymentMethod === 'BANK' ? 'HELD' : 'UNPAID',
+      paymentStatus: 'UNPAID',
       driverSnapshot
     });
   } catch (err) {
@@ -234,34 +233,11 @@ async function postInternalTripsIdPaymentStatus(input) {
   try {
     const { rows } = await repository.findTrips2(pool, [id]);
     if (!rows.length) return errorResult(404, 'NOT_FOUND', 'Trip not found', requestId);
-    if ((status === 'PAID' && !['PAYMENT_PENDING', 'COMPLETED'].includes(rows[0].status)) ||
+    if ((status === 'PAID' && rows[0].status !== 'COMPLETED') ||
         (status === 'REFUNDED' && rows[0].status !== 'CANCELED')) {
       return errorResult(409, 'INVALID_STATE', 'Trip state does not permit this payment status', requestId);
     }
-    if (status === 'PAID' && rows[0].status === 'PAYMENT_PENDING' && input.serviceIssuer !== 'booking-service') {
-      return errorResult(403, 'FORBIDDEN', 'Only Booking Service may finalize escrow settlement', requestId);
-    }
-    if (status === 'PAID' && rows[0].status === 'PAYMENT_PENDING') {
-      const client = await pool.connect();
-      try {
-        await repository.begin(client);
-        const locked = (await repository.findTrips3(client, [id])).rows[0];
-        if (locked.status === 'PAYMENT_PENDING') {
-          await client.query(`UPDATE trips SET status='COMPLETED', payment_status='PAID',
-            payment_id=COALESCE($2,payment_id), completed_at=NOW(), updated_at=NOW() WHERE id=$1`, [id, paymentId || null]);
-          await repository.insertTripStatusHistory2(client,
-            [id, 'PAYMENT_PENDING', 'COMPLETED', null, 'SYSTEM', null, null, requestId]);
-          await repository.insertOutboxEvents2(client, [id, 'trip.completed',
-            JSON.stringify({ tripId: id, status: 'COMPLETED', driverId: locked.driver_id, customerId: locked.customer_id }), requestId]);
-        }
-        await repository.commit(client);
-      } catch (error) {
-        await repository.rollback(client).catch(() => {});
-        throw error;
-      } finally { client.release(); }
-    } else {
-      await repository.updateTrips(pool, [status, paymentId || null, id]);
-    }
+    await repository.updateTrips(pool, [status, paymentId || null, id]);
 
     return response(200, { id, paymentStatus: status });
   } catch (err) {
@@ -304,7 +280,7 @@ async function patchTripsIdStatus(input) {
       return errorResult(403, "FORBIDDEN", "Only assigned driver can update trip status", requestId);
     }
 
-    // Cancellation must use /cancel so the booking and escrow are updated.
+    // Cancellation must use /cancel so the booking is updated.
     const allowedNext = STATUS_TRANSITIONS[trip.status] || [];
     if (!allowedNext.includes(targetStatus)) {
       await repository.rollback(client);
@@ -341,7 +317,8 @@ async function patchTripsIdStatus(input) {
 
     await repository.commit(client);
 
-    if (targetStatus === 'PAYMENT_PENDING') {
+    if (targetStatus === 'COMPLETED') {
+      await syncBookingStatus(trip, 'COMPLETED', null, requestId);
       await releaseDriver(trip, requestId);
     }
 
@@ -532,6 +509,7 @@ async function getTripsId(input) {
 
     // Get review if any
     const revRes = await repository.findReviews2(pool, [tripId]);
+    const review = revRes.rows[0] || null;
 
     return response(200, {
       id: trip.id,
@@ -556,7 +534,9 @@ async function getTripsId(input) {
       status: trip.status,
       paymentStatus: trip.payment_status,
       driverSnapshot: trip.driver_snapshot,
-      review: revRes.rows[0] || null,
+      review,
+      stars: review ? Number(review.stars) : null,
+      comment: review?.comment ?? null,
       assignedAt: trip.assigned_at,
       arrivedAt: trip.arrived_at,
       startedAt: trip.started_at,

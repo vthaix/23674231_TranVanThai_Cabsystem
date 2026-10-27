@@ -8,7 +8,6 @@ const { producer, isKafkaReady } = require("../events/kafka.producer");
 const { dispatchBooking } = require("../services/booking.service");
 const { expireCustomerSearches, releaseReservations } = require("../services/booking-expiry");
 const { OFFER_TTL_SEC } = require('../config');
-const escrowClient = require('./escrow.client');
 const { calculateFare } = require('../../../../shared/src/fare');
 
 function response(status, body) { return { status, body }; }
@@ -42,22 +41,6 @@ function bookingView(r) {
   };
 }
 
-async function syncTerminalPayment(client, booking, bookingId, tripId, status) {
-  if (booking.payment_method === 'CASH') {
-    if (status === 'COMPLETED' && booking.payment_status !== 'PAID') {
-      await escrowClient.syncTripPayment(tripId, 'PAID');
-      await client.query("UPDATE bookings SET payment_status='PAID' WHERE id=$1", [bookingId]);
-    }
-    return;
-  }
-  if (booking.payment_status !== 'HELD') return;
-  if (status === 'COMPLETED') await escrowClient.settle(bookingId, tripId, booking.current_driver_id);
-  else await escrowClient.refund(bookingId);
-  await escrowClient.syncTripPayment(tripId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED');
-  await client.query('UPDATE bookings SET payment_status=$2 WHERE id=$1',
-    [bookingId, status === 'COMPLETED' ? 'PAID' : 'REFUNDED']);
-}
-
 async function postInternalBookingsIdTripStatus(input) {
   const { id } = input.params;
   const { tripId, status, reason } = input.body;
@@ -80,7 +63,6 @@ async function postInternalBookingsIdTripStatus(input) {
     }
     if (booking.status === status) {
       await client.query('ROLLBACK');
-      await syncTerminalPayment(client, booking, id, tripId, status);
       return response(200, { id, status, requestId });
     }
     if (booking.status !== 'ASSIGNED') {
@@ -98,7 +80,6 @@ async function postInternalBookingsIdTripStatus(input) {
     await client.query(`INSERT INTO booking_status_history(booking_id,from_status,to_status,reason,request_id)
       VALUES($1,'ASSIGNED',$2,$3,$4)`, [id, status, reason || null, requestId]);
     await client.query('COMMIT');
-    await syncTerminalPayment(client, booking, id, tripId, status);
     return response(200, { id, status, requestId });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -261,7 +242,6 @@ async function postBookings(input) {
   const requestHash = crypto.createHash("sha256").update(JSON.stringify(payloadToHash)).digest("hex");
 
   const client = await pool.connect();
-  let heldBookingId = null;
   try {
     await repository.begin(client);
 
@@ -293,10 +273,6 @@ async function postBookings(input) {
     const digest = crypto.createHash('sha256').update(`${customerId}:${idempotencyKey}`).digest('hex');
     const bookingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
     const fare = calculateFare(pLat, pLng, dLat, dLng).amount;
-    if (paymentMethod === 'BANK') {
-      heldBookingId = bookingId;
-      await escrowClient.hold(bookingId, customerId, fare);
-    }
 
     // Insert booking
     await repository.insertBookings(client, [
@@ -305,7 +281,7 @@ async function postBookings(input) {
       safeNote, paymentMethod, OFFER_TTL_SEC
     ]);
     await client.query("UPDATE bookings SET fare=$2,payment_status=$3 WHERE id=$1",
-      [bookingId, fare, paymentMethod === 'BANK' ? 'HELD' : 'UNPAID']);
+      [bookingId, fare, 'UNPAID']);
 
     // History
     await repository.insertBookingStatusHistory(client, [bookingId, customerId, role, requestId]);
@@ -327,7 +303,7 @@ async function postBookings(input) {
       status: "SEARCHING",
       fare,
       currency: 'VND',
-      paymentStatus: paymentMethod === 'BANK' ? 'HELD' : 'UNPAID',
+      paymentStatus: 'UNPAID',
       searchExpiresAt: new Date(Date.now() + OFFER_TTL_SEC * 1000).toISOString(),
       message: "Booking created, searching for nearby driver",
       createdAt: new Date().toISOString(),
@@ -341,13 +317,10 @@ async function postBookings(input) {
     await dispatchBooking(bookingId, client);
 
     await repository.commit(client);
-    heldBookingId = null;
 
     return response(201, responseBody);
   } catch (err) {
     await repository.rollback(client);
-    if (heldBookingId) await escrowClient.refund(heldBookingId).catch(error => console.error('[booking/refund]', error.message));
-    if (err.status === 409) return errorResult(409, err.message, 'Insufficient balance or escrow conflict', requestId);
     if (err.code === '23505' && err.constraint === 'bookings_one_active_per_customer') {
       return errorResult(409, 'ACTIVE_BOOKING_EXISTS', 'Customer already has an active booking', requestId);
     }
@@ -705,12 +678,7 @@ async function postBookingsIdCancel(input) {
     ]);
 
     await repository.commit(client);
-    let paymentStatus = booking.payment_status;
-    if (paymentStatus === 'HELD') {
-      await escrowClient.refund(bookingId);
-      await pool.query("UPDATE bookings SET payment_status='REFUNDED' WHERE id=$1", [bookingId]);
-      paymentStatus = 'REFUNDED';
-    }
+    const paymentStatus = booking.payment_status;
 
     return response(200, {
       id: bookingId,

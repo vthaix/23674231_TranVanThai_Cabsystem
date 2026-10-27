@@ -49,6 +49,8 @@ The reset script also clears Redis, rebuilds its driver GEO index, and reserves 
 
 Each customer can have at most one booking in `SEARCHING` or `ASSIGNED`. A new booking returns `409 ACTIVE_BOOKING_EXISTS` while either state is active. `SEARCHING` lasts 30 minutes (`OFFER_TTL_SEC`); the booking service changes it to `EXPIRED`, expires pending offers, and releases reservations. Finishing or cancelling an assigned trip updates its booking to `COMPLETED` or `CANCELED`.
 
+Payment is simulated without customer or driver balances. A new booking and trip start with `paymentStatus: UNPAID`. The driver advances the trip through `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`. After completion, an authorized trip participant calls `POST /api/v1/payments/:tripId`; the payment record becomes `COMPLETED` and the trip and booking payment statuses become `PAID`. Repeating the call returns the existing payment.
+
 To cancel a booking before starting a new one, use the customer token and booking ID:
 
 ```sh
