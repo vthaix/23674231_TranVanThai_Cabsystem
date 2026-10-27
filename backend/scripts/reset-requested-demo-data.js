@@ -15,6 +15,10 @@ const driverPhones = [
   '0391234561', '0391234562', '0391234563', '0391234564', '0391234565',
   '0391234566', '0391234567', '0391234568', '0391234569', '0391234510',
 ];
+const driverStatuses = [
+  'ONLINE', 'ONLINE', 'ONLINE', 'ONLINE', 'ONLINE',
+  'ONLINE', 'ONLINE', 'OFFLINE', 'OFFLINE', 'OFFLINE',
+];
 const statuses = ['SEARCHING', 'EXPIRED', 'NO_DRIVER_FOUND', 'COMPLETED', 'CANCELED'];
 const center = { lat: 10.7769, lng: 106.7008 };
 // Place dr01–dr10 on a north-south line, approximately 100 m apart.
@@ -42,7 +46,7 @@ const customer = Array.from({ length: 5 }, (_, i) => ({
 const driver = Array.from({ length: 10 }, (_, i) => ({
   n: i + 1, id: driverId(i + 1), email: `dr${String(i + 1).padStart(2, '0')}@gmail.com`,
   phone: driverPhones[i], name: `Tài xế ${String(i + 1).padStart(2, '0')}`,
-  status: 'ONLINE',
+  status: driverStatuses[i],
   lat: Number((center.lat + (i - 4.5) * driverSpacingDegrees).toFixed(6)),
   lng: center.lng,
 }));
@@ -176,7 +180,8 @@ async function main() {
     await seedIdentity();
     await seedProfiles();
     await seedRides();
-    redisCli('GEOADD', 'driver:geo', ...driver.flatMap(d => [String(d.lng), String(d.lat), d.id]));
+    redisCli('GEOADD', 'driver:geo', ...driver.filter(d => d.status === 'ONLINE')
+      .flatMap(d => [String(d.lng), String(d.lat), d.id]));
     for (let i = 0; i < 2; i++) {
       redisCli('SET', `driver:reserve:${driver[i].id}`, bookingId(i * 9 + 1), 'EX', '1700');
     }

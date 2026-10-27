@@ -58,7 +58,8 @@ async function main() {
     }
     const drivers = (await pools.driver.query(`SELECT d.id,d.email,d.status,l.latitude,l.longitude
       FROM drivers d JOIN driver_locations l ON l.driver_id=d.id ORDER BY d.email`)).rows;
-    expect(drivers.filter(d => d.status === 'ONLINE').length, 10, 'Online drivers');
+    expect(drivers.filter(d => d.status === 'ONLINE').length, 7, 'Online drivers');
+    expect(drivers.filter(d => d.status === 'OFFLINE').length, 3, 'Offline drivers');
     for (let i = 1; i < drivers.length; i++) {
       const previous = drivers[i - 1], current = drivers[i];
       const meters = distance(

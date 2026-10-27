@@ -7,7 +7,7 @@
 From `backend/`:
 
 ```sh
-docker compose up -d --build
+npm run build
 npm run smoke:pc6-pc30
 ```
 

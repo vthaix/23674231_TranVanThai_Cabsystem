@@ -12,6 +12,7 @@
     "node": ">=20 <21"
   },
   "scripts": {
+    "build": "bash scripts/rebuild-from-seed.sh",
     "test": "npm run test --workspaces --if-present",
     "smoke:pc6-pc30": "node smoke/pc6-pc30.mjs",
     "dev": "echo \"Use docker compose for the full system\""

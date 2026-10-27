@@ -114,7 +114,7 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 |---|---|---|---|---|
 | PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"ARRIVED","lat":10.7901,"lng":106.7101}` | Driver (`{{driverToken}}`) | Không |
 | PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"IN_PROGRESS","lat":10.7950,"lng":106.7150}` | Driver (`{{driverToken}}`) | Không |
-| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"PAYMENT_PENDING","lat":10.8001,"lng":106.7201}` | Driver (`{{driverToken}}`) | Không |
+| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"COMPLETED","lat":10.8001,"lng":106.7201}` | Driver (`{{driverToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/trips/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 
 ### PC18 – POSTMAN: Hủy chuyến và thông báo
@@ -126,7 +126,6 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 | POST | `{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}/accept` | Không | Driver (`{{driverToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}/cancel` | `{"reason":"Khach doi lich"}` | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/trips/{{cancelTripId}}` | Không | Customer (`{{customerToken}}`) | Không |
-| GET | `{{baseUrl}}/api/v1/payments/{{cancelBookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/notifications?limit=20` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/notifications?limit=20` | Không | Driver (`{{driverToken}}`) | Không |
 
@@ -135,10 +134,10 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
 | GET | `{{baseUrl}}/api/v1/customers/me` | Không | Customer (`{{customerToken}}`) | Không |
-| GET | `{{baseUrl}}/api/v1/payments/{{bookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
-| GET | `{{baseUrl}}/api/v1/payments/{{bookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/trips/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |
 
@@ -220,6 +219,7 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
+| POST | `{{baseUrl}}/api/v1/booking` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-rate-limit-001` |
 | GET | `{{baseUrl}}/api/v1/drivers/nearby?limit=1` | Không | Không | Không |
 | GET | `{{baseUrl}}/health` | Không | Không | Không |
 
@@ -229,7 +229,8 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 |---|---|---|---|---|
 | POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | GET | `{{baseUrl}}/api/v1/customers/me` | Không | Customer (`{{customerToken}}`) | Không |
-| GET | `{{baseUrl}}/api/v1/payments/{{bookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den khac","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |

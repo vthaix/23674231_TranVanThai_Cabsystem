@@ -21,6 +21,8 @@ Mỗi request có một dòng **API** và một dòng **Data** (body). Query str
 
 ## PC9 – Đăng ký tài khoản khách hàng
 
+Email và số điện thoại ví dụ bên dưới chỉ đăng ký được một lần; nếu tài khoản đã tồn tại, thay bằng cặp email/số điện thoại chưa sử dụng.
+
 - API: `POST {{baseUrl}}/api/v1/auth/register`
   - Data: `{"fullName":"Khach Demo","email":"khachdemo01@example.com","phone":"0912345001","password":"DemoPass@123"}`
   - Token: Không
@@ -124,7 +126,7 @@ Mỗi request có một dòng **API** và một dòng **Data** (body). Query str
   - Data: `{"status":"IN_PROGRESS","lat":10.7950,"lng":106.7150}`
   - Token: Driver (`{{driverToken}}`)
 - API: `PATCH {{baseUrl}}/api/v1/trips/{{tripId}}/status`
-  - Data: `{"status":"PAYMENT_PENDING","lat":10.8001,"lng":106.7201}`
+  - Data: `{"status":"COMPLETED","lat":10.8001,"lng":106.7201}`
   - Token: Driver (`{{driverToken}}`)
 - API: `GET {{baseUrl}}/api/v1/trips/{{tripId}}`
   - Data: Không
@@ -148,9 +150,6 @@ Mỗi request có một dòng **API** và một dòng **Data** (body). Query str
 - API: `GET {{baseUrl}}/api/v1/trips/{{cancelTripId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
-- API: `GET {{baseUrl}}/api/v1/payments/{{cancelBookingId}}`
-  - Data: Không
-  - Token: Customer (`{{customerToken}}`)
 - API: `GET {{baseUrl}}/api/v1/notifications?limit=20`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
@@ -163,7 +162,7 @@ Mỗi request có một dòng **API** và một dòng **Data** (body). Query str
 - API: `GET {{baseUrl}}/api/v1/customers/me`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
-- API: `GET {{baseUrl}}/api/v1/payments/{{bookingId}}`
+- API: `GET {{baseUrl}}/api/v1/payments/{{tripId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
 - API: `GET {{baseUrl}}/api/v1/drivers/me`
@@ -172,7 +171,7 @@ Mỗi request có một dòng **API** và một dòng **Data** (body). Query str
 - API: `POST {{baseUrl}}/api/v1/payments/{{tripId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
-- API: `GET {{baseUrl}}/api/v1/payments/{{bookingId}}`
+- API: `GET {{baseUrl}}/api/v1/payments/{{tripId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
 - API: `GET {{baseUrl}}/api/v1/trips/{{tripId}}`
@@ -304,6 +303,7 @@ Data payload JWT gốc trong `phieucham.md`: `{"sub": "user_123", "role": "USER"
 - API: `POST {{baseUrl}}/api/v1/booking` (đường dẫn `/booking` được nêu trong `phieucham.md`; gửi > 1000 requests/sec theo tình huống chấm)
   - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
   - Token: Customer (`{{customerToken}}`)
+  - Idempotency-Key: `demo-rate-limit-001`
 - API: `GET {{baseUrl}}/api/v1/drivers/nearby?limit=1`
   - Data: Không
   - Token: Không
@@ -322,7 +322,7 @@ Gateway hiện có alias `/api/v1/booking` chuyển tiếp tới `/api/v1/bookin
 - API: `GET {{baseUrl}}/api/v1/customers/me`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
-- API: `GET {{baseUrl}}/api/v1/payments/{{bookingId}}`
+- API: `GET {{baseUrl}}/api/v1/payments/{{tripId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
 - API: `POST {{baseUrl}}/api/v1/bookings` (gửi lại request gốc với cùng Idempotency-Key)
