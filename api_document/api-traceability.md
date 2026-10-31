@@ -1,5 +1,7 @@
 # API Traceability
 
+> Báo cáo REST trước khi chuyển IPC sang gRPC. Các dòng Internal /internal/** bên dưới là lịch sử, không còn là endpoint HTTP. Hợp đồng và danh mục hiện tại: [cab.proto](../backend/shared/proto/cab.proto), [hướng dẫn gRPC](../backend/shared/proto/README.md). Các file OpenAPI chỉ mô tả REST qua Gateway.
+
 | Service | Visibility | Method | Endpoint | Use Case / Requirement | Source |
 |---|---|---|---|---|---|
 | identity-service | Public | POST | /auth/register | UC01 / FR-C01 | srs.md §6.9.1, §8.1; microservice_design.md §5.1 |

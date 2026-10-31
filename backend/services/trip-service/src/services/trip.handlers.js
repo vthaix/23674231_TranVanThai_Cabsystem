@@ -1,9 +1,10 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const repository = require("../repositories/trip.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
 const { escapeHTML } = require("../../../../shared/src/validation/index");
-const { SERVICE_NAME, DRIVER_SERVICE_URL, BOOKING_SERVICE_URL } = require("../config");
+const { SERVICE_NAME } = require("../config");
 const { haversineDistanceKm, STATUS_TRANSITIONS } = require("../services/trip.service");
 const { parsePagination } = require('../../../../shared/src/pagination');
 
@@ -76,8 +77,7 @@ async function getTrips(input) {
 
 async function syncBookingStatus(trip, status, reason, requestId) {
   try {
-    const res = await fetch(`${BOOKING_SERVICE_URL}/internal/bookings/${trip.booking_id}/trip-status`, {
-      method: 'POST',
+    const res = await rpcRequest('booking-service', 'UpdateTripStatus', { id: trip.booking_id }, {
       headers: { 'content-type': 'application/json', 'x-request-id': requestId,
         'x-service-token': generateServiceToken(SERVICE_NAME, 'booking-service') },
       body: JSON.stringify({ tripId: trip.id, status, reason }),
@@ -91,8 +91,7 @@ async function syncBookingStatus(trip, status, reason, requestId) {
 
 async function releaseDriver(trip, requestId) {
   try {
-    const res = await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${trip.driver_id}/available`, {
-      method: 'POST',
+    const res = await rpcRequest('driver-service', 'SetAvailable', { id: trip.driver_id }, {
       headers: { 'content-type': 'application/json', 'x-request-id': requestId,
         'x-service-token': generateServiceToken(SERVICE_NAME, 'driver-service') },
       body: JSON.stringify({ tripId: trip.id }),
@@ -135,7 +134,7 @@ async function postInternalTrips(input) {
     let driverSnapshot = null;
     try {
       const svcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-      const snapResp = await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${driverId}/summary`, {
+      const snapResp = await rpcRequest('driver-service', 'GetSummary', { id: driverId }, {
         headers: { "x-service-token": svcToken }
       });
       if (snapResp.ok) {

@@ -1,5 +1,7 @@
 # API Inventory
 
+> Báo cáo REST trước khi chuyển IPC sang gRPC. Các dòng Internal /internal/** bên dưới là lịch sử, không còn là endpoint HTTP. Hợp đồng và danh mục hiện tại: [cab.proto](../backend/shared/proto/cab.proto), [hướng dẫn gRPC](../backend/shared/proto/README.md). Các file OpenAPI chỉ mô tả REST qua Gateway.
+
 Counts below exclude `/health` and `/ready` Operational endpoints.
 
 | Service | Public | Internal |

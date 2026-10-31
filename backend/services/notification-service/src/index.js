@@ -1,5 +1,6 @@
+const { startGrpcServer } = require('../../../shared/src/grpc/transport');
 const app = require("./app");
-const { PORT, SERVICE_NAME } = require("./config");
+const { SERVICE_NAME } = require("./config");
 const { checkDatabase } = require("./db/mongo");
 const { connectKafka } = require("./workers/kafka.consumer");
 
@@ -9,9 +10,7 @@ async function start() {
     .catch((err) => console.warn(`${SERVICE_NAME} mongo connection warning:`, err.message));
 
   await connectKafka();
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`${SERVICE_NAME} listening on port ${PORT}`);
-  });
+  await startGrpcServer(SERVICE_NAME, {}, undefined, app);
 }
 
 start();

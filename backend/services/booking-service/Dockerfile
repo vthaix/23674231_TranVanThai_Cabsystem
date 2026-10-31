@@ -12,6 +12,6 @@ RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/booking-service
 
-EXPOSE 3003
+EXPOSE 50053
 
 CMD ["node", "src/index.js"]

@@ -1,7 +1,8 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const repository = require("../repositories/booking.repository");
 const crypto = require("crypto");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { SERVICE_NAME, DRIVER_SERVICE_URL, OFFER_TTL_SEC } = require("../config");
+const { SERVICE_NAME, OFFER_TTL_SEC } = require("../config");
 
 async function dispatchBooking(bookingId, client) {
   try {
@@ -16,9 +17,9 @@ async function dispatchBooking(bookingId, client) {
 
     // Call Driver Service nearby
     const svcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-    const nearbyUrl = `${DRIVER_SERVICE_URL}/internal/drivers/nearby?lat=${booking.pickup_lat}&lng=${booking.pickup_lng}&vehicleType=${booking.vehicle_type}&excludeIds=${excludeIds}`;
+    const nearbyRequest = { lat: Number(booking.pickup_lat), lng: Number(booking.pickup_lng), vehicleType: booking.vehicle_type, excludeIds };
 
-    const resp = await fetch(nearbyUrl, {
+    const resp = await rpcRequest('driver-service', 'FindNearby', nearbyRequest, {
       headers: { "x-service-token": svcToken }
     });
 
@@ -35,8 +36,7 @@ async function dispatchBooking(bookingId, client) {
     const targetDriver = candidates[0];
 
     // Reserve driver
-    const reserveResp = await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${targetDriver.id}/reservations`, {
-      method: "POST",
+    const reserveResp = await rpcRequest('driver-service', 'ReserveDriver', { id: targetDriver.id }, {
       headers: {
         "content-type": "application/json",
         "x-service-token": svcToken

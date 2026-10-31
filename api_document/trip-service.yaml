@@ -2,53 +2,16 @@ openapi: 3.0.3
 info:
   title: CAB Trip Service
   version: 1.0.0
-  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
-    /internal/** operations are service-to-service only.
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public REST operations go through Gateway; internal communication uses gRPC (backend/shared/proto/cab.proto).
 servers:
 - url: http://localhost:8000/api/v1
   description: Gateway public API
-- url: http://localhost:3004
-  description: trip-service direct/internal testing when reachable
 tags:
 - name: Public
   description: Client-facing API through Gateway
-- name: Internal
-  description: Service-to-service API; never expose through Gateway
 - name: Operational
   description: Liveness/readiness endpoints
 paths:
-  /health:
-    get:
-      tags:
-      - Operational
-      summary: Liveness
-      operationId: getCABTripServiceHealth
-      servers:
-      - url: http://localhost:3004
-      responses:
-        '200':
-          description: Process is alive
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-  /ready:
-    get:
-      tags:
-      - Operational
-      summary: Readiness
-      operationId: getCABTripServiceReady
-      servers:
-      - url: http://localhost:3004
-      responses:
-        '200':
-          description: Dependencies required by the service are ready
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReadyResponse'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
   /trips/{id}:
     get:
       tags:
@@ -205,102 +168,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /internal/trips:
-    post:
-      tags:
-      - Internal
-      summary: Create Trip from accepted Booking
-      operationId: createInternalTrip
-      servers: &id002
-      - url: http://localhost:3004
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/RequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTripRequest'
-      responses:
-        '201':
-          description: Trip created or existing Trip returned idempotently
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - tripId
-                properties:
-                  tripId:
-                    type: string
-                    format: uuid
-                additionalProperties: false
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /internal/trips/{id}:
-    get:
-      tags:
-      - Internal
-      summary: Get Trip payment view
-      operationId: getInternalTrip
-      servers: *id002
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/Id'
-      - $ref: '#/components/parameters/RequestId'
-      responses:
-        '200':
-          description: Fields required by payment-service
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InternalTripPaymentView'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /internal/trips/{id}/payment-status:
-    post:
-      tags:
-      - Internal
-      summary: Mark Trip PAID
-      operationId: markTripPaid
-      servers: *id002
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/Id'
-      - $ref: '#/components/parameters/RequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PaymentStatusRequest'
-      responses:
-        '200':
-          description: paymentStatus is PAID; operation is idempotent
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+
 components:
   schemas:
     Error:

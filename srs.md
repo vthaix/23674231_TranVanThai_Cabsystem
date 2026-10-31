@@ -460,7 +460,7 @@ Kết quả: Account role `DRIVER` ở trạng thái `PENDING` và hồ sơ Driv
 
 # 8. Use Cases
 
-> **Nguyên tắc:** UC được dùng cho các luồng nghiệp vụ có ý nghĩa độc lập. Các tiêu chí kỹ thuật như source structure, secret management và internal REST được đặc tả bằng FR/NFR/architecture thay vì tạo UC chỉ để tăng số lượng. Các tiêu chí có luồng kiểm tra trực tiếp được giữ UC riêng.
+> **Nguyên tắc:** UC được dùng cho các luồng nghiệp vụ có ý nghĩa độc lập. Các tiêu chí kỹ thuật như source structure, secret management và gRPC được đặc tả bằng FR/NFR/architecture thay vì tạo UC chỉ để tăng số lượng. Các tiêu chí có luồng kiểm tra trực tiếp được giữ UC riêng.
 >
 > `Đăng nhập` là **một UC dùng chung** cho Customer, Driver, Employee, Administrator và Board. Role/permission được xác định từ Account và kiểm soát bằng RBAC; không tạo UC đăng nhập riêng cho từng actor.
 
@@ -631,7 +631,7 @@ PC1, PC2 và PC4 là các tiêu chí kỹ thuật/quality attribute nên đượ
 | FR-S03 | Gateway/service áp dụng RBAC, rate limit và input validation/sanitization theo endpoint. | 3, 8, 29 |
 | FR-S04 | Toàn hệ thống chạy được bằng Docker Compose. | 5 |
 | FR-S05 | Không để lộ secret trong repository, image, response hoặc log không cần thiết; cấu hình nhạy cảm dùng environment/secret management. | 2 |
-| FR-S06 | Internal service sử dụng REST cho synchronous call; event-driven communication sử dụng Kafka. Internal API chỉ được gọi từ service network và phải có service credential. | 4, 7 |
+| FR-S06 | Internal service sử dụng gRPC cho synchronous call; event-driven communication sử dụng Kafka. Internal API chỉ được gọi từ service network và phải có service credential. | 4, 7 |
 | FR-S07 | Dữ liệu nhạy cảm phải được bảo vệ khi lưu trữ: password dùng bcrypt; PII nhạy cảm như `phone`, `license_number` dùng AES-256-GCM; giá trị tra cứu như `phone_hash` sử dụng HMAC-SHA256 với secret key. Encryption key và HMAC key nằm ngoài source code/image. | 24 |
 | FR-S08 | Chống SQL/NoSQL Injection bằng parameterized query, schema validation và input validation; payload độc hại không được thay đổi logic truy vấn. | 25 |
 | FR-S09 | Chống XSS/input injection: dữ liệu text phải được validate và encode/sanitize; response API sử dụng JSON và không thực thi HTML/JavaScript từ user input. | 26 |
@@ -813,7 +813,7 @@ Mã HTTP chuẩn: `400` validation, `401` chưa xác thực/token không hợp l
 | BR-S03 | JWT phải được kiểm tra signature, expiration và permission |
 | BR-S04 | Secret không được ghi vào source code, response hoặc log không cần thiết |
 | BR-S05 | Rate limiting áp dụng ở các endpoint cần bảo vệ |
-| BR-S06 | Security-sensitive action phải có request/correlation id để trace; Internal REST phải xác thực service credential |
+| BR-S06 | Security-sensitive action phải có request/correlation id để trace; gRPC phải xác thực service credential |
 
 ---
 
@@ -1101,20 +1101,20 @@ Các service nghiệp vụ không publish port ra host; client chỉ truy cập 
 
 | Caller | Callee | Cơ chế |
 |---|---|---|
-| Gateway | mọi service | REST (forward JWT + service credential) |
-| identity-service | customer-service | Internal REST |
-| driver-service | identity-service | Internal REST |
-| booking-service | driver-service | Internal REST |
-| booking-service | trip-service | Internal REST |
-| trip-service | driver-service | Internal REST |
-| payment-service | trip-service | Internal REST |
-| payment-service | customer-service | Internal REST (khi có `paymentMethodId`) |
+| Gateway | mọi service | gRPC (forward JWT + service credential) |
+| identity-service | customer-service | gRPC |
+| driver-service | identity-service | gRPC |
+| booking-service | driver-service | gRPC |
+| booking-service | trip-service | gRPC |
+| trip-service | driver-service | gRPC |
+| payment-service | trip-service | gRPC |
+| payment-service | customer-service | gRPC (khi có `paymentMethodId`) |
 | booking-service, trip-service | Map Provider adapter | REST |
 | payment-service | Payment Provider adapter | REST + callback |
 | Domain services | Kafka | Publish event (outbox) |
 | Domain services, notification-service | Kafka | Subscribe |
 
-Internal REST dùng prefix `/internal`, phải có service credential và chỉ khả dụng trong service network. Đồ thị gọi **không có vòng**.
+gRPC được định nghĩa trong `backend/shared/proto/cab.proto`, xác thực bằng service credential và chỉ khả dụng trong service network. Các luồng Trip → Booking đồng bộ trạng thái và Trip → Driver nhả tài xế cũng dùng gRPC.
 
 ## 14.2 Phạm vi triển khai
 
@@ -1141,15 +1141,15 @@ Internal REST dùng prefix `/internal`, phải có service credential và chỉ 
 
 ## 15.2 Quy tắc sở hữu giữa các service
 
-1. **Dispatch/Assignment thuộc `booking-service`.** Khi Driver chấp nhận Offer, `booking-service` hoàn tất Assignment rồi gọi `trip-service` tạo Trip qua Internal REST.
+1. **Dispatch/Assignment thuộc `booking-service`.** Khi Driver chấp nhận Offer, `booking-service` hoàn tất Assignment rồi gọi `trip-service` tạo Trip qua gRPC.
 2. **Fare thuộc `trip-service`.** `trip-service` tính và khóa Fare khi tạo Trip; `payment-service` chỉ đọc `Trip.fare`, không tính Fare.
 3. **Review thuộc `trip-service`.**
 4. **`payment-service` chỉ tạo Payment sau khi Trip `COMPLETED`** và `amount = Trip.fare`; client không gửi `amount`.
-5. **Một service không ghi vào dữ liệu của service khác**; chỉ gọi Internal REST hoặc phát event để chủ sở hữu tự đổi trạng thái.
+5. **Một service không ghi vào dữ liệu của service khác**; chỉ gọi gRPC hoặc phát event để chủ sở hữu tự đổi trạng thái.
 
 ```text
 booking-service  (Booking, Dispatch, Offer, Assignment)
-      │  Driver accept → Internal REST: tạo Trip
+      │  Driver accept → gRPC: tạo Trip
       ▼
 trip-service     (Trip, Tracking, Fare)
       │  Trip COMPLETED, Trip.fare
@@ -1180,7 +1180,7 @@ domain services / notification-service / backoffice-service
 | Mã | Yêu cầu |
 |---|---|
 | NFR-01 | Hệ thống sử dụng JWT và RBAC cho authenticated API. |
-| NFR-02 | Internal service sử dụng REST cho synchronous call và Kafka cho event-driven communication. |
+| NFR-02 | Gateway và các internal service sử dụng gRPC cho synchronous call và Kafka cho event-driven communication. Client gọi REST vào Gateway. |
 | NFR-03 | Kafka consumer có idempotency theo `eventId`. |
 | NFR-04 | Kafka producer/consumer có retry policy phù hợp và không silently drop event. |
 | NFR-05 | Notification Service có DLQ. |
@@ -1335,7 +1335,7 @@ Employee phải được kiểm tra thêm bằng permission cụ thể; `OPERATI
 | 1 | Project structure / API / Postman / docs | FR-S14 |
 | 2 | Không commit secret / file rác | FR-S05 |
 | 3 | Gateway routing, auth, RBAC, rate limit | UC16, FR-S02–FR-S03 |
-| 4 | Internal REST | FR-S06, FR-S17 |
+| 4 | gRPC | FR-S06, FR-S17 |
 | 5 | Docker Compose | UC17, FR-S04 |
 | 6 | Health/Ready | UC18, FR-S01, FR-S18 |
 | 7 | Message broker | UC19, FR-S06, FR-K01–FR-K04 |

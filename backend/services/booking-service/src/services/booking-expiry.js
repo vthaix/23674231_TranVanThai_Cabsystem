@@ -1,5 +1,6 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const { generateServiceToken } = require('../../../../shared/src/auth/jwt');
-const { SERVICE_NAME, DRIVER_SERVICE_URL } = require('../config');
+const { SERVICE_NAME } = require('../config');
 
 async function expireRows(client, rows) {
   const releases = [];
@@ -26,8 +27,8 @@ async function releaseReservations(releases) {
   if (!releases.length) return;
   const token = generateServiceToken(SERVICE_NAME, 'driver-service');
   await Promise.allSettled(releases.map(({ bookingId, driverId }) =>
-    fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${driverId}/reservations/${bookingId}`, {
-      method: 'DELETE', headers: { 'x-service-token': token }, signal: AbortSignal.timeout(3000),
+    rpcRequest('driver-service', 'ReleaseReservation', { id: driverId, bookingId }, {
+      headers: { 'x-service-token': token }, signal: AbortSignal.timeout(3000),
     })));
 }
 

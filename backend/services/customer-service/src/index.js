@@ -1,5 +1,7 @@
+const { startGrpcServer } = require('../../../shared/src/grpc/transport');
+const grpcHandlers = { ...require('./controllers/customer.controller') };
 const app = require("./app");
-const { PORT, SERVICE_NAME } = require("./config");
+const { SERVICE_NAME } = require("./config");
 const { runMigrations } = require("./db/postgres");
 const { seed } = require("./db/seed");
 
@@ -8,9 +10,7 @@ async function start() {
     await runMigrations();
     console.log("[customer] Migrations applied");
     await seed();
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`${SERVICE_NAME} listening on port ${PORT}`);
-    });
+    await startGrpcServer(SERVICE_NAME, grpcHandlers, undefined, app);
   } catch (err) {
     console.error("[customer] Startup error:", err.message);
     process.exit(1);

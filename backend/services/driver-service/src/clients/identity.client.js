@@ -1,12 +1,11 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
 const { SERVICE_NAME } = require("../config");
 
-async function requestIdentity(method, path, requestId, body) {
-  const baseUrl = process.env.IDENTITY_SERVICE_URL || "http://identity-service:3000";
+async function requestIdentity(method, request, requestId, body) {
   let result;
   try {
-    result = await fetch(`${baseUrl}${path}`, {
-      method,
+    result = await rpcRequest('identity-service', method, request, {
       headers: {
         "x-service-token": generateServiceToken(SERVICE_NAME, "identity-service"),
         "x-request-id": requestId,
@@ -30,15 +29,15 @@ async function requestIdentity(method, path, requestId, body) {
 }
 
 function createDriverAccount(data, requestId) {
-  return requestIdentity("POST", "/internal/accounts", requestId, data);
+  return requestIdentity("CreateAccount", {}, requestId, data);
 }
 
 function activateDriverAccount(id, requestId) {
-  return requestIdentity("POST", `/internal/accounts/${encodeURIComponent(id)}/activate`, requestId);
+  return requestIdentity("ActivateAccount", { id }, requestId);
 }
 
 function deleteDriverAccount(id, requestId) {
-  return requestIdentity("DELETE", `/internal/accounts/${encodeURIComponent(id)}`, requestId);
+  return requestIdentity("DeleteAccount", { id }, requestId);
 }
 
 module.exports = { createDriverAccount, activateDriverAccount, deleteDriverAccount };

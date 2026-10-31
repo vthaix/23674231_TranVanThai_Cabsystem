@@ -1,5 +1,7 @@
+const { startGrpcServer } = require('../../../shared/src/grpc/transport');
+const grpcHandlers = { ...require('./services/driver.handlers') };
 const app = require("./app");
-const { PORT, SERVICE_NAME } = require("./config");
+const { SERVICE_NAME } = require("./config");
 const { runMigrations, pool } = require("./db/postgres");
 const { seed } = require("./db/seed");
 const { producer } = require("./events/kafka.producer");
@@ -16,9 +18,7 @@ async function start() {
     } catch (error) {
       console.warn(`[driver-service] Kafka relay unavailable: ${error.message}`);
     }
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`${SERVICE_NAME} listening on port ${PORT}`);
-    });
+    await startGrpcServer(SERVICE_NAME, grpcHandlers, undefined, app);
   } catch (err) {
     console.error("[driver-service] Startup error:", err.message);
     process.exit(1);

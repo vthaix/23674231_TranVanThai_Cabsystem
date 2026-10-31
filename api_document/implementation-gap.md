@@ -1,5 +1,7 @@
 # Implementation Gap
 
+> Báo cáo REST trước khi chuyển IPC sang gRPC. Các dòng Internal /internal/** bên dưới là lịch sử, không còn là endpoint HTTP. Hợp đồng và danh mục hiện tại: [cab.proto](../backend/shared/proto/cab.proto), [hướng dẫn gRPC](../backend/shared/proto/README.md). Các file OpenAPI chỉ mô tả REST qua Gateway.
+
 Compared against the repository state read on 2026-10-02. Current service `src/index.js` files mainly register shared `/health` and `/ready`; business routes are not yet implemented.
 
 | Service | Method | Endpoint | Status | Note |

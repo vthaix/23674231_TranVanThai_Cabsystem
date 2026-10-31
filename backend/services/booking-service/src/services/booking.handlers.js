@@ -1,9 +1,10 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const repository = require("../repositories/booking.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
 const { escapeHTML } = require("../../../../shared/src/validation/index");
-const { SERVICE_NAME, DRIVER_SERVICE_URL, TRIP_SERVICE_URL } = require("../config");
+const { SERVICE_NAME } = require("../config");
 const { producer, isKafkaReady } = require("../events/kafka.producer");
 const { dispatchBooking } = require("../services/booking.service");
 const { expireCustomerSearches, releaseReservations } = require("../services/booking-expiry");
@@ -183,61 +184,32 @@ async function postBookings(input) {
     return errorResult(400, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required", requestId);
   }
 
-  const {
-    pickupAddress,
-    pickupLat,
-    pickupLng,
-    destinationAddress,
-    destinationLat,
-    destinationLng,
-    vehicleType = "BIKE",
-    paymentMethod = "BANK",
-    note
-  } = input.body;
+  const { pickup, destination, vehicleType } = input.body || {};
+  const validLocation = location => location && typeof location === "object" &&
+    !Array.isArray(location) &&
+    typeof location.lat === "number" && Number.isFinite(location.lat) && Math.abs(location.lat) <= 90 &&
+    typeof location.lng === "number" && Number.isFinite(location.lng) && Math.abs(location.lng) <= 180;
 
-  if (typeof pickupAddress !== "string" || !pickupAddress.trim() ||
-      typeof destinationAddress !== "string" || !destinationAddress.trim() ||
-      pickupLat === undefined || pickupLng === undefined || destinationLat === undefined || destinationLng === undefined) {
-    return errorResult(400, "VALIDATION_ERROR", "Pickup and destination address with coordinates are required", requestId);
+  if (!validLocation(pickup) || !validLocation(destination)) {
+    return errorResult(400, "VALIDATION_ERROR", "pickup and destination must contain valid numeric lat and lng", requestId);
   }
-  if (note != null && typeof note !== "string") {
-    return errorResult(400, "VALIDATION_ERROR", "note must be a string", requestId);
-  }
-  if (typeof vehicleType !== "string") {
-    return errorResult(400, "VALIDATION_ERROR", "vehicleType must be a string", requestId);
+  if (typeof vehicleType !== "string" || !["BIKE", "SEDAN", "SUV"].includes(vehicleType.toUpperCase())) {
+    return errorResult(400, "VALIDATION_ERROR", "vehicleType must be BIKE, SEDAN or SUV", requestId);
   }
 
-  const pLat = Number(pickupLat);
-  const pLng = Number(pickupLng);
-  const dLat = Number(destinationLat);
-  const dLng = Number(destinationLng);
+  const { lat: pLat, lng: pLng } = pickup;
+  const { lat: dLat, lng: dLng } = destination;
+  const normalizedVehicle = vehicleType.toUpperCase();
+  const paymentMethod = "BANK";
+  // Coordinate labels satisfy address columns required by downstream services.
+  const safePickupAddress = `${pLat}, ${pLng}`;
+  const safeDestinationAddress = `${dLat}, ${dLng}`;
+  const safeNote = null;
 
-  if (![pLat, pLng, dLat, dLng].every(Number.isFinite) ||
-      Math.abs(pLat) > 90 || Math.abs(dLat) > 90 || Math.abs(pLng) > 180 || Math.abs(dLng) > 180) {
-    return errorResult(400, "VALIDATION_ERROR", "Invalid coordinates", requestId);
-  }
-
-  if (!['CASH', 'BANK'].includes(paymentMethod)) {
-    return errorResult(400, 'VALIDATION_ERROR', 'paymentMethod must be CASH or BANK', requestId);
-  }
-  const safePickupAddress = escapeHTML(pickupAddress);
-  const safeDestinationAddress = escapeHTML(destinationAddress);
-  const safeNote = note ? escapeHTML(note) : null;
-
-  const normalizedVehicle = ["BIKE", "SEDAN", "SUV"].includes(vehicleType.toUpperCase())
-    ? vehicleType.toUpperCase()
-    : "BIKE";
-
-  // Request payload hash for idempotency check (PC30)
   const payloadToHash = {
-    pickupAddress,
-    pLat,
-    pLng,
-    destinationAddress,
-    dLat,
-    dLng,
-    vehicleType: normalizedVehicle,
-    paymentMethod
+    pickup: { lat: pLat, lng: pLng },
+    destination: { lat: dLat, lng: dLng },
+    vehicleType: normalizedVehicle
   };
   const requestHash = crypto.createHash("sha256").update(JSON.stringify(payloadToHash)).digest("hex");
 
@@ -426,12 +398,11 @@ async function postOffersIdAccept(input) {
     // Cancel other pending offers for this booking
     await repository.updateOffers2(client, [offer.booking_id, offerId]);
 
-    // 2. Call Trip Service to create Trip (internal REST)
+    // 2. Call Trip Service to create Trip (gRPC)
     let tripId = null;
     try {
       const svcToken = generateServiceToken(SERVICE_NAME, "trip-service");
-      const tripResp = await fetch(`${TRIP_SERVICE_URL}/internal/trips`, {
-        method: "POST",
+      const tripResp = await rpcRequest('trip-service', 'CreateTrip', {}, {
         headers: {
           "content-type": "application/json",
           "x-service-token": svcToken,
@@ -466,8 +437,7 @@ async function postOffersIdAccept(input) {
     // 3. Call Driver Service to set Driver BUSY
     try {
       const driverSvcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-      await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${driverId}/busy`, {
-        method: "POST",
+      await rpcRequest('driver-service', 'SetBusy', { id: driverId }, {
         headers: {
           "content-type": "application/json",
           "x-service-token": driverSvcToken,
@@ -560,8 +530,7 @@ async function postOffersIdReject(input) {
     // Release reservation
     try {
       const svcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-      await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${driverId}/reservations/${offer.booking_id}`, {
-        method: "DELETE",
+      await rpcRequest('driver-service', 'ReleaseReservation', { id: driverId, bookingId: offer.booking_id }, {
         headers: { "x-service-token": svcToken }
       });
     } catch {}
@@ -604,9 +573,8 @@ async function postBookingsIdCancel(input) {
       return errorResult(403, 'FORBIDDEN', "Cannot cancel another customer's booking", requestId);
     }
     try {
-      const tripResponse = await fetch(`${TRIP_SERVICE_URL}/trips/${booking.trip_id}/cancel`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: input.headers.authorization,
+      const tripResponse = await rpcRequest('trip-service', 'CancelTrip', { id: booking.trip_id }, {
+        headers: { 'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service'), authorization: input.headers.authorization,
           'x-request-id': requestId },
         body: JSON.stringify({ reason }),
         signal: AbortSignal.timeout(5000),
@@ -657,8 +625,7 @@ async function postBookingsIdCancel(input) {
     for (const off of pendingOffers.rows) {
       try {
         const svcToken = generateServiceToken(SERVICE_NAME, "driver-service");
-        await fetch(`${DRIVER_SERVICE_URL}/internal/drivers/${off.driver_id}/reservations/${bookingId}`, {
-          method: "DELETE",
+        await rpcRequest('driver-service', 'ReleaseReservation', { id: off.driver_id, bookingId }, {
           headers: { "x-service-token": svcToken }
         });
       } catch {}

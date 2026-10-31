@@ -58,9 +58,8 @@ async function main() {
     assert.equal(login.status, 200);
     const token = login.body.token;
     const customerId = login.body.accountId;
-    const payload = { pickupAddress: 'Temporary smoke pickup', pickupLat: 15, pickupLng: 110,
-      destinationAddress: 'Temporary smoke destination', destinationLat: 15.01,
-      destinationLng: 110.01, vehicleType: 'BIKE' };
+    const payload = { pickup: { lat: 15, lng: 110 },
+      destination: { lat: 15.01, lng: 110.01 }, vehicleType: 'BIKE' };
     const first = await api('POST', '/bookings', token, payload, `active-smoke-${crypto.randomUUID()}`);
     assert.equal(first.status, 201, JSON.stringify(first.body));
     bookingIds.push(first.body.id);

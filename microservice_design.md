@@ -2,9 +2,9 @@
 
 > **Kiến trúc:** API Gateway + 7 Bounded Context (Identity, Customer, Driver, Booking, Trip, Payment, Notification) + hạ tầng Kafka, Redis, PostgreSQL, MongoDB + 2 mock provider
 > **Nguồn nghiệp vụ:** `srs.md` (SRS) và phiếu chấm 30 tiêu chí (PC1–PC30)
-> **Giao tiếp:** REST/HTTPS (Client → Gateway) · **Internal REST** (đồng bộ nội bộ, FR-S06) · Kafka (bất đồng bộ)
+> **Giao tiếp:** REST/HTTPS (Client → Gateway) · **gRPC** (đồng bộ nội bộ, FR-S06) · Kafka (bất đồng bộ)
 
-> **Ghi chú thuật ngữ:** "IPC" là *Inter-Process Communication*: cách service này gọi service khác. Trong hệ thống này IPC đồng bộ là **Internal REST** (`/internal/**`), IPC bất đồng bộ là **Kafka**.
+> **Ghi chú thuật ngữ:** "IPC" là *Inter-Process Communication*: cách service này gọi service khác. Trong hệ thống này IPC đồng bộ là **gRPC** (hợp đồng `.proto`), IPC bất đồng bộ là **Kafka**.
 
 ---
 
@@ -53,21 +53,21 @@ flowchart TB
     CL["Client: Web / Mobile / Admin / Employee"] -->|"REST/HTTPS"| GW["API Gateway<br/>JWT · RBAC · routing · rate limit · tracing"]
     GW <--> RD[("Redis")]
 
-    GW -->|REST| ID["Identity"]
-    GW -->|REST| CU["Customer"]
-    GW -->|REST| DR["Driver"]
-    GW -->|REST| BK["Booking"]
-    GW -->|REST| TR["Trip"]
-    GW -->|REST| PY["Payment"]
-    GW -->|REST| NT["Notification"]
+    GW -->|gRPC| ID["Identity"]
+    GW -->|gRPC| CU["Customer"]
+    GW -->|gRPC| DR["Driver"]
+    GW -->|gRPC| BK["Booking"]
+    GW -->|gRPC| TR["Trip"]
+    GW -->|gRPC| PY["Payment"]
+    GW -->|gRPC| NT["Notification"]
 
-    ID -->|"Internal REST"| CU
-    DR -->|"Internal REST"| ID
-    BK -->|"Internal REST"| DR
-    BK -->|"Internal REST"| TR
-    TR -->|"Internal REST"| DR
-    PY -->|"Internal REST"| TR
-    PY -.->|"Internal REST (tùy chọn)"| CU
+    ID -->|"gRPC"| CU
+    DR -->|"gRPC"| ID
+    BK -->|"gRPC"| DR
+    BK -->|"gRPC"| TR
+    TR -->|"gRPC"| DR
+    PY -->|"gRPC"| TR
+    PY -.->|"gRPC (tùy chọn)"| CU
 
     BK -->|REST| MAP["Map Provider (mock)"]
     TR -->|REST| MAP
@@ -100,7 +100,7 @@ flowchart TB
 
 | Hạng mục | Quy ước |
 |---|---|
-| Đồng bộ nội bộ | Internal REST, prefix `/internal`, JSON, kèm service credential ([2.4](#24-xác-thực-giữa-các-service)) |
+| Đồng bộ nội bộ | gRPC/HTTP2, protobuf request, metadata service credential; hợp đồng `backend/shared/proto/cab.proto` ([2.4](#24-xác-thực-giữa-các-service)) |
 | Bất đồng bộ | Kafka, event envelope thống nhất ([mục 7](#7-kafka-topics--event-catalog)), phát qua **outbox** |
 | Database | Mỗi service một database riêng; không FK xuyên service; không đọc DB của service khác |
 | Đồ thị gọi | Không có vòng: Identity → Customer · Driver → Identity · Booking → Driver, Trip · Trip → Driver · Payment → Trip, Customer |
@@ -147,16 +147,16 @@ BC08 (Feedback/Review) thuộc `trip-service` theo SRS §15.1 và quyết địn
 
 **Quy tắc sở hữu**
 
-1. Dispatch/Assignment thuộc `booking-service`: Driver accept Offer → `booking-service` hoàn tất Assignment → gọi `POST /internal/trips`.
+1. Dispatch/Assignment thuộc `booking-service`: Driver accept Offer → `booking-service` hoàn tất Assignment → gọi `TripService.CreateTrip`.
 2. Fare thuộc `trip-service`: tính và khóa lúc tạo Trip ([5.5](#55-trip-service)). `payment-service` không tính Fare.
-3. `payment-service` chỉ đọc `Trip.fare` qua `GET /internal/trips/{id}` sau khi Trip `COMPLETED`.
+3. `payment-service` chỉ đọc `Trip.fare` qua `TripService.GetTrip` sau khi Trip `COMPLETED`.
 
 ```text
 booking-service  (Booking, Dispatch, Offer, Assignment)
-      │  Driver accept → POST /internal/trips   (event: booking.assigned, trip.assigned)
+      │  Driver accept → TripService.CreateTrip   (event: booking.assigned, trip.assigned)
       ▼
 trip-service     (Trip, Tracking, Fare)
-      │  Trip COMPLETED  (event: trip.completed; Trip.fare đọc qua GET /internal/trips/{id})
+      │  Trip COMPLETED  (event: trip.completed; Trip.fare đọc qua TripService.GetTrip)
       ▼
 payment-service  (Payment: amount = Trip.fare)
 ```
@@ -179,26 +179,25 @@ payment-service  (Payment: amount = Trip.fare)
 | Driver | Trip | Published Language (Kafka) | `driver.location` trong chuyến |
 | Payment Provider, Map Provider | Payment, Booking, Trip | Anti-corruption layer (adapter) | Hệ thống ngoài không chạm vào model nội bộ |
 
-### 2.2 Danh mục Internal REST
+### 2.2 Danh mục gRPC
 
-Chỉ gọi được từ service network, luôn kèm `X-Service-Token` và `X-Request-Id`. Tất cả trả JSON; lỗi theo [9.5](#95-hợp-đồng-api-chung).
+Hợp đồng thực thi: [cab.proto](backend/shared/proto/cab.proto). Gateway gọi `GatewayApi.Invoke` qua gRPC tới từng service để thực thi API public trong cùng tiến trình, không gửi HTTP nội bộ. Các RPC nghiệp vụ có request protobuf riêng; response `Result` giữ status/body nghiệp vụ hiện có.
 
-| Callee | Endpoint | Caller | Mục đích | Idempotency |
-|---|---|---|---|---|
-| Identity | `POST /internal/accounts` | driver | Tạo Account role `DRIVER` (`accountId`, `phone`, `email?`, `password`, `displayName`) | theo `accountId` |
-| Identity | `GET /internal/roles/{role}/permissions` | gateway | Nạp permission cho RBAC (cache 60 giây) | đọc |
-| Customer | `POST /internal/customers` | identity | Tạo hồ sơ Customer (`id = accountId`, `fullName`, `email`, `phone`) | theo `id` |
-| Customer | `GET /internal/customers/{id}/payment-methods/{pmId}` | payment | Lấy token phương thức thanh toán (khi `POST /payments` có `paymentMethodId`) **(P2)** | đọc |
-| Driver | `GET /internal/drivers/nearby` | booking | Ứng viên theo `lat`, `lng`, `radius`, `vehicleType`, `excludeIds`, `limit` | đọc |
-| Driver | `POST /internal/drivers/{id}/reservations` | booking | Giữ chỗ tài xế cho một Offer (`bookingId`, `ttlSec`) | theo `(driverId, bookingId)` |
-| Driver | `DELETE /internal/drivers/{id}/reservations/{bookingId}` | booking | Nhả giữ chỗ | idempotent |
-| Driver | `POST /internal/drivers/{id}/busy` | booking | `ONLINE → BUSY`, ghi `currentTripId`, xóa reservation | theo `tripId` |
-| Driver | `GET /internal/drivers/{id}/summary` | booking, trip | Tên, ảnh, rating, thông tin xe để hiển thị | đọc |
-| Trip | `POST /internal/trips` | booking | Tạo Trip từ Booking (tính `distanceKm`, `fare`) | theo `bookingId` |
-| Trip | `GET /internal/trips/{id}` | payment | Đọc `status`, `fare`, `customerId`, `paymentStatus` | đọc |
-| Trip | `POST /internal/trips/{id}/payment-status` | payment | Đồng bộ `PAID` ngay sau khi Payment `COMPLETED` (best-effort) | idempotent |
+| Callee | RPC | Caller | Mục đích |
+|---|---|---|---|
+| IdentityService | CreateAccount, ActivateAccount, DeleteAccount | driver-service | Tạo, kích hoạt, hủy tài khoản tài xế |
+| CustomerService | CreateCustomer | identity-service | Tạo hồ sơ khách hàng |
+| DriverService | FindNearby, ReserveDriver, ReleaseReservation, SetBusy | booking-service | Tìm và giữ chỗ tài xế, gán chuyến |
+| DriverService | GetSummary, SetAvailable | trip-service | Snapshot tài xế và nhả tài xế khi kết thúc/hủy |
+| TripService | CreateTrip, CancelTrip | booking-service | Tạo/hủy chuyến; CancelTrip còn kiểm tra JWT người dùng |
+| TripService | GetTrip | payment-service | Kiểm tra chuyến trước khi thanh toán |
+| TripService | UpdatePaymentStatus | payment-service, booking-service | Đồng bộ thanh toán |
+| BookingService | UpdateTripStatus | trip-service | Đồng bộ trạng thái hoàn thành/hủy |
+| BookingService | UpdatePaymentStatus | payment-service | Ghi nhận đã thanh toán |
 
-Map Provider và Payment Provider là hệ thống ngoài, gọi qua adapter REST, không thuộc danh mục này.
+Server kiểm tra JWT metadata `x-service-token` và allowlist caller theo RPC, gán `x-request-id`. Mặc định deadline 5 giây, health 2 giây. Thiếu/sai token trả gRPC `UNAUTHENTICATED`; caller không hợp lệ trả `PERMISSION_DENIED`. Các service nghe cổng gRPC 50050–50056 trong Docker, không publish host. Chi tiết: [hướng dẫn gRPC](backend/shared/proto/README.md).
+
+Map Provider và Payment Provider là hệ thống ngoài; adapter có thể dùng REST và callback đi qua Gateway.
 
 ### 2.3 Tương tác Kafka (tóm tắt)
 
@@ -219,8 +218,8 @@ Catalog đầy đủ ở [mục 7](#7-kafka-topics--event-catalog).
 Bảo đảm PC8 (không đi vòng qua Gateway) và FR-S06/FR-S17:
 
 1. **Network:** chỉ `gateway` publish port; các service nằm trong network `cab-internal` của Compose.
-2. **Service credential:** mỗi lời gọi nội bộ (kể cả từ Gateway) mang header `X-Service-Token` là JWT `HS256` ký bằng `INTERNAL_JWT_SECRET`, TTL `INTERNAL_JWT_TTL_SEC` (60 giây), claims `iss` (service gọi), `aud` (service được gọi), `iat`, `exp`. Thiếu hoặc sai → `401`.
-3. **Allowlist theo endpoint:** mỗi endpoint `/internal/**` khai báo danh sách `iss` được phép (ví dụ `POST /internal/drivers/{id}/busy` chỉ `booking-service`); sai `iss` → `403`.
+2. **Service credential:** mỗi lời gọi nội bộ (kể cả từ Gateway) mang metadata `x-service-token` là JWT `HS256` ký bằng `INTERNAL_JWT_SECRET`, TTL `INTERNAL_JWT_TTL_SEC` (60 giây), claims `iss` (service gọi), `aud` (service được gọi), `iat`, `exp`. Thiếu hoặc sai → gRPC `UNAUTHENTICATED`.
+3. **Allowlist theo RPC:** mỗi RPC trong `cab.proto` khai báo danh sách `iss` được phép (ví dụ `DriverService.SetBusy` chỉ `booking-service`); sai `iss` → gRPC `PERMISSION_DENIED`.
 4. **JWT người dùng:** Gateway chuyển tiếp nguyên `Authorization: Bearer ...`; **mỗi service tự verify** chữ ký, `exp` và kiểm tra ownership (FR-S11), không chỉ tin Gateway. Header `X-User-Id`, `X-User-Role`, `X-Service-Token` do client gửi lên đều bị Gateway xóa trước khi chuyển tiếp.
 5. **Public nhưng tự bảo vệ:** `POST /payments/callback` không dùng JWT mà dùng chữ ký HMAC; `POST /auth/*`, `POST /drivers/otp/*` là public có rate limit.
 
@@ -252,9 +251,9 @@ Bảo đảm PC8 (không đi vòng qua Gateway) và FR-S06/FR-S17:
 | Đối tượng | Service sở hữu | Service khác chỉ **đề nghị** qua |
 |---|---|---|
 | Account | Identity | — |
-| Driver | Driver | `POST /internal/drivers/{id}/busy` (Booking); event `trip.*` (Driver tự chuyển `ONLINE`) |
+| Driver | Driver | `DriverService.SetBusy` (Booking); event `trip.*` (Driver tự chuyển `ONLINE`) |
 | Booking, Offer | Booking | event `trip.*`, `driver.offline` |
-| Trip | Trip | `POST /internal/trips` (Booking), `payment-status` (Payment) |
+| Trip | Trip | `TripService.CreateTrip` (Booking), `payment-status` (Payment) |
 | Payment | Payment | — |
 
 Nguyên tắc: một service **không bao giờ ghi** vào dữ liệu của service khác; chỉ gửi yêu cầu hoặc phát event để chủ sở hữu tự đổi trạng thái.
@@ -361,8 +360,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Account, đăng ký/đăng nhập, cấp JWT, role và permission |
 | **b. API qua Gateway** | `POST /auth/register`, `POST /auth/login` |
-| **c. Internal REST cung cấp** | `POST /internal/accounts`, `POST /internal/accounts/{id}/activate`, `DELETE /internal/accounts/{id}` (cho Driver), `GET /internal/roles/{role}/permissions` (cho Gateway) |
-| **d. Gọi đi** | `POST /internal/customers` (Customer) |
+| **c. gRPC cung cấp** | `IdentityService.CreateAccount`, `IdentityService.ActivateAccount`, `IdentityService.DeleteAccount` (cho Driver), RBAC tại Gateway (không gọi REST nội bộ) |
+| **d. Gọi đi** | `CustomerService.CreateCustomer` (Customer) |
 | **e. Kafka** | Publish `identity.events`: `account.registered`, `account.locked`, `account.unlocked`, `account.role_changed`. Không subscribe |
 | **f. Bảng** | Xem [4.3](#43-bảngcollection-của-từng-service) và [8.5.1](#851-identity_db) |
 
@@ -373,8 +372,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 3. Đăng nhập bằng `email` **hoặc** `phone` (Driver chỉ có phone). Tra cứu bằng tham số hóa (email) hoặc `phone_hash`; sai thông tin → `401` thông báo chung.
 4. Sai mật khẩu liên tiếp 5 lần → khóa 15 phút (`failed_login_count`, `locked_until`).
 5. JWT `HS256`, TTL 15 phút, claims `sub` (= accountId), `role`, `iat`, `exp`, `jti`. Role lấy từ DB, không lấy từ body.
-6. **Saga đăng ký:** tạo Account `PENDING` → `POST /internal/customers` (idempotent theo `id`) → Account `ACTIVE` + outbox `account.registered`. Customer lỗi → xóa Account `PENDING`. Job dọn Account `PENDING` quá 10 phút: gọi lại Customer; thành công thì `ACTIVE`, lỗi thì xóa.
-7. `POST /internal/accounts` (Driver gọi) tạo Account `PENDING` role `DRIVER` với mật khẩu do tài xế nhập, idempotent theo `accountId`; trùng phone/email → `409`. Sau khi admin duyệt, Driver gọi `POST /internal/accounts/{id}/activate` để chuyển sang `ACTIVE`; nếu từ chối, gọi `DELETE /internal/accounts/{id}` để huỷ tài khoản.
+6. **Saga đăng ký:** tạo Account `PENDING` → `CustomerService.CreateCustomer` (idempotent theo `id`) → Account `ACTIVE` + outbox `account.registered`. Customer lỗi → xóa Account `PENDING`. Job dọn Account `PENDING` quá 10 phút: gọi lại Customer; thành công thì `ACTIVE`, lỗi thì xóa.
+7. `IdentityService.CreateAccount` (Driver gọi) tạo Account `PENDING` role `DRIVER` với mật khẩu do tài xế nhập, idempotent theo `accountId`; trùng phone/email → `409`. Sau khi admin duyệt, Driver gọi `IdentityService.ActivateAccount` để chuyển sang `ACTIVE`; nếu từ chối, gọi `IdentityService.DeleteAccount` để huỷ tài khoản.
 8. Seed: 8 role, permission, Admin, Board, Employee từng role, Customer và Driver mẫu ([10.5](#105-seed-dữ-liệu)).
 9. **(P2)** Admin khóa/mở khóa account, gán role, refresh token và logout; mọi thao tác ghi `audit_logs`.
 
@@ -386,7 +385,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Hồ sơ Customer; phương thức thanh toán **(P2)** |
 | **b. API qua Gateway** | `GET /customers/{id}` |
-| **c. Internal REST cung cấp** | `POST /internal/customers`; `GET /internal/customers/{id}/payment-methods/{pmId}` **(P2)** |
+| **c. gRPC cung cấp** | `CustomerService.CreateCustomer`; `CustomerService.GetPaymentMethod (P2, chưa triển khai)` **(P2)** |
 | **d. Gọi đi** | Không |
 | **e. Kafka** | Không publish. Subscribe `booking.events`, `trip.events`, `payment.events` để dựng `customer_activity` **(P2)** |
 | **f. Bảng** | [4.3](#43-bảngcollection-của-từng-service), [8.5.2](#852-customer_db) |
@@ -395,7 +394,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 
 1. `GET /customers/{id}`: `CUSTOMER` chỉ xem hồ sơ của chính mình (`sub == id`), sai → `403`; `EMPLOYEE` cần `customer:read`; `ADMIN` được xem. Customer khác trả `403`, không tồn tại trả `404`.
 2. `phone` lưu mã hóa AES-256-GCM (`phone_enc`) và `phone_hash` để tra cứu; response chỉ trả phone dạng rõ cho chính chủ, còn lại trả dạng che (`+84•••••1234`).
-3. `POST /internal/customers` idempotent theo `id` (gọi lại trả lại hồ sơ đã có).
+3. `CustomerService.CreateCustomer` idempotent theo `id` (gọi lại trả lại hồ sơ đã có).
 4. Payment không được thành điều kiện để đặt xe: Customer **không cần** có phương thức thanh toán lưu sẵn (`POST /payments` chỉ dùng `paymentMethodId` khi được gửi).
 
 ---
@@ -406,22 +405,22 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Hồ sơ Driver, Vehicle, OTP và onboarding, duyệt hồ sơ, availability, vị trí, giữ chỗ (reservation) |
 | **b. API qua Gateway** | `POST /drivers/otp/request`, `POST /drivers/otp/verify`, `POST /drivers/register`, `GET /drivers/{id}`, `GET /drivers/nearby`, `PUT /drivers/me/location`, `PUT /drivers/me/availability`, `GET /drivers`, `GET /drivers/{id}/application`, `POST /drivers/{id}/approve`, `POST /drivers/{id}/reject` |
-| **c. Internal REST cung cấp** | `GET /internal/drivers/nearby`, `POST /internal/drivers/{id}/reservations`, `DELETE /internal/drivers/{id}/reservations/{bookingId}`, `POST /internal/drivers/{id}/busy`, `GET /internal/drivers/{id}/summary` |
-| **d. Gọi đi** | `POST /internal/accounts` (Identity) |
+| **c. gRPC cung cấp** | `DriverService.FindNearby`, `DriverService.ReserveDriver`, `DriverService.ReleaseReservation`, `DriverService.SetBusy`, `DriverService.GetSummary` |
+| **d. Gọi đi** | `IdentityService.CreateAccount` (Identity) |
 | **e. Kafka** | Publish `driver.events` (`driver.registered`, `driver.approved`, `driver.rejected`, `driver.online`, `driver.offline`, `driver.busy`) và `driver.location`. Subscribe `trip.events` (`trip.completed`/`trip.canceled` → `ONLINE`; `trip.reviewed` → rating), `booking.events` (`booking.canceled` → nhả reservation) |
 | **f. Bảng / Redis** | [4.3](#43-bảngcollection-của-từng-service), [8.5.3](#853-driver_db); Redis `otp:{phone_hash}`, `otp_fail:{phone_hash}`, `regtoken:{token}`, `driver:geo`, `driver:reserve:{driverId}` |
 
 **Quy tắc**
 
 1. **OTP (PC21):** 6 chữ số, TTL 300 giây, lưu **hash** trong Redis; sai quá 5 lần → khóa 15 phút; đúng → `registrationToken` (15 phút, dùng một lần, chỉ bị đánh dấu đã dùng sau khi transaction lưu hồ sơ commit). Môi trường test: OTP được ghi ra log của service (không gửi SMS thật).
-2. **Đăng ký:** Driver sinh `driverId` trước → `POST /internal/accounts` để tạo Account `PENDING` → transaction lưu `drivers`, `vehicles` ở `PENDING_APPROVAL` + outbox `driver.registered`. Nếu transaction lưu hồ sơ lỗi, gọi Identity xoá Account vừa tạo; client có thể thử đăng ký lại. Trường bắt buộc theo SRS 6.9.4; bằng lái hết hạn bị từ chối (`400`).
+2. **Đăng ký:** Driver sinh `driverId` trước → `IdentityService.CreateAccount` để tạo Account `PENDING` → transaction lưu `drivers`, `vehicles` ở `PENDING_APPROVAL` + outbox `driver.registered`. Nếu transaction lưu hồ sơ lỗi, gọi Identity xoá Account vừa tạo; client có thể thử đăng ký lại. Trường bắt buộc theo SRS 6.9.4; bằng lái hết hạn bị từ chối (`400`).
 3. **Duyệt (PC22):** chỉ `ADMIN`; `PENDING_APPROVAL → OFFLINE` (duyệt, ghi `reviewed_by`, `reviewed_at` và kích hoạt tài khoản Identity) hoặc `→ REJECTED` (bắt buộc `rejected_reason`, xoá tài khoản Identity); ghi `audit_logs`; outbox `driver.approved`/`driver.rejected`.
 4. **Availability (PC23):** chỉ Driver đã duyệt; `OFFLINE ↔ ONLINE`; `BUSY` không được chuyển `OFFLINE` (`409`); chuyển `ONLINE` yêu cầu đã có vị trí hợp lệ; mọi thay đổi ghi `driver_status_history` + outbox.
 5. **Vị trí (PC13):** `PUT /drivers/me/location` kiểm tra `lat ∈ [-90,90]`, `lng ∈ [-180,180]` (sai → `400`); ghi `driver:geo` (Redis `GEOADD`) và upsert `driver_locations` (mỗi tài xế một dòng). Chỉ khi Driver đang `BUSY` mới phát `driver.location_updated` (kèm `tripId`) để Trip theo dõi.
 6. **GEO index:** nạp lại từ `driver_locations` khi service khởi động (mất Redis không mất dữ liệu). Chứa mọi Driver đã duyệt có vị trí.
 7. **Nearby (`GET /drivers/nearby`):** `GEOSEARCH` theo `lat`, `lng`, `radius` (mặc định 1000 m) lấy tối đa 500 ID kèm khoảng cách → lọc trong PostgreSQL theo `status` (mặc định `ONLINE`), `vehicleType`, đã duyệt → sắp xếp theo `distanceM` tăng dần → phân trang (`page`, `limit ≤ 50`) và trả `pagination.total` theo FR-S16. Internal `nearby` dùng cùng thuật toán nhưng luôn `status = ONLINE`, bỏ `excludeIds`, bỏ tài xế đang có reservation, và nếu bật `LOCATION_STALE_SEC` thì bỏ tài xế có vị trí cũ hơn ngưỡng (mặc định tắt để seed tĩnh vẫn khớp được).
 8. **Reservation:** `SET driver:reserve:{driverId} {bookingId} NX EX 1805`. Gọi lại cùng `(driverId, bookingId)` là idempotent; khác `bookingId` → `409`. `busy` và `DELETE` xóa key. TTL 1805 giây = `OFFER_TTL_SEC` + 5 giây.
-9. **`POST /internal/drivers/{id}/busy`:** `ONLINE → BUSY`, ghi `current_trip_id`, xóa reservation, ghi history, outbox `driver.busy`; idempotent theo `tripId`.
+9. **`DriverService.SetBusy`:** `ONLINE → BUSY`, ghi `current_trip_id`, xóa reservation, ghi history, outbox `driver.busy`; idempotent theo `tripId`.
 10. **Phản ứng event:** `trip.completed`/`trip.canceled` → `BUSY → ONLINE`, xóa `current_trip_id`, `completed_trips + 1` khi hoàn tất; `trip.reviewed` → cộng `rating_sum`, `rating_count`. Mọi consumer ghi `processed_events` cùng transaction.
 11. `GET /drivers/{id}`: `DRIVER` chỉ xem của mình; `CUSTOMER` chỉ xem Driver của Trip đang/đã thuộc mình (own-in-trip, kiểm tra qua Trip); `EMPLOYEE`/`ADMIN` được xem. Phone, số CCCD, bằng lái luôn che.
 
@@ -433,8 +432,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Tạo và quản lý Booking, Dispatch/matching, Offer, điều phối luồng nhận chuyến |
 | **b. API qua Gateway** | `GET /bookings`, `POST /bookings`, `POST /bookings/{id}/cancel`, `POST /bookings/{id}/accept`, `GET /offers`, `POST /offers/{id}/reject` |
-| **c. Internal REST cung cấp** | Không |
-| **d. Gọi đi** | Driver: `nearby`, `reservations`, `busy`, `summary`; Trip: `POST /internal/trips`; Map Provider: geocode (khi thiếu tọa độ) |
+| **c. gRPC cung cấp** | Không |
+| **d. Gọi đi** | Driver: `nearby`, `reservations`, `busy`, `summary`; Trip: `TripService.CreateTrip`; Map Provider: geocode (khi thiếu tọa độ) |
 | **e. Kafka** | Publish `booking.events` (`booking.created`, `offer.created`, `booking.assigned`, `booking.no_driver_found`, `booking.canceled`, `booking.completed`). Subscribe `trip.events` (`trip.completed` → `COMPLETED`, `trip.canceled` → `CANCELED`), `driver.events` (`driver.offline` → hủy Offer `PENDING`) |
 | **f. Bảng** | [4.3](#43-bảngcollection-của-từng-service), [8.5.4](#854-booking_db) |
 
@@ -447,8 +446,8 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 5. **Hết hạn Offer:** job chuyển Offer quá `expires_at` thành `EXPIRED`, nhả reservation, đặt `next_dispatch_at = now()` để thử tài xế kế. Driver `reject` làm tương tự với `REJECTED`.
 6. **Nhận chuyến (PC16):** `POST /bookings/{id}/accept` chỉ do Driver có Offer cho Booking đó gọi. Service tra Offer theo Booking ID và Driver ID từ token.
    1. Transaction: khóa Booking `FOR UPDATE`, kiểm tra Offer `PENDING` chưa hết hạn, Booking `SEARCHING` → Offer `ACCEPTED`, Offer `PENDING` khác của Booking → `CANCELED`. Partial unique index `offers(booking_id) WHERE status='ACCEPTED'` bảo đảm đúng một tài xế thắng; request thua nhận `409`.
-   2. `POST /internal/trips` (idempotent theo `bookingId`).
-   3. `POST /internal/drivers/{id}/busy` (idempotent theo `tripId`).
+   2. `TripService.CreateTrip` (idempotent theo `bookingId`).
+   3. `DriverService.SetBusy` (idempotent theo `tripId`).
    4. Transaction: Booking `ASSIGNED`, ghi `trip_id`, `current_driver_id`, outbox `booking.assigned`.
    5. Trả `200` kèm `tripId`.
    Gọi lại accept với cùng Driver khi Offer đã `ACCEPTED` thì **tiếp tục từ bước chưa xong** (idempotent).
@@ -466,18 +465,18 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Trip, tính Fare, chuyển trạng thái chuyến, theo dõi vị trí, Review |
 | **b. API qua Gateway** | `GET /trips/{id}`, `GET /trips/{id}/location`, `PATCH /trips/{id}/status`, `POST /trips/{id}/cancel`, `POST /trips/{id}/reviews` |
-| **c. Internal REST cung cấp** | `POST /internal/trips`, `GET /internal/trips/{id}`, `POST /internal/trips/{id}/payment-status` |
-| **d. Gọi đi** | Driver: `GET /internal/drivers/{id}/summary`; Map Provider: route distance/ETA |
+| **c. gRPC cung cấp** | `TripService.CreateTrip`, `TripService.GetTrip`, `TripService.UpdatePaymentStatus` |
+| **d. Gọi đi** | Driver: `DriverService.GetSummary`; Map Provider: route distance/ETA |
 | **e. Kafka** | Publish `trip.events` (`trip.assigned`, `trip.arrived`, `trip.started`, `trip.completed`, `trip.canceled`, `trip.reviewed`). Subscribe `driver.location` (ghi vị trí), `payment.events` (`payment.completed` → `PAID`) |
 | **f. Bảng / Redis** | [4.3](#43-bảngcollection-của-từng-service), [8.5.5](#855-trip_db); Redis `trip:location:{tripId}` (TTL 1 giờ) |
 
 **Quy tắc**
 
-1. **Tạo Trip:** `POST /internal/trips` (chỉ `booking-service`) idempotent theo `bookingId` (`UNIQUE trips.booking_id`, gọi lại trả Trip đã có). Lấy `summary` tài xế → lưu `driver_snapshot`; gọi Map Provider lấy `distanceKm` (lỗi → Haversine); chọn `fare_rules` active theo `vehicleType`; `fare = round(base_fare + per_km × distanceKm)` và **khóa cố định** cùng snapshot `base_fare`, `per_km_fare`; Trip `ASSIGNED`, `payment_status = UNPAID`; outbox `trip.assigned`.
+1. **Tạo Trip:** `TripService.CreateTrip` (chỉ `booking-service`) idempotent theo `bookingId` (`UNIQUE trips.booking_id`, gọi lại trả Trip đã có). Lấy `summary` tài xế → lưu `driver_snapshot`; gọi Map Provider lấy `distanceKm` (lỗi → Haversine); chọn `fare_rules` active theo `vehicleType`; `fare = round(base_fare + per_km × distanceKm)` và **khóa cố định** cùng snapshot `base_fare`, `per_km_fare`; Trip `ASSIGNED`, `payment_status = UNPAID`; outbox `trip.assigned`.
 2. **Chuyển trạng thái (PC17):** `PATCH /trips/{id}/status` do **Driver được phân công** gọi: `ASSIGNED → ARRIVED → IN_PROGRESS → PAYMENT_PENDING`; sau đó Customer gọi `POST /payments/{tripId}` để Trip thành `COMPLETED`. Nhảy bước hoặc không đúng Driver → `409`/`403`. Mỗi lần ghi `trip_status_history` (kèm vị trí, người thực hiện) + outbox.
 3. **Hủy (PC18):** `POST /trips/{id}/cancel` với `reason` bắt buộc, chỉ `ASSIGNED` hoặc `ARRIVED` (từ `IN_PROGRESS` trở đi → `409`); người gọi là Customer của Trip, Driver được phân công, hoặc Employee có quyền. Ghi người hủy, `trip.canceled` → Booking `CANCELED`, Driver `ONLINE`, Notification báo bên còn lại. BANK hoàn escrow về ví Customer; CASH không phát sinh hoàn tiền ví.
 4. **Vị trí:** consumer `driver.location` ghi `trip:location:{tripId}`; `GET /trips/{id}/location` trả vị trí gần nhất (và `updatedAt`), chưa có thì trả `location: null`. Chỉ Customer của Trip, Driver được gán hoặc Employee có quyền.
-5. **Payment status:** `POST /internal/trips/{id}/payment-status` (chỉ `payment-service`) và event `payment.completed` cùng đặt `payment_status = PAID`; idempotent, không lùi từ `PAID`.
+5. **Payment status:** `TripService.UpdatePaymentStatus` (chỉ `payment-service`) và event `payment.completed` cùng đặt `payment_status = PAID`; idempotent, không lùi từ `PAID`.
 6. **Review (PC20):** `POST /trips/{id}/reviews` với `stars` (1–5), `comment` (≤ 500 ký tự, đã escape); chỉ Customer của Trip, Trip phải `COMPLETED`, mỗi Trip một Review (`UNIQUE trip_id` → `409`); outbox `trip.reviewed` kèm `driverId`, `stars`.
 7. `GET /trips/{id}`: Customer hoặc Driver của Trip, Employee có quyền; người khác `403`. Trả `driver` (từ `driver_snapshot`), `fare`, `distanceKm`, `status`, `paymentStatus`.
 
@@ -489,15 +488,15 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Tạo Payment cho Trip đã hoàn thành, làm việc với Payment Provider, nhận callback |
 | **b. API qua Gateway** | `POST /payments`, `GET /payments/{id}`, `POST /payments/callback` |
-| **c. Internal REST cung cấp** | Không |
-| **d. Gọi đi** | Trip: `GET /internal/trips/{id}`, `POST /internal/trips/{id}/payment-status`; Customer: `GET /internal/customers/{id}/payment-methods/{pmId}` **(P2)**; Payment Provider: `POST /transactions` |
+| **c. gRPC cung cấp** | Không |
+| **d. Gọi đi** | Trip: `TripService.GetTrip`, `TripService.UpdatePaymentStatus`; Customer: `GET /internal/customers/{id}/payment-methods/{pmId}` **(P2)**; Payment Provider: `POST /transactions` |
 | **e. Kafka** | Publish `payment.events` (`payment.completed`, `payment.failed`). Không subscribe |
 | **f. Bảng** | [4.3](#43-bảngcollection-của-từng-service), [8.5.6](#856-payment_db) |
 
 **Tạo Payment (PC19, PC30)**
 
 1. `Idempotency-Key` bắt buộc (thiếu → `400`). Tra `idempotency_records` theo `(userId, endpoint, key)`: cùng payload → trả lại response cũ (không gọi Provider lần hai); payload khác → `422`.
-2. `GET /internal/trips/{tripId}` → Trip phải `COMPLETED` (`409 TRIP_NOT_COMPLETED`), `customerId` phải bằng người gọi (`403`), `paymentStatus` chưa `PAID` (`409 TRIP_ALREADY_PAID`). `amount = Trip.fare`; body không được chứa `amount`.
+2. `TripService.GetTrip(tripId)` → Trip phải `COMPLETED` (`409 TRIP_NOT_COMPLETED`), `customerId` phải bằng người gọi (`403`), `paymentStatus` chưa `PAID` (`409 TRIP_ALREADY_PAID`). `amount = Trip.fare`; body không được chứa `amount`.
 3. Transaction: tạo `payments` `PENDING`. Partial unique index `payments(trip_id) WHERE status IN ('PENDING','COMPLETED')` bảo đảm một Payment hiệu lực cho mỗi Trip (vi phạm → `409`).
 4. Gọi Provider `POST /transactions` (`merchantRef = paymentId`, `amount`, `currency`, `callbackUrl`, `methodToken` nếu có `paymentMethodId`) → ghi `provider_transaction_id`; Provider lỗi → Payment `FAILED` (`failure_code = PROVIDER_ERROR`) + outbox `payment.failed`.
 5. Trả `201` `{ id, tripId, amount, status: "PENDING", providerTransactionId }`.
@@ -508,7 +507,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 2. Tra `webhook_events` theo `(provider, provider_event_id)`: đã có → trả `200` không xử lý lại (**không double charge**).
 3. Tìm Payment theo `providerTransactionId`/`merchantRef`; kiểm tra `amount` khớp; không khớp → `REJECTED`.
 4. `SUCCESS` và Payment `PENDING` → transaction: `COMPLETED` + outbox `payment.completed`. `FAILED` → `FAILED` (`failure_code` từ Provider) + outbox `payment.failed`.
-5. Sau commit `COMPLETED`: gọi `POST /internal/trips/{id}/payment-status` (best-effort). Không thành công thì Trip vẫn nhận `payment.completed` qua Kafka.
+5. Sau commit `COMPLETED`: gọi `TripService.UpdatePaymentStatus` (best-effort). Không thành công thì Trip vẫn nhận `payment.completed` qua Kafka.
 6. Payment đã `COMPLETED`/`FAILED` nhận callback khác kết quả → `IGNORED`, ghi log và cảnh báo; không đổi trạng thái.
 
 **Timeout:** job chuyển Payment `PENDING` quá `PAYMENT_PENDING_TIMEOUT_MIN` phút thành `FAILED` (`failure_code = TIMEOUT`), outbox `payment.failed`. Callback `SUCCESS` đến muộn sau đó được ghi `IGNORED` và cảnh báo Finance (đối soát thủ công).
@@ -525,7 +524,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 |---|---|
 | **a. Trách nhiệm** | Tiêu thụ event, tạo và lưu Notification, phát tới người nhận |
 | **b. API qua Gateway** | `GET /notifications` (paging, `unread`), `PATCH /notifications/{id}/read` |
-| **c. Internal REST cung cấp** | Không |
+| **c. gRPC cung cấp** | Không |
 | **d. Gọi đi** | Không |
 | **e. Kafka** | Subscribe `identity.events`, `driver.events`, `booking.events`, `trip.events`, `payment.events`, `notification.commands`. Publish `notification.dlq` |
 | **f. Collection** | [4.3](#43-bảngcollection-của-từng-service), [8.5.7](#857-notification_db-mongodb) |
@@ -555,7 +554,7 @@ Route Employee/Incident/Board/Admin account **(P2)** thêm sau khi dựng `backo
 
 ## 6. Luồng nghiệp vụ liên service
 
-Nguyên tắc: bước cần kết quả ngay (để quyết định tiếp) dùng **Internal REST**; phản ứng phụ và thông báo dùng **Kafka qua outbox**. Mỗi service chỉ đổi trạng thái của chính mình; service khác chỉ đề nghị hoặc phản ứng bằng event. Deadline/retry xem [9.3](#93-timeout-retry-và-circuit-breaker).
+Nguyên tắc: bước cần kết quả ngay (để quyết định tiếp) dùng **gRPC**; phản ứng phụ và thông báo dùng **Kafka qua outbox**. Mỗi service chỉ đổi trạng thái của chính mình; service khác chỉ đề nghị hoặc phản ứng bằng event. Deadline/retry xem [9.3](#93-timeout-retry-và-circuit-breaker).
 
 ### 6.1 Đăng ký tài khoản
 
@@ -572,7 +571,7 @@ sequenceDiagram
     C->>GW: POST /auth/register
     GW->>ID: forward
     ID->>ID: TX tạo account PENDING
-    ID->>CU: POST /internal/customers (id = accountId)
+    ID->>CU: CustomerService.CreateCustomer (id = accountId)
     alt Tạo hồ sơ thành công
         CU-->>ID: 201
         ID->>ID: TX account ACTIVE + outbox account.registered
@@ -585,7 +584,7 @@ sequenceDiagram
     end
 ```
 
-`POST /internal/customers` idempotent theo `id`, nên Identity gọi lại được khi mất response. Job dọn account `PENDING` quá 10 phút giải quyết trường hợp Identity crash giữa chừng.
+`CustomerService.CreateCustomer` idempotent theo `id`, nên Identity gọi lại được khi mất response. Job dọn account `PENDING` quá 10 phút giải quyết trường hợp Identity crash giữa chừng.
 
 #### 6.1.2 Driver đăng ký và được duyệt (PC21, PC22)
 
@@ -606,14 +605,14 @@ sequenceDiagram
     DR-->>D: registrationToken (15 phút, dùng một lần)
     D->>GW: POST /drivers/register
     GW->>DR: forward
-    DR->>ID: POST /internal/accounts (PENDING, password do Driver nhập)
+    DR->>ID: IdentityService.CreateAccount (PENDING, password do Driver nhập)
     ID-->>DR: 201
     DR->>DR: TX drivers, vehicles PENDING_APPROVAL + outbox driver.registered
     DR-->>D: 201 PENDING_APPROVAL
     AD->>GW: POST /drivers/id/approve
     GW->>DR: forward
     DR->>DR: TX status OFFLINE + audit_logs + outbox driver.approved
-    DR->>ID: POST /internal/accounts/id/activate
+    DR->>ID: IdentityService.CreateAccount/id/activate
     ID-->>DR: ACTIVE
     DR-)KF: driver.approved
 ```
@@ -637,20 +636,20 @@ sequenceDiagram
     BK->>BK: TX booking SEARCHING + history + outbox booking.created
     BK-->>C: 201 SEARCHING
     loop Dispatch worker, tối đa OFFER_MAX_ATTEMPTS lần
-        BK->>DR: GET /internal/drivers/nearby
-        BK->>DR: POST /internal/drivers/id/reservations
+        BK->>DR: DriverService.FindNearby
+        BK->>DR: DriverService.ReserveDriver
         BK->>BK: TX offer PENDING + outbox offer.created
         BK-)KF: offer.created
         KF-)NT: thông báo cho tài xế
     end
     Note over BK: Tài xế gọi POST /offers/id/accept
     BK->>BK: TX offer ACCEPTED, offer khác CANCELED
-    BK->>TR: POST /internal/trips (idempotent theo bookingId)
-    TR->>DR: GET /internal/drivers/id/summary
+    BK->>TR: TripService.CreateTrip (idempotent theo bookingId)
+    TR->>DR: DriverService.GetSummary
     TR->>TR: tính distanceKm, fare từ fare_rules
     TR->>TR: TX trip ASSIGNED + outbox trip.assigned
     TR-->>BK: 201 tripId
-    BK->>DR: POST /internal/drivers/id/busy (tripId)
+    BK->>DR: DriverService.SetBusy (tripId)
     DR->>DR: ONLINE sang BUSY, xóa reservation
     BK->>BK: TX booking ASSIGNED + outbox booking.assigned
     BK-->>C: 200 tripId (trả cho tài xế gọi accept)
@@ -692,7 +691,7 @@ sequenceDiagram
     TR->>TR: Driver chuyển IN_PROGRESS → PAYMENT_PENDING
     C->>GW: POST /payments/{tripId} với Customer token
     GW->>PY: forward
-    PY->>TR: GET /internal/trips/id
+    PY->>TR: TripService.GetTrip
     TR-->>PY: PAYMENT_PENDING, fare, customerId, bookingId
     PY->>BK: yêu cầu hoàn tất Booking
     BK->>DR: chuyển fare đã giữ cho Driver
@@ -720,7 +719,7 @@ sequenceDiagram
 
 | Tình huống | Phát hiện bởi | Xử lý |
 |---|---|---|
-| Tạo Trip timeout, không rõ đã tạo chưa | Booking | Gọi lại `POST /internal/trips`; Trip trả Trip đã có (theo `bookingId`) |
+| Tạo Trip timeout, không rõ đã tạo chưa | Booking | Gọi lại `TripService.CreateTrip`; Trip trả Trip đã có (theo `bookingId`) |
 | Booking crash giữa Offer `ACCEPTED` và `ASSIGNED` | Booking recovery worker | Chạy lại các bước chưa xong; quá 10 phút thì hủy `SYSTEM_ERROR` |
 | Relay outbox lỗi hoặc Kafka tạm down | Outbox relay | Event nằm lại `outbox_events` (`PENDING`), relay retry backoff; luồng đồng bộ vẫn chạy, chỉ thông báo trễ |
 | Consumer nhận event trùng | Consumer | Bỏ qua nhờ `processed_events` |
@@ -889,7 +888,7 @@ Mọi chuyển trạng thái được ghi `*_status_history` (hoặc `audit_logs
 
 1. Mỗi service chỉ đọc/ghi database của chính mình, bằng credential DB riêng.
 2. Không dùng foreign key xuyên service; chỉ lưu UUID tham chiếu (ghi chú `ref→Service.x`).
-3. Cần dữ liệu đồng bộ thì gọi Internal REST; cần phản ứng bất đồng bộ thì nhận Kafka event.
+3. Cần dữ liệu đồng bộ thì gọi gRPC; cần phản ứng bất đồng bộ thì nhận Kafka event.
 4. `outbox_events` thuộc service **phát** event; `processed_events` thuộc service **nhận** event. Payment chỉ phát nên không có `processed_events`.
 5. Redis chỉ là dữ liệu hỗ trợ; mất Redis không được làm mất source of truth trong PostgreSQL/MongoDB.
 6. Dữ liệu từ context khác chỉ là **ảnh chụp tại thời điểm xảy ra** (ví dụ `trips.pickup_address`, `trips.driver_snapshot`), không đồng bộ ngược.
@@ -1589,7 +1588,7 @@ Ràng buộc: `UNIQUE (booking_id) WHERE status = 'ACCEPTED'` (một tài xế t
 | `customer_id` | UUID | ref→Customer; index `(customer_id, created_at DESC)` |
 | `driver_id` | UUID | ref→Driver; index `(driver_id, created_at DESC)` |
 | `vehicle_id` | UUID | ref→Driver.vehicles |
-| `driver_snapshot` | JSONB | Ảnh chụp lúc gán: `fullName`, `avatarUrl`, `ratingAvg`, `vehicle { vehicleType, plateNumber, brand, model, color }` (nguồn `GET /internal/drivers/{id}/summary`) |
+| `driver_snapshot` | JSONB | Ảnh chụp lúc gán: `fullName`, `avatarUrl`, `ratingAvg`, `vehicle { vehicleType, plateNumber, brand, model, color }` (nguồn `DriverService.GetSummary`) |
 | `vehicle_type` | VARCHAR(10) | |
 | `pickup_address` | VARCHAR(500) | Ảnh chụp từ booking |
 | `pickup_lat`, `pickup_lng` | NUMERIC(9,6) | |
@@ -1808,7 +1807,7 @@ Index: unique `{ eventType: 1, channel: 1, locale: 1 }`.
 - **Outbox:** service phát event ghi dữ liệu nghiệp vụ + `outbox_events` trong **cùng transaction** PostgreSQL; relay publish sau, nên không có trường hợp đã commit mà mất event hay đã phát event mà rollback.
 - **Inbox (`processed_events`):** consumer ghi `event_id` cùng transaction với tác động nghiệp vụ; trùng khóa thì bỏ qua. Notification dùng `(eventId, recipientId)`.
 - **Idempotency API:** `Idempotency-Key` cho `POST /bookings` và `POST /payments`, lưu `(scope, endpoint, key, request_hash, response)` trong 24 giờ.
-- **Idempotency lời gọi nội bộ:** theo khóa tự nhiên (`accountId`, `id`, `bookingId`, `tripId`, `(driverId, bookingId)`) như bảng [2.2](#22-danh-mục-internal-rest).
+- **Idempotency lời gọi nội bộ:** theo khóa tự nhiên (`accountId`, `id`, `bookingId`, `tripId`, `(driverId, bookingId)`) như bảng [2.2](#22-danh-mục-grpc).
 - Retry không được làm sai state machine hoặc tạo Payment thành công lần hai.
 
 ### 9.2 Bảo mật dữ liệu và quản lý khóa
@@ -1843,19 +1842,19 @@ Một attacker đọc trực tiếp DB chỉ thấy `password_hash = "$2b$10$…
 
 ### 9.3 Timeout, retry và circuit breaker
 
-Chuỗi đồng bộ dài nhất là `AcceptOffer → POST /internal/trips → (Driver summary, Map) → POST /internal/drivers/{id}/busy`. Deadline phải **giảm dần** theo chiều sâu để tầng trên không timeout trước tầng dưới.
+Chuỗi đồng bộ dài nhất là `AcceptOffer → TripService.CreateTrip → (Driver summary, Map) → DriverService.SetBusy`. Deadline phải **giảm dần** theo chiều sâu để tầng trên không timeout trước tầng dưới.
 
 | Lời gọi | Deadline | Retry | Ghi chú |
 |---|---|---|---|
 | Client → Gateway → service | 15 giây | Client tự quyết (POST cần `Idempotency-Key`) | Gateway trả `504` khi quá hạn |
-| Booking → Trip `POST /internal/trips` | 8 giây | 1 lần (idempotent theo `bookingId`) | Quá hạn → saga recovery |
+| Booking → Trip `TripService.CreateTrip` | 8 giây | 1 lần (idempotent theo `bookingId`) | Quá hạn → saga recovery |
 | Trip → Driver `summary` | 2 giây | 1 lần | |
 | Trip, Booking → Map Provider | 3 giây | 1 lần | Circuit breaker; Trip fallback Haversine |
 | Booking → Driver `nearby`, `reservations`, `busy` | 2 giây | 1 lần (idempotent) | |
-| Payment → Trip `GET /internal/trips/{id}` | 2 giây | 1 lần | |
+| Payment → Trip `TripService.GetTrip` | 2 giây | 1 lần | |
 | Payment → Trip `payment-status` | 2 giây | không | Best-effort; có Kafka bù |
 | Payment → Payment Provider `POST /transactions` | 5 giây | không tự retry (dùng `Idempotency-Key` phía Provider nếu retry thủ công) | Circuit breaker |
-| Identity → Customer `POST /internal/customers` | 3 giây | 1 lần (idempotent theo `id`) | |
+| Identity → Customer `CustomerService.CreateCustomer` | 3 giây | 1 lần (idempotent theo `id`) | |
 
 - Chỉ retry lời gọi **idempotent**; mọi thao tác ghi tiền hoặc tạo đối tượng mang khóa idempotency.
 - Circuit breaker mở khi tỉ lệ lỗi > 50% trong 10 giây; nửa mở thử lại sau 30 giây.
@@ -1923,7 +1922,7 @@ Mỗi service chỉ kiểm tra phụ thuộc mà nó dùng (Identity: DB + Kafka
 ### 9.7 Logging và truy vết
 
 - Log JSON một dòng: `timestamp`, `level`, `service`, `requestId`, `userId`, `route`, `status`, `latencyMs`.
-- `requestId` đi xuyên Gateway → Internal REST (`X-Request-Id`) → Kafka header/envelope → log của consumer.
+- `requestId` đi xuyên Gateway → gRPC (metadata `x-request-id`) → Kafka header/envelope → log của consumer.
 - Thao tác nhạy cảm (duyệt Driver, đổi role/khóa account) ghi `audit_logs` kèm `requestId`.
 
 ---
@@ -1963,12 +1962,12 @@ Cấu trúc bên trong mỗi service:
 ```text
 <service>/
 ├── src/
-│   ├── routes/          # định nghĩa endpoint (public + /internal)
+│   ├── routes/          # định nghĩa REST public cho adapter GatewayApi
 │   ├── controllers/     # parse request, gọi service, format response
 │   ├── services/        # nghiệp vụ, state machine
 │   ├── repositories/    # truy vấn DB (parameterized)
 │   ├── events/          # producers (outbox) và consumers (inbox)
-│   ├── clients/         # Internal REST client tới service khác, adapter provider
+│   ├── clients/         # gRPC client tới service khác, adapter provider
 │   ├── workers/         # outbox relay, dispatch worker, job timeout
 │   ├── config/
 │   └── index.js
@@ -2059,7 +2058,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 1 | Cấu trúc source code | [10.1](#101-cấu-trúc-source-code-pc1), `README.md` | — | Cấu trúc thư mục khớp, README mô tả |
 | 2 | `.gitignore`, `.env` | Repo GitHub | — | `.env`, `node_modules/` không có trong repo; có `.env.example`; không lộ secret |
 | 3 | Nhiệm vụ Gateway | [5.0](#50-api-gateway) | gateway | Mô tả routing, JWT, RBAC, rate limit, tracing |
-| 4 | IPC | [2.2](#22-danh-mục-internal-rest), [2.3](#23-tương-tác-kafka-tóm-tắt) | tất cả | Internal REST + Kafka, có service credential |
+| 4 | IPC | [2.2](#22-danh-mục-grpc), [2.3](#23-tương-tác-kafka-tóm-tắt) | tất cả | gRPC + Kafka, có service credential |
 | 5 | Compose, liệt kê container | `docker compose up -d`, `docker compose ps` | — | 19 container thường trực + `kafka-init`, chỉ `gateway` có port |
 | 6 | Health | `GET /health`, `GET /ready`, `GET /health/services` | gateway + mọi service | healthy/ready, danh sách service |
 | 7 | Kafka | topic `*.events`, consumer group, message mẫu | kafka | Event được phát và tiêu thụ |
@@ -2098,7 +2097,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 | 1 | Không thu hoa hồng; không payout cho Driver; không giữ tiền/hoàn tiền. Payment = `Trip.fare` sau khi Trip `COMPLETED` |
 | 2 | Tài xế đăng ký/đăng nhập bằng số điện thoại (email tùy chọn); Customer vẫn bắt buộc email + phone; login nhận `email` hoặc `phone` |
 | 3 | Hồ sơ Driver gồm CCCD, bằng lái (số, hạng, hạn) và thông tin xe |
-| 4 | Internal REST thay cho gRPC theo FR-S06; service credential là JWT nội bộ ngắn hạn |
+| 4 | gRPC đồng bộ theo FR-S06; service credential là JWT nội bộ ngắn hạn |
 | 5 | `nearby` mặc định `status=ONLINE`; có `status` để lọc `OFFLINE`/`BUSY` |
 | 6 | `LOCATION_STALE_SEC=0` (tắt) để seed tĩnh vẫn khớp được Driver; bật ở môi trường thật |
 | 7 | Driver chỉ phát `driver.location` khi `BUSY`; Driver chuyển `BUSY` bằng lời gọi đồng bộ từ Booking |
@@ -2112,12 +2111,12 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 
 | # | Trên sơ đồ hình | Theo thiết kế v15 |
 |---|---|---|
-| 1 | Chú thích "gRPC (synchronous)" | Đổi thành **Internal REST** |
+| 1 | Chú thích "gRPC (synchronous)" | Giữ **gRPC (synchronous)** cho Gateway → service và service → service |
 | 2 | "Luồng thanh toán" gồm đặt cọc, capture, hoàn tiền | Vẽ lại: Booking → escrow `HELD`; hủy trước `IN_PROGRESS` → `REFUNDED`; Driver kết thúc → Trip `PAYMENT_PENDING`; Customer `POST /payments/{tripId}` → escrow `SETTLED` → Trip `COMPLETED` |
 | 3 | Payment Provider nối vào ô Payment DB | Nối với Payment Service (REST + callback HMAC qua Gateway) |
 | 4 | Nhãn "REST/HTTPS (Callback)" giữa Payment và Notification | Đặt ở nhánh Payment Provider; Notification không liên quan |
 | 5 | Map Provider nối từ Driver DB, gRPC | Booking Service và Trip Service gọi Map Provider (REST) |
-| 6 | Booking ↔ Trip "Create/Update Trip" | Booking chỉ gọi tạo Trip (REST); trạng thái Trip quay về Booking qua Kafka |
+| 6 | Booking ↔ Trip "Create/Update Trip" | Booking gọi tạo/hủy Trip bằng gRPC; Trip đồng bộ trạng thái về Booking bằng gRPC và phát sự kiện Kafka |
 | 7 | Thiếu các lời gọi nội bộ | Bổ sung Identity→Customer, Driver→Identity, Booking→Driver, Trip→Driver, Payment→Trip |
 | 8 | Kafka chỉ nối tới Notification | Booking, Driver, Trip cũng subscribe; Identity publish |
 | 9 | Redis chỉ nối Gateway | Driver (OTP, GEO, reservation) và Trip (vị trí) cũng dùng Redis |
@@ -2126,7 +2125,7 @@ Mọi lời gọi đi qua Gateway (`http://localhost:8000`). Postman collection 
 
 | Hạng mục | Nội dung |
 |---|---|
-| IPC | gRPC → Internal REST `/internal/**` + service credential (mục 2.2, 2.4); toàn bộ luồng và rule viết lại |
+| IPC | REST nội bộ → gRPC theo `backend/shared/proto/cab.proto` + service credential (mục 2.2, 2.4); toàn bộ luồng và rule viết lại |
 | Thanh toán | Bỏ hold/capture/release/payout; Payment tạo sau Trip `COMPLETED`, callback HMAC, `PENDING/COMPLETED/FAILED` (5.6, 6.3). Bỏ bảng `provider_transactions`, `payouts`, `payout_accounts`, bỏ `processed_events` và `audit_logs` của Payment |
 | Saga nhận chuyến | Chỉ Booking → Trip → Driver `busy` (không còn `HoldFunds`); recovery 30 giây/10 phút (5.4, 6.2) |
 | Booking | Bỏ `payment_method_id`; thêm `next_dispatch_at` (dispatch worker bền vững) |

@@ -12,6 +12,6 @@ RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/notification-service
 
-EXPOSE 3006
+EXPOSE 50056
 
 CMD ["node", "src/index.js"]

@@ -4,7 +4,10 @@
   "private": true,
   "type": "commonjs",
   "main": "src/index.js",
+  "scripts": { "test": "node --test test/grpc.test.cjs" },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.0",
+    "@grpc/proto-loader": "^0.8.0",
     "jsonwebtoken": "^9.0.2"
   }
 }

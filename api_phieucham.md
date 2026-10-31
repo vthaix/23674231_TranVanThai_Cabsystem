@@ -88,13 +88,9 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
 ## PC15 – Đặt xe
 
 - API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-ride-001`
-- API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"CASH"}`
-  - Token: Customer (`{{customerToken}}`)
-  - Idempotency-Key: `demo-cash-001`
 - API: `GET {{baseUrl}}/api/v1/bookings/{{bookingId}}`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
@@ -135,7 +131,7 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
 ## PC18 – Hủy chuyến
 
 - API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-cancel-trip-001`
 - API: `GET {{baseUrl}}/api/v1/offers`
@@ -265,18 +261,9 @@ Data gốc trong `phieucham.md`: `{"email": "' OR 1=1 --", "password": "anything
 
 ## PC26 – XSS input test
 
-- API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"<script>alert('hack')</script>","pickupLat":10.85,"pickupLng":106.75,"destinationAddress":"Diem den","destinationLat":10.86,"destinationLng":106.76,"vehicleType":"BIKE","paymentMethod":"BANK"}`
-  - Token: Customer (`{{customerToken}}`)
-  - Idempotency-Key: `demo-xss-booking-001`
-- API: `GET {{baseUrl}}/api/v1/bookings/{{xssBookingId}}`
-  - Data: Không
-  - Token: Customer (`{{customerToken}}`)
-- API: `POST {{baseUrl}}/api/v1/bookings/{{xssBookingId}}/cancel`
-  - Data: `{"reason":"Ket thuc demo XSS"}`
-  - Token: Customer (`{{customerToken}}`)
+Tạo booking với body `{"pickup":{"lat":10.85,"lng":106.75},"destination":{"lat":10.86,"lng":106.76},"vehicleType":"BIKE"}` qua `POST {{baseUrl}}/api/v1/bookings`, dùng Customer token và header `Idempotency-Key: demo-xss-booking-001`. Lưu ID vào `xssBookingId`.
 
-Data gốc trong `phieucham.md`: `<script>alert('hack')</script>`.
+Gọi `POST {{baseUrl}}/api/v1/bookings/{{xssBookingId}}/cancel` với Customer token và body `{"reason":"<script>alert('hack')</script>"}`. Kiểm tra `cancelReason` trong response được escape thành `&lt;script&gt;...`, không chứa thẻ script thô. Có thể gọi `GET {{baseUrl}}/api/v1/bookings/{{xssBookingId}}` để xem dữ liệu đã lưu.
 
 ## PC27 – JWT tampering
 
@@ -307,7 +294,7 @@ Data payload JWT gốc trong `phieucham.md`: `{"sub": "user_123", "role": "USER"
 ## PC29 – Rate limit attack
 
 - API: `POST {{baseUrl}}/api/v1/booking` (đường dẫn `/booking` được nêu trong `phieucham.md`; gửi > 1000 requests/sec theo tình huống chấm)
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-rate-limit-001`
 - API: `GET {{baseUrl}}/api/v1/drivers/nearby?limit=1`
@@ -322,7 +309,7 @@ Gateway hiện có alias `/api/v1/booking` chuyển tiếp tới `/api/v1/bookin
 ## PC30 – Replay attack (idempotency)
 
 - API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-ride-001`
 - API: `GET {{baseUrl}}/api/v1/customers/me`
@@ -332,11 +319,11 @@ Gateway hiện có alias `/api/v1/booking` chuyển tiếp tới `/api/v1/bookin
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
 - API: `POST {{baseUrl}}/api/v1/bookings` (gửi lại request gốc với cùng Idempotency-Key)
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-ride-001`
 - API: `POST {{baseUrl}}/api/v1/bookings`
-  - Data: `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den khac","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}`
+  - Data: `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7211},"vehicleType":"BIKE"}`
   - Token: Customer (`{{customerToken}}`)
   - Idempotency-Key: `demo-ride-001`
 - API: `POST {{baseUrl}}/api/v1/payments/{{tripId}}`

@@ -12,6 +12,6 @@ RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/payment-service
 
-EXPOSE 3005
+EXPOSE 50055
 
 CMD ["node", "src/index.js"]

@@ -1,3 +1,5 @@
+const { rpcRequest } = require('../../shared/src/grpc/transport');
+const { generateServiceToken } = require('../../shared/src/auth/jwt');
 const express = require("express");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -8,15 +10,7 @@ app.use(express.json());
 const PORT = Number(process.env.PORT || 8000);
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 
-const services = {
-  "identity-service": process.env.IDENTITY_SERVICE_URL || "http://identity-service:3000",
-  "customer-service": process.env.CUSTOMER_SERVICE_URL || "http://customer-service:3001",
-  "driver-service": process.env.DRIVER_SERVICE_URL || "http://driver-service:3002",
-  "booking-service": process.env.BOOKING_SERVICE_URL || "http://booking-service:3003",
-  "trip-service": process.env.TRIP_SERVICE_URL || "http://trip-service:3004",
-  "payment-service": process.env.PAYMENT_SERVICE_URL || "http://payment-service:3005",
-  "notification-service": process.env.NOTIFICATION_SERVICE_URL || "http://notification-service:3006"
-};
+const services = ['identity-service', 'customer-service', 'driver-service', 'booking-service', 'trip-service', 'payment-service', 'notification-service'];
 
 // =========================
 // PC6 — Health Check Endpoints
@@ -39,9 +33,10 @@ app.get("/ready", (req, res) => {
 
 app.get("/health/services", async (req, res) => {
   const results = await Promise.all(
-    Object.entries(services).map(async ([name, baseUrl]) => {
+    services.map(async name => {
       try {
-        const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(2000) });
+        const response = await rpcRequest(name, 'Invoke', { method: 'GET', path: '/health' }, {
+          headers: { 'x-service-token': generateServiceToken('gateway', name) }, timeoutMs: 2000 });
         return {
           service: name,
           status: response.ok ? "up" : "down"
@@ -140,7 +135,7 @@ function findRoute(pathname) {
 function buildForwardHeaders(req, requestId, user) {
   const headers = {};
   for (const [key, value] of Object.entries(req.headers)) {
-    if (["host", "connection", "content-length"].includes(key.toLowerCase())) {
+    if (["host", "connection", "content-length", "x-service-token", "x-user-id", "x-user-role", "x-forwarded-by"].includes(key.toLowerCase())) {
       continue;
     }
     if (value !== undefined) {
@@ -235,15 +230,6 @@ app.use("/api/v1", rateLimiter, async (req, res) => {
     });
   }
 
-  const baseUrl = services[route.service];
-  if (!baseUrl) {
-    return res.status(502).json({
-      error: "Target service not configured",
-      service: route.service,
-      requestId
-    });
-  }
-
   // Handle route rewrite (e.g. /booking -> /bookings)
   let targetPath = req.path;
   if (route.rewrite && pathname.startsWith(route.prefix)) {
@@ -251,7 +237,7 @@ app.use("/api/v1", rateLimiter, async (req, res) => {
   }
 
   const queryString = req.url.includes("?") ? req.url.slice(req.path.length) : "";
-  const targetUrl = `${baseUrl}${targetPath}${queryString}`;
+  const targetUrl = `${targetPath}${queryString}`;
 
   try {
     const method = req.method.toUpperCase();
@@ -265,7 +251,11 @@ app.use("/api/v1", rateLimiter, async (req, res) => {
       options.headers["content-type"] = "application/json";
     }
 
-    const response = await fetch(targetUrl, options);
+    const response = await rpcRequest(route.service, 'Invoke', {
+      method, path: targetUrl, bodyJson: options.body || '', headers: options.headers,
+    }, { headers: {
+      'x-service-token': generateServiceToken('gateway', route.service), 'x-request-id': requestId,
+    } });
 
     res.status(response.status);
 

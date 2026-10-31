@@ -2,6 +2,12 @@
 
 The seven application services, gateway, Kafka, Redis, MongoDB, and mock providers run in Docker Compose. The six PostgreSQL databases run on the Mac. Docker Desktop resolves `host.docker.internal` to the host; each service uses that address on port `5432`.
 
+## Communication
+
+Clients use REST/JSON at port 8000. Gateway → service and synchronous service → service calls use gRPC; Kafka remains asynchronous. Application services have no HTTP listeners and expose only internal gRPC ports 50050–50056. See [the gRPC contract and demo guide](shared/proto/README.md).
+
+Run `npm test` to verify RPC transport, caller authentication and REST → Gateway → gRPC integration without databases. After changing source, use `docker compose up -d --build` to rebuild the application without running the data-reset build script.
+
 ## First-time setup
 
 1. Start PostgreSQL on the Mac and confirm `psql -d postgres -c 'SELECT 1'` works. The setup script needs a local PostgreSQL superuser.

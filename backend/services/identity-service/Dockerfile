@@ -12,6 +12,6 @@ RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/identity-service
 
-EXPOSE 3000
+EXPOSE 50050
 
 CMD ["node", "src/index.js"]

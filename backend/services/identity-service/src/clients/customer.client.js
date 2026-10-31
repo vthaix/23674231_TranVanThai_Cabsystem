@@ -1,11 +1,11 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const { generateServiceToken } = require("../../../../shared/src/auth/jwt");
-const { SERVICE_NAME, CUSTOMER_SERVICE_URL } = require("../config");
+const { SERVICE_NAME } = require("../config");
 
 async function notifyCustomerService(accountId, fullName, email, phone, phoneHash, requestId) {
   try {
     const token = generateServiceToken(SERVICE_NAME, "customer-service");
-    const res = await fetch(`${CUSTOMER_SERVICE_URL}/internal/customers`, {
-      method: "POST",
+    const res = await rpcRequest('customer-service', 'CreateCustomer', {}, {
       headers: {
         "Content-Type": "application/json",
         "X-Service-Token": token,

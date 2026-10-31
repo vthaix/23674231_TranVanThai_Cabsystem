@@ -1,6 +1,6 @@
 # Kịch bản demo theo `phieucham.md`
 
-Các mục có chữ POSTMAN trong phiếu chấm là **PC6 và PC9–PC30**. Mỗi bảng chỉ có Method, URL, Data body, loại token và Idempotency-Key. Đặt `baseUrl = http://localhost:8000` trong Postman; với JSON, chọn **Body → raw → JSON**. Ở cột token, chọn **Authorization → Bearer Token** và nhập biến tương ứng; `Không` nghĩa là không gửi Authorization. Với `Có: ...`, thêm header `Idempotency-Key` mang giá trị sau dấu hai chấm. Sao chép ID, token và OTP từ response vào các biến Postman được nhắc trong URL/body. PC15 chọn một trong hai phương thức BANK/CASH; các mục PC17–PC19 dùng booking BANK. PC29 gửi request bằng Collection Runner 55 lần liên tiếp.
+Các mục có chữ POSTMAN trong phiếu chấm là **PC6 và PC9–PC30**. Mỗi bảng chỉ có Method, URL, Data body, loại token và Idempotency-Key. Đặt `baseUrl = http://localhost:8000` trong Postman; với JSON, chọn **Body → raw → JSON**. Ở cột token, chọn **Authorization → Bearer Token** và nhập biến tương ứng; `Không` nghĩa là không gửi Authorization. Với `Có: ...`, thêm header `Idempotency-Key` mang giá trị sau dấu hai chấm. Sao chép ID, token và OTP từ response vào các biến Postman được nhắc trong URL/body. PC15 chỉ gửi pickup, destination và vehicleType; phương thức thanh toán mặc định BANK. PC29 gửi request bằng Collection Runner 55 lần liên tiếp.
 
 Thứ tự dùng để tránh booking đang hoạt động cản booking mới: PC9–PC14 → PC21–PC23 → PC15–PC17 → PC19–PC20 → PC18 → PC24–PC30. Số điện thoại/email ví dụ cần đổi nếu đã được đăng ký.
 
@@ -9,6 +9,8 @@ Thứ tự dùng để tránh booking đang hoạt động cản booking mới: 
 ### PC1 – Kiến trúc source code
 
 Mở `backend/` trong IDE: `gateway/`, `shared/`, `services/` (identity, customer, driver, booking, trip, payment, notification), `mocks/` và `docker-compose.yml`.
+
+Trình bày: “Source được tổ chức theo microservice, mỗi service phụ trách một nghiệp vụ và có Dockerfile riêng. Gateway nhận REST từ client; Gateway và các service giao tiếp đồng bộ bằng gRPC. Kafka xử lý sự kiện bất đồng bộ. Trong service, routes → controllers → services → repositories phân chia phần nhận request, xử lý nghiệp vụ và truy vấn dữ liệu. Thư mục shared chứa JWT, mã hóa, validation và hợp đồng gRPC tại shared/proto/cab.proto.”
 
 ### PC2 – `.gitignore` và `.env` trên GitHub
 
@@ -20,9 +22,26 @@ Mở [Gateway](backend/gateway/src/index.js) và chỉ route map, xác minh JWT,
 
 ### PC4 – IPC giữa các service
 
-Chỉ luồng Identity gọi Customer qua HTTP khi đăng ký, cùng producer/consumer Kafka trong luồng Booking → Notification.
+Trình bày: “IPC đồng bộ sử dụng gRPC trên HTTP/2, hợp đồng được khai báo trong file .proto. Ví dụ Identity gọi CustomerService.CreateCustomer khi đăng ký; Booking gọi DriverService.FindNearby, ReserveDriver và TripService.CreateTrip khi đặt xe, nhận chuyến. Mỗi lời gọi mang service token và request ID; server kiểm tra caller theo từng RPC. IPC bất đồng bộ dùng Kafka: Booking ghi event vào outbox, publisher gửi lên booking.events, Notification nhận và xử lý thông báo.”
 
-![Sơ đồ IPC giữa các microservice cho PC04](pc04_microservice_ipc.png)
+Mở các file minh chứng:
+
+- `backend/shared/proto/cab.proto`: hợp đồng service và RPC.
+- `backend/shared/src/grpc/transport.js`: gRPC client/server, metadata, deadline.
+- `backend/services/booking-service/src/services/booking.service.js`: gọi FindNearby và ReserveDriver.
+- `backend/services/notification-service/src/workers/kafka.consumer.js`: consumer Kafka.
+
+```mermaid
+flowchart LR
+  Client -->|REST| Gateway
+  Gateway -->|gRPC GatewayApi.Invoke| Booking
+  Booking -->|gRPC FindNearby / ReserveDriver| Driver
+  Booking -->|gRPC CreateTrip| Trip
+  Booking -->|Outbox| Kafka
+  Kafka --> Notification
+```
+
+Chi tiết cổng và danh mục RPC: [gRPC](backend/shared/proto/README.md).
 
 ### PC5 – Docker Compose và container
 
@@ -40,9 +59,18 @@ Mở `backend/docker-compose.yml` và Docker Desktop: chỉ Gateway, 7 service, 
 
 Mở Compose để chỉ Kafka, topic `booking.events` và consumer của notification-service. Có thể dùng booking ở PC15 rồi xem notification của Customer để minh họa sự kiện `booking.created`.
 
-### PC8 – Mọi request qua Gateway
+### PC8 – Mọi request của client qua Gateway
 
-Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`. Cổng `27017/tcp` của MongoDB là cổng nội bộ khi không có mapping host.
+Trình bày: “Client chỉ truy cập REST qua Gateway ở cổng 8000. Gateway kiểm tra JWT, phân quyền, rate limit và chuyển yêu cầu đến service bằng gRPC. Chỉ Gateway publish cổng ra host; bảy service chỉ mở cổng gRPC nội bộ 50050–50056, không mở HTTP listener. RPC cho Gateway yêu cầu token có issuer gateway; RPC nghiệp vụ có allowlist caller riêng.”
+
+Minh chứng:
+
+1. Mở `backend/docker-compose.yml`: chỉ Gateway có `ports: 8000:8000`.
+2. Chạy `docker compose ps` trong `backend/`: cổng gRPC chỉ hiển thị dạng `50053/tcp`, không có mapping host.
+3. Gọi `GET http://localhost:8000/health/services`: Gateway kiểm tra đủ bảy service qua gRPC.
+4. Gọi API qua `http://localhost:8000/api/v1/...`; thử `http://localhost:3003/health` hoặc gRPC tại `localhost:50053` sẽ không kết nối tới container khi không publish cổng.
+
+“Mọi request” ở đây là request từ client. Các service gọi trực tiếp nhau qua gRPC trong mạng Docker.
 
 ### PC9 – POSTMAN: Đăng ký Customer
 
@@ -94,8 +122,7 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"CASH"}` | Customer (`{{customerToken}}`) | Có: `demo-cash-001` |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | GET | `{{baseUrl}}/api/v1/bookings/{{bookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/offers` | Không | Driver (`{{driverToken}}`) | Không |
 
@@ -121,7 +148,7 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-cancel-trip-001` |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-cancel-trip-001` |
 | GET | `{{baseUrl}}/api/v1/offers` | Không | Driver (`{{driverToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}/accept` | Không | Driver (`{{driverToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}/cancel` | `{"reason":"Khach doi lich"}` | Customer (`{{customerToken}}`) | Không |
@@ -199,11 +226,9 @@ Tài xế mẫu đang chờ duyệt: `driverId = 20000000-0000-4000-8000-0000000
 
 ### PC26 – POSTMAN: XSS input
 
-| Method | URL | Data body | Loại token | Idempotency-Key |
-|---|---|---|---|---|
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"<script>alert('hack')</script>","pickupLat":10.85,"pickupLng":106.75,"destinationAddress":"Diem den","destinationLat":10.86,"destinationLng":106.76,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-xss-booking-001` |
-| GET | `{{baseUrl}}/api/v1/bookings/{{xssBookingId}}` | Không | Customer (`{{customerToken}}`) | Không |
-| POST | `{{baseUrl}}/api/v1/bookings/{{xssBookingId}}/cancel` | `{"reason":"Ket thuc demo XSS"}` | Customer (`{{customerToken}}`) | Không |
+Tạo booking với body `{"pickup":{"lat":10.85,"lng":106.75},"destination":{"lat":10.86,"lng":106.76},"vehicleType":"BIKE"}` qua `POST {{baseUrl}}/api/v1/bookings`, dùng Customer token và header `Idempotency-Key: demo-xss-booking-001`. Lưu ID vào `xssBookingId`.
+
+Gọi `POST {{baseUrl}}/api/v1/bookings/{{xssBookingId}}/cancel` với Customer token và body `{"reason":"<script>alert('hack')</script>"}`. Kiểm tra `cancelReason` trong response được escape thành `&lt;script&gt;...`, không chứa thẻ script thô. Có thể gọi `GET {{baseUrl}}/api/v1/bookings/{{xssBookingId}}` để xem dữ liệu đã lưu.
 
 ### PC27 – POSTMAN: JWT tampering
 
@@ -225,7 +250,7 @@ Tài xế mẫu đang chờ duyệt: `driverId = 20000000-0000-4000-8000-0000000
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
-| POST | `{{baseUrl}}/api/v1/booking` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-rate-limit-001` |
+| POST | `{{baseUrl}}/api/v1/booking` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-rate-limit-001` |
 | GET | `{{baseUrl}}/api/v1/drivers/nearby?limit=1` | Không | Không | Không |
 | GET | `{{baseUrl}}/health` | Không | Không | Không |
 
@@ -233,10 +258,10 @@ Tài xế mẫu đang chờ duyệt: `driverId = 20000000-0000-4000-8000-0000000
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | GET | `{{baseUrl}}/api/v1/customers/me` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den demo","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
-| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickupAddress":"Diem don demo","pickupLat":10.7901,"pickupLng":106.7101,"destinationAddress":"Diem den khac","destinationLat":10.8001,"destinationLng":106.7201,"vehicleType":"BIKE","paymentMethod":"BANK"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
+| POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7211},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |

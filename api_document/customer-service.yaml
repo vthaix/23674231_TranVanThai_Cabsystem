@@ -2,53 +2,16 @@ openapi: 3.0.3
 info:
   title: CAB Customer Service
   version: 1.0.0
-  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
-    /internal/** operations are service-to-service only.
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public REST operations go through Gateway; internal communication uses gRPC (backend/shared/proto/cab.proto).
 servers:
 - url: http://localhost:8000/api/v1
   description: Gateway public API
-- url: http://localhost:3001
-  description: customer-service direct/internal testing when reachable
 tags:
 - name: Public
   description: Client-facing API through Gateway
-- name: Internal
-  description: Service-to-service API; never expose through Gateway
 - name: Operational
   description: Liveness/readiness endpoints
 paths:
-  /health:
-    get:
-      tags:
-      - Operational
-      summary: Liveness
-      operationId: getCABCustomerServiceHealth
-      servers:
-      - url: http://localhost:3001
-      responses:
-        '200':
-          description: Process is alive
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-  /ready:
-    get:
-      tags:
-      - Operational
-      summary: Readiness
-      operationId: getCABCustomerServiceReady
-      servers:
-      - url: http://localhost:3001
-      responses:
-        '200':
-          description: Dependencies required by the service are ready
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReadyResponse'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
   /customers:
     get:
       tags:
@@ -125,37 +88,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /internal/customers:
-    post:
-      tags:
-      - Internal
-      summary: Create Customer profile
-      operationId: createCustomerProfile
-      servers:
-      - url: http://localhost:3001
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/RequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCustomerRequest'
-      responses:
-        '201':
-          description: Customer profile created or existing profile returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CustomerProfile'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
+
 components:
   schemas:
     Error:
@@ -310,7 +243,7 @@ components:
           format: email
         phone:
           type: string
-          description: Plain phone sent over internal REST and encrypted at rest.
+          description: Plain phone sent over gRPC and encrypted at rest.
         phoneHash:
           type: string
       additionalProperties: false

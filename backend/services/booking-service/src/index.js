@@ -1,5 +1,7 @@
+const { startGrpcServer } = require('../../../shared/src/grpc/transport');
+const grpcHandlers = { ...require('./services/booking.handlers'), ...require('./services/booking-payment') };
 const app = require("./app");
-const { PORT, SERVICE_NAME } = require("./config");
+const { SERVICE_NAME } = require("./config");
 const { runMigrations, pool } = require("./db/postgres");
 const { expireStaleSearches } = require("./services/booking-expiry");
 const { seed } = require("./db/seed");
@@ -11,9 +13,7 @@ async function start() {
     console.log("[booking-service] Migrations applied");
     await seed();
     await connectKafka();
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`${SERVICE_NAME} listening on port ${PORT}`);
-    });
+    await startGrpcServer(SERVICE_NAME, grpcHandlers, undefined, app);
     await expireStaleSearches(pool);
     setInterval(() => expireStaleSearches(pool), 10_000).unref();
   } catch (err) {

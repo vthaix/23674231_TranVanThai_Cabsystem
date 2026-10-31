@@ -12,6 +12,6 @@ RUN cd shared && npm install --omit=dev
 
 WORKDIR /backend/services/trip-service
 
-EXPOSE 3004
+EXPOSE 50054
 
 CMD ["node", "src/index.js"]

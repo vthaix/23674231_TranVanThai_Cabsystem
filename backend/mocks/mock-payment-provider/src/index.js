@@ -29,7 +29,7 @@ async function sendCallback(txn, result = "SUCCESS") {
   const rawBody = JSON.stringify(payload);
   const signature = crypto.createHmac("sha256", PAYMENT_CALLBACK_SECRET).update(rawBody).digest("hex");
 
-  const targetUrl = txn.callbackUrl || "http://payment-service:3005/payments/callback";
+  const targetUrl = txn.callbackUrl || "http://gateway:8000/api/v1/payments/callback";
 
   try {
     const resp = await fetch(targetUrl, {
@@ -55,7 +55,7 @@ app.post("/transactions", (req, res) => {
     merchantRef,
     amount: Number(amount),
     currency,
-    callbackUrl: callbackUrl || "http://payment-service:3005/payments/callback",
+    callbackUrl: callbackUrl || "http://gateway:8000/api/v1/payments/callback",
     status: "PENDING",
     createdAt: new Date().toISOString()
   };
@@ -88,7 +88,7 @@ app.post("/mock/transactions/:id/complete", async (req, res) => {
       providerTransactionId: id,
       merchantRef: req.body.paymentId || id,
       amount: req.body.amount || 50000,
-      callbackUrl: req.body.callbackUrl || "http://payment-service:3005/payments/callback"
+      callbackUrl: req.body.callbackUrl || "http://gateway:8000/api/v1/payments/callback"
     };
     await sendCallback(dummy, result);
     return res.json({ success: true, message: `Callback dispatched for ${id} with result ${result}` });

@@ -2,53 +2,16 @@ openapi: 3.0.3
 info:
   title: CAB Identity Service
   version: 1.0.0
-  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public operations go through Gateway;
-    /internal/** operations are service-to-service only.
+  description: CAB System P1 API contract derived from srs.md and microservice_design.md. Public REST operations go through Gateway; internal communication uses gRPC (backend/shared/proto/cab.proto).
 servers:
 - url: http://localhost:8000/api/v1
   description: Gateway public API
-- url: http://localhost:3000
-  description: identity-service direct/internal testing when reachable
 tags:
 - name: Public
   description: Client-facing API through Gateway
-- name: Internal
-  description: Service-to-service API; never expose through Gateway
 - name: Operational
   description: Liveness/readiness endpoints
 paths:
-  /health:
-    get:
-      tags:
-      - Operational
-      summary: Liveness
-      operationId: getCABIdentityServiceHealth
-      servers:
-      - url: http://localhost:3000
-      responses:
-        '200':
-          description: Process is alive
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-  /ready:
-    get:
-      tags:
-      - Operational
-      summary: Readiness
-      operationId: getCABIdentityServiceReady
-      servers:
-      - url: http://localhost:3000
-      responses:
-        '200':
-          description: Dependencies required by the service are ready
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReadyResponse'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
   /auth/register:
     post:
       tags:
@@ -130,97 +93,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /internal/accounts:
-    post:
-      tags:
-      - Internal
-      summary: Create Driver account
-      operationId: createDriverAccount
-      servers:
-      - url: http://localhost:3000
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/RequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateDriverAccountRequest'
-      responses:
-        '201':
-          description: Driver account created in PENDING; activated after approval
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-  /internal/accounts/{id}/activate:
-    post:
-      tags: [Internal]
-      summary: Activate approved Driver account
-      operationId: activateDriverAccount
-      servers:
-      - url: http://localhost:3000
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/Id'
-      responses:
-        '200':
-          description: Driver account ACTIVE
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /internal/accounts/{id}:
-    delete:
-      tags: [Internal]
-      summary: Delete rejected Driver account
-      operationId: deleteDriverAccount
-      servers:
-      - url: http://localhost:3000
-      security:
-      - serviceToken: []
-      parameters:
-      - $ref: '#/components/parameters/Id'
-      responses:
-        '200':
-          description: Driver account deleted or already absent
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /internal/roles/{role}/permissions:
-    get:
-      tags:
-      - Internal
-      summary: Get permissions for a role
-      operationId: getRolePermissions
-      servers:
-      - url: http://localhost:3000
-      security:
-      - serviceToken: []
-      parameters:
-      - in: path
-        name: role
-        required: true
-        schema:
-          type: string
-      - $ref: '#/components/parameters/RequestId'
-      responses:
-        '200':
-          description: Permissions for Gateway RBAC
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionsResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+
 components:
   schemas:
     Error:

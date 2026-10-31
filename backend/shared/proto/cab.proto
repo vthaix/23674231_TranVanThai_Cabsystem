@@ -1,0 +1,68 @@
+syntax = "proto3";
+package cab.v1;
+
+// Public APIs remain REST. These unary RPCs are only for service-to-service IPC.
+// Preserve the existing business response shape while migrating the transport.
+message Result { int32 status = 1; string body_json = 2; map<string, string> headers = 3; }
+message ApiRequest {
+  string method = 1; string path = 2; string body_json = 3;
+  map<string, string> headers = 4;
+}
+// REST-to-gRPC adapter used only by the Gateway. No HTTP request is sent inside.
+service GatewayApi { rpc Invoke(ApiRequest) returns (Result); }
+message IdRequest { string id = 1; }
+message CreateAccountRequest {
+  string id = 1; string full_name = 2; string email = 3; string phone = 4;
+  string password = 5; string phone_hash = 6; string display_name = 7;
+}
+message CreateCustomerRequest {
+  string id = 1; string full_name = 2; string email = 3;
+  string phone = 4; string phone_hash = 5;
+}
+message NearbyRequest {
+  double lat = 1; double lng = 2; string vehicle_type = 3;
+  string exclude_ids = 4; optional double radius = 5;
+}
+message ReservationRequest { string id = 1; string booking_id = 2; }
+message DriverTripRequest { string id = 1; string trip_id = 2; }
+message CreateTripRequest {
+  string booking_id = 1; string customer_id = 2; string driver_id = 3;
+  string vehicle_type = 4; string payment_method = 5;
+  string pickup_address = 6; double pickup_lat = 7; double pickup_lng = 8;
+  string destination_address = 9; double destination_lat = 10;
+  double destination_lng = 11; double fare = 12;
+}
+message CancelTripRequest { string id = 1; string reason = 2; }
+message TripStatusRequest {
+  string id = 1; string trip_id = 2; string status = 3; string reason = 4;
+}
+message PaymentStatusRequest {
+  string id = 1; string trip_id = 2; string payment_id = 3; string status = 4;
+}
+
+service IdentityService {
+  rpc CreateAccount(CreateAccountRequest) returns (Result);
+  rpc ActivateAccount(IdRequest) returns (Result);
+  rpc DeleteAccount(IdRequest) returns (Result);
+}
+service CustomerService {
+  rpc CreateCustomer(CreateCustomerRequest) returns (Result);
+}
+service DriverService {
+  rpc FindNearby(NearbyRequest) returns (Result);
+  rpc ReserveDriver(ReservationRequest) returns (Result);
+  rpc ReleaseReservation(ReservationRequest) returns (Result);
+  rpc SetBusy(DriverTripRequest) returns (Result);
+  rpc SetAvailable(DriverTripRequest) returns (Result);
+  rpc GetSummary(IdRequest) returns (Result);
+}
+service TripService {
+  rpc CreateTrip(CreateTripRequest) returns (Result);
+  rpc GetTrip(IdRequest) returns (Result);
+  rpc CancelTrip(CancelTripRequest) returns (Result);
+  rpc UpdatePaymentStatus(PaymentStatusRequest) returns (Result);
+}
+service BookingService {
+  rpc UpdateTripStatus(TripStatusRequest) returns (Result);
+  rpc UpdatePaymentStatus(PaymentStatusRequest) returns (Result);
+}

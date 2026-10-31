@@ -30,6 +30,7 @@ services:
     environment:
       PORT: 3000
       SERVICE_NAME: identity-service
+      GRPC_PORT: 50050
       NODE_ENV: development
       SEED_ON_START: "false"
       JWT_TTL_MIN: ${JWT_TTL_MIN:-60}
@@ -50,6 +51,7 @@ services:
     environment:
       PORT: 3001
       SERVICE_NAME: customer-service
+      GRPC_PORT: 50051
       NODE_ENV: development
       SEED_ON_START: "false"
       DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@host.docker.internal:5432/customer_db
@@ -65,6 +67,7 @@ services:
     environment:
       PORT: 3002
       SERVICE_NAME: driver-service
+      GRPC_PORT: 50052
       NODE_ENV: development
       SEED_ON_START: "false"
       DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@host.docker.internal:5432/driver_db
@@ -88,6 +91,7 @@ services:
     environment:
       PORT: 3003
       SERVICE_NAME: booking-service
+      GRPC_PORT: 50053
       NODE_ENV: development
       SEED_ON_START: "false"
       DATABASE_URL: postgresql://booking:${BOOKING_DB_PASSWORD}@host.docker.internal:5432/booking_db
@@ -108,6 +112,7 @@ services:
     environment:
       PORT: 3004
       SERVICE_NAME: trip-service
+      GRPC_PORT: 50054
       NODE_ENV: development
       SEED_ON_START: "false"
       DATABASE_URL: postgresql://trip:${TRIP_DB_PASSWORD}@host.docker.internal:5432/trip_db
@@ -130,6 +135,7 @@ services:
     environment:
       PORT: 3005
       SERVICE_NAME: payment-service
+      GRPC_PORT: 50055
       NODE_ENV: development
       DATABASE_URL: postgresql://payment:${PAYMENT_DB_PASSWORD}@host.docker.internal:5432/payment_db
       KAFKA_BROKERS: kafka:9092
@@ -148,6 +154,7 @@ services:
     environment:
       PORT: 3006
       SERVICE_NAME: notification-service
+      GRPC_PORT: 50056
       MONGO_URL: mongodb://notification:${NOTIFICATION_DB_PASSWORD}@notification-db:27017/notification_db?authSource=admin
       KAFKA_BROKERS: kafka:9092
     networks:

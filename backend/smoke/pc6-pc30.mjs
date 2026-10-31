@@ -86,9 +86,8 @@ async function waitReady() {
 
 function bookingPayload(lat = 10.7901, lng = 106.7101) {
   return {
-    pickupAddress: `Smoke pickup ${runId}`, pickupLat: lat, pickupLng: lng,
-    destinationAddress: `Smoke destination ${runId}`, destinationLat: lat + 0.01,
-    destinationLng: lng + 0.01, vehicleType: 'BIKE', paymentMethod: 'BANK'
+    pickup: { lat, lng }, destination: { lat: lat + 0.01, lng: lng + 0.01 },
+    vehicleType: 'BIKE'
   };
 }
 
@@ -321,24 +320,24 @@ await check(19, 'payment confirmation completes payment after trip', async () =>
   assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).paymentStatus, 'PAID');
   assert.equal(status(await call('GET', `/api/v1/trips/${trip.id}`, undefined, customerToken), 200).status, 'COMPLETED');
   assert.equal(status(await call('GET', `/api/v1/bookings/${booking.id}`, undefined, customerToken), 200).paymentStatus, 'PAID');
-  const cashBooking = status(await call('POST', '/api/v1/bookings', {
-    ...bookingPayload(booking.pickup.lat, booking.pickup.lng), paymentMethod: 'CASH'
-  }, customerToken, { 'idempotency-key': `smoke-${runId}-cash` }), 201);
-  assert.equal(cashBooking.paymentStatus, 'UNPAID');
-  let cashOffer;
+  const driverPaidBooking = status(await call('POST', '/api/v1/bookings', {
+    ...bookingPayload(booking.pickup.lat, booking.pickup.lng)
+  }, customerToken, { 'idempotency-key': `smoke-${runId}-driver-payment` }), 201);
+  assert.equal(driverPaidBooking.paymentStatus, 'UNPAID');
+  let driverPaidOffer;
   for (let i = 0; i < 20; i++) {
-    cashOffer = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200).data
-      .find(o => o.bookingId === cashBooking.id);
-    if (cashOffer) break;
+    driverPaidOffer = status(await call('GET', '/api/v1/offers', undefined, driverToken), 200).data
+      .find(o => o.bookingId === driverPaidBooking.id);
+    if (driverPaidOffer) break;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  assert(cashOffer, 'cash offer missing');
-  const cashTripId = status(await call('POST', `/api/v1/bookings/${cashBooking.id}/accept`, {}, driverToken), 200).tripId;
+  assert(driverPaidOffer, 'driver payment offer missing');
+  const driverPaidTripId = status(await call('POST', `/api/v1/bookings/${driverPaidBooking.id}/accept`, {}, driverToken), 200).tripId;
   for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
-    status(await call('PATCH', `/api/v1/trips/${cashTripId}/status`, { status: next }, driverToken), 200);
+    status(await call('PATCH', `/api/v1/trips/${driverPaidTripId}/status`, { status: next }, driverToken), 200);
   }
-  assert.equal(status(await call('POST', `/api/v1/payments/${cashTripId}`, undefined, driverToken), 200).status, 'COMPLETED');
-  assert.equal(status(await call('GET', `/api/v1/trips/${cashTripId}`, undefined, customerToken), 200).paymentStatus, 'PAID');
+  assert.equal(status(await call('POST', `/api/v1/payments/${driverPaidTripId}`, undefined, driverToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('GET', `/api/v1/trips/${driverPaidTripId}`, undefined, customerToken), 200).paymentStatus, 'PAID');
 });
 
 await check(20, 'review persists on completed trip', async () => {
@@ -410,12 +409,16 @@ await check(25, 'SQL injection does not bypass login', async () => {
 
 await check(26, 'XSS payload is escaped in API output', async () => {
   const b = status(await call('POST', '/api/v1/bookings', {
-    ...bookingPayload(10.89, 106.79), pickupAddress: "<script>alert('hack')</script>"
+    ...bookingPayload(10.89, 106.79)
   }, customerToken, { 'idempotency-key': `smoke-${runId}-xss` }), 201);
+  const canceled = status(await call('POST', `/api/v1/bookings/${b.id}/cancel`, {
+    reason: "<script>alert('hack')</script>"
+  }, customerToken), 200);
+  assert(canceled.cancelReason.includes('&lt;script&gt;'));
   const listed = status(await call('GET', '/api/v1/bookings?limit=50', undefined, customerToken), 200);
   const stored = listed.data.find(x => x.id === b.id);
   assert(stored);
-  assert(!stored.pickup.address.includes('<script>'));
+  assert(!stored.cancelReason.includes('<script>'));
 });
 
 await check(27, 'JWT payload tampering returns 401', async () => {

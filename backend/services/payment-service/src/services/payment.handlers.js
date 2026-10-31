@@ -1,15 +1,15 @@
+const { rpcRequest } = require('../../../../shared/src/grpc/transport');
 const crypto = require('crypto');
 const { pool } = require('../db/postgres');
 const { generateServiceToken } = require('../../../../shared/src/auth/jwt');
-const { TRIP_SERVICE_URL, BOOKING_SERVICE_URL, SERVICE_NAME } = require('../config');
+const { SERVICE_NAME } = require('../config');
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const response = (status, body) => ({ status, body });
 const error = (status, code, message, requestId) => response(status, { code, message, requestId });
 
-async function servicePost(url, audience, body, requestId) {
-  const result = await fetch(url, {
-    method: 'POST',
+async function servicePost(audience, id, body, requestId) {
+  const result = await rpcRequest(audience, 'UpdatePaymentStatus', { id }, {
     headers: {
       'content-type': 'application/json',
       'x-service-token': generateServiceToken(SERVICE_NAME, audience),
@@ -28,7 +28,7 @@ async function postPaymentsTrip(input) {
   if (!uuid.test(tripId)) return error(400, 'VALIDATION_ERROR', 'Valid tripId required', requestId);
 
   try {
-    const tripResponse = await fetch(TRIP_SERVICE_URL + '/internal/trips/' + tripId, {
+    const tripResponse = await rpcRequest('trip-service', 'GetTrip', { id: tripId }, {
       headers: { 'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service'), 'x-request-id': requestId },
       signal: AbortSignal.timeout(5000)
     });
@@ -65,9 +65,9 @@ async function postPaymentsTrip(input) {
     } finally { client.release(); }
 
     // A repeated request also repairs a status sync interrupted after the insert.
-    await servicePost(TRIP_SERVICE_URL + '/internal/trips/' + tripId + '/payment-status', 'trip-service',
+    await servicePost('trip-service', tripId,
       { paymentId: payment.id, status: 'PAID' }, requestId);
-    await servicePost(BOOKING_SERVICE_URL + '/internal/bookings/' + trip.bookingId + '/payment-status', 'booking-service',
+    await servicePost('booking-service', trip.bookingId,
       { tripId, status: 'PAID' }, requestId);
 
     return response(200, {
@@ -92,7 +92,7 @@ async function getPaymentsId(input) {
     const p = rows[0];
     if (role === 'CUSTOMER' && p.customer_id !== userId) return error(403, 'FORBIDDEN', 'Access denied', requestId);
     if (role === 'DRIVER') {
-      const tripResponse = await fetch(TRIP_SERVICE_URL + '/internal/trips/' + p.trip_id, {
+      const tripResponse = await rpcRequest('trip-service', 'GetTrip', { id: p.trip_id }, {
         headers: { 'x-service-token': generateServiceToken(SERVICE_NAME, 'trip-service') },
         signal: AbortSignal.timeout(5000)
       });
