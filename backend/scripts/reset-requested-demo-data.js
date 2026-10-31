@@ -50,6 +50,10 @@ const driver = Array.from({ length: 10 }, (_, i) => ({
   lat: Number((center.lat + (i - 4.5) * driverSpacingDegrees).toFixed(6)),
   lng: center.lng,
 }));
+const pendingDriver = {
+  id: driverId(11), email: 'dr11@gmail.com', phone: '0391234511',
+  name: 'Tài xế 11',
+};
 
 async function resetPg(name) {
   const client = await pools[name].connect();
@@ -69,6 +73,7 @@ async function resetPg(name) {
 async function seedIdentity() {
   const db = pools.identity;
   await db.query("INSERT INTO roles(code,name) VALUES ('CUSTOMER','Customer'),('DRIVER','Driver')");
+  await ensureDemoAdmin(db);
   for (const person of [...customer, ...driver]) {
     await db.query(`INSERT INTO accounts(id,email,phone_hash,password_hash,display_name,status)
       VALUES($1,$2,$3,$4,$5,'ACTIVE')`,
@@ -76,7 +81,11 @@ async function seedIdentity() {
     await db.query(`INSERT INTO account_roles(account_id,role_code,is_primary) VALUES($1,$2,true)`,
       [person.id, person.email.startsWith('kh') ? 'CUSTOMER' : 'DRIVER']);
   }
-  await ensureDemoAdmin(db);
+  await db.query(`INSERT INTO accounts(id,email,phone_hash,password_hash,display_name,status)
+    VALUES($1,$2,$3,$4,$5,'PENDING')`,
+    [pendingDriver.id, pendingDriver.email, hashPhone(pendingDriver.phone), passwordHash, pendingDriver.name]);
+  await db.query(`INSERT INTO account_roles(account_id,role_code,is_primary)
+    VALUES($1,'DRIVER',true)`, [pendingDriver.id]);
 }
 
 async function seedProfiles() {
@@ -97,6 +106,12 @@ async function seedProfiles() {
     await pools.driver.query(`INSERT INTO driver_locations(driver_id,latitude,longitude) VALUES($1,$2,$3)`,
       [d.id, d.lat, d.lng]);
   }
+  await pools.driver.query(`INSERT INTO drivers(id,phone_enc,phone_hash,full_name,email,license_class,status)
+    VALUES($1,$2,$3,$4,$5,'A1','PENDING_APPROVAL')`,
+    [pendingDriver.id, encrypt(pendingDriver.phone), hashPhone(pendingDriver.phone),
+      pendingDriver.name, pendingDriver.email]);
+  await pools.driver.query(`INSERT INTO vehicles(driver_id,vehicle_type,model,is_active)
+    VALUES($1,'BIKE','Wave',true)`, [pendingDriver.id]);
 }
 
 async function seedRides() {
@@ -148,6 +163,45 @@ async function seedRides() {
       }
     }
   }
+  // Completed examples for Postman: one awaiting a review, one awaiting payment.
+  for (const example of [
+    { customer: customer[0], driver: driver[0], reviewed: false, paid: true },
+    { customer: customer[0], driver: driver[1], reviewed: true, paid: false },
+  ]) {
+    const b = bookingId(++bookingNo);
+    const t = tripId(++tripNo);
+    const p = example.paid ? paymentId(tripNo) : null;
+    const lat = center.lat + example.customer.n * 0.00015;
+    const lng = center.lng;
+    const label = example.reviewed ? 'Chuyến mẫu chưa thanh toán' : 'Chuyến mẫu chưa đánh giá';
+    await pools.booking.query(`INSERT INTO bookings(id,customer_id,vehicle_type,pickup_address,pickup_lat,pickup_lng,
+      destination_address,destination_lat,destination_lng,status,trip_id,current_driver_id,
+      completed_at,assigned_at,fare,payment_status)
+      VALUES($1,$2,'BIKE',$3,$4,$5,$6,$7,$8,'COMPLETED',$9,$10,NOW(),NOW(),24000,$11)`,
+      [b, example.customer.id, `${label} - điểm đón`, lat, lng, `${label} - điểm đến`,
+        lat + 0.02, lng + 0.02, t, example.driver.id, example.paid ? 'PAID' : 'UNPAID']);
+    await pools.booking.query(`INSERT INTO booking_status_history(booking_id,to_status,actor_id,actor_role)
+      VALUES($1,'COMPLETED',$2,'CUSTOMER')`, [b, example.customer.id]);
+    await pools.trip.query(`INSERT INTO trips(id,booking_id,customer_id,driver_id,vehicle_type,
+      pickup_address,pickup_lat,pickup_lng,destination_address,destination_lat,destination_lng,
+      distance_km,base_fare,per_km_fare,fare,status,payment_status,payment_id,completed_at,driver_snapshot)
+      VALUES($1,$2,$3,$4,'BIKE',$5,$6,$7,$8,$9,$10,3,12000,4000,24000,'COMPLETED',$11,$12,NOW(),$13)`,
+      [t, b, example.customer.id, example.driver.id, `${label} - điểm đón`, lat, lng,
+        `${label} - điểm đến`, lat + 0.02, lng + 0.02, example.paid ? 'PAID' : 'UNPAID', p,
+        JSON.stringify({ fullName: example.driver.name, vehicle: {
+          vehicleType: 'BIKE', plateNumber: `59A-${String(example.driver.n).padStart(5, '0')}`
+        } })]);
+    await pools.trip.query(`INSERT INTO trip_status_history(trip_id,to_status,actor_id,actor_role)
+      VALUES($1,'COMPLETED',$2,'DRIVER')`, [t, example.driver.id]);
+    if (example.reviewed) {
+      await pools.trip.query(`INSERT INTO reviews(trip_id,customer_id,driver_id,stars,comment)
+        VALUES($1,$2,$3,5,'Chuyến đi tốt')`, [t, example.customer.id, example.driver.id]);
+    }
+    if (example.paid) {
+      await pools.payment.query(`INSERT INTO payments(id,trip_id,customer_id,amount,status,completed_at)
+        VALUES($1,$2,$3,24000,'COMPLETED',NOW())`, [p, t, example.customer.id]);
+    }
+  }
   // Two active search offers let both online drivers exercise GET /offers.
   for (let i = 0; i < 2; i++) {
     await pools.booking.query(`INSERT INTO offers(booking_id,driver_id,attempt_no,status,
@@ -161,13 +215,20 @@ async function seedRides() {
     SUM(stars)::int AS stars FROM reviews GROUP BY driver_id`)).rows;
   for (const rating of ratings) {
     await pools.driver.query(`UPDATE drivers SET rating_count=$1,rating_sum=$2,
-      rating_avg=ROUND($2::numeric/$4::numeric,2),completed_trips=$1 WHERE id=$3`,
-      [rating.n, rating.stars, rating.driver_id, rating.n]);
+      rating_avg=ROUND($2::numeric/$1::numeric,2) WHERE id=$3`,
+      [rating.n, rating.stars, rating.driver_id]);
+  }
+  const completedTrips = (await pools.trip.query(`SELECT driver_id, COUNT(*)::int AS n
+    FROM trips WHERE status='COMPLETED' GROUP BY driver_id`)).rows;
+  for (const completed of completedTrips) {
+    await pools.driver.query('UPDATE drivers SET completed_trips=$1 WHERE id=$2',
+      [completed.n, completed.driver_id]);
   }
 }
 
 async function main() {
-  if (driverPhones.length !== 10 || new Set(driverPhones).size !== 10) throw new Error('Invalid driver phones');
+  if (driverPhones.length !== 10 || new Set([...driverPhones, pendingDriver.phone]).size !== 11)
+    throw new Error('Invalid driver phones');
   redisCli('PING');
   try {
     for (const name of dbNames) await resetPg(name);
@@ -185,7 +246,7 @@ async function main() {
     for (let i = 0; i < 2; i++) {
       redisCli('SET', `driver:reserve:${driver[i].id}`, bookingId(i * 9 + 1), 'EX', '1700');
     }
-    console.log('Seeded 1 admin, 5 customers, 10 drivers, 45 bookings, 25 completed trips, 25 reviews, 25 payments, 2 offers');
+    console.log('Seeded 1 admin, 5 customers, 11 drivers (1 pending approval), 47 bookings, 27 completed trips, 26 reviews, 26 payments, 2 offers');
   } finally {
     await Promise.all(Object.values(pools).map(pool => pool.end()));
   }

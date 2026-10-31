@@ -99,10 +99,9 @@ async function makeDriver(suffix) {
   assert.match(otp, /^\d{6}$/);
   const verified = status(await call('POST', '/api/v1/drivers/otp/verify', { phone, otp }), 200);
   const profile = status(await call('POST', '/api/v1/drivers/register', {
-    registrationToken: verified.registrationToken, phone, password, fullName: `Smoke Driver ${runId}${suffix}`,
-    nationalId: `0${runId}${suffix}`.slice(0, 12), licenseNumber: `SMOKE-${runId}-${suffix}`,
-    licenseClass: 'A1', licenseExpiryDate: '2035-01-01',
-    vehicle: { vehicleType: 'BIKE', plateNumber: `SM-${runId}-${suffix}`, brand: 'Honda', model: 'Wave' }
+    registrationToken: verified.registrationToken, email: `smoke-driver-${runId}-${suffix}@example.com`,
+    phone, password, fullName: `Smoke Driver ${runId}${suffix}`,
+    license: { class: 'A1' }, vehicle: { type: 'BIKE', model: 'Wave' }
   }), 201);
   return { ...profile, phone, password };
 }
@@ -225,7 +224,10 @@ await check(22, 'admin approves driver', async () => {
   const ownDriver = status(await call('GET', '/api/v1/drivers/me', undefined, driverToken), 200);
   assert.equal(ownDriver.id, driver.id);
   assert.equal(ownDriver.phone, driver.phone);
-  assert(ownDriver.nationalId && ownDriver.licenseNumber);
+  assert.equal(ownDriver.email, `smoke-driver-${runId}-1@example.com`);
+  assert.equal(ownDriver.licenseClass, 'A1');
+  assert.equal(ownDriver.vehicle.vehicleType, 'BIKE');
+  assert.equal(ownDriver.vehicle.model, 'Wave');
   assert.equal(ownDriver.phone_hash, undefined);
   status(await call('GET', '/api/v1/drivers/me'), 401);
   status(await call('GET', '/api/v1/drivers/me', undefined, customerToken), 403);

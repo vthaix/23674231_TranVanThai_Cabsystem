@@ -159,6 +159,8 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
 
 ## PC19 – Thanh toán online
 
+Chuyến mẫu chưa thanh toán: `tripId = 40000000-0000-4000-8000-000000000027`, tài khoản `kh01@gmail.com` / `12345678`.
+
 - API: `GET {{baseUrl}}/api/v1/customers/me`
   - Data: Không
   - Token: Customer (`{{customerToken}}`)
@@ -183,6 +185,8 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
 
 ## PC20 – Đánh giá chuyến đi
 
+Chuyến mẫu chưa có review: `tripId = 40000000-0000-4000-8000-000000000026`, tài khoản `kh01@gmail.com` / `12345678`.
+
 - API: `POST {{baseUrl}}/api/v1/trips/{{tripId}}/reviews`
   - Data: `{"stars":5,"comment":"Tai xe dung gio"}`
   - Token: Customer (`{{customerToken}}`)
@@ -199,10 +203,12 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
   - Data: `{"phone":"0912345002","otp":"{{otp}}"}`
   - Token: Không
 - API: `POST {{baseUrl}}/api/v1/drivers/register`
-  - Data: `{"registrationToken":"{{registrationToken}}","phone":"0912345002","password":"TaiXeDemo@123","fullName":"Tai Xe Demo","licenseNumber":"GPLX-DEMO-02","licenseClass":"A1","licenseExpiryDate":"2035-01-01","vehicle":{"vehicleType":"BIKE","plateNumber":"59A1-12345","brand":"Honda","model":"Wave"}}`
+  - Data: `{"registrationToken":"{{registrationToken}}","email":"taixe.demo@example.com","phone":"0912345002","password":"TaiXeDemo@123","fullName":"Tai Xe Demo","license":{"class":"A1"},"vehicle":{"type":"BIKE","model":"Wave"}}`
   - Token: Không
 
 ## PC22 – Duyệt hồ sơ tài xế
+
+Tài xế seed chờ duyệt: `driverId = 20000000-0000-4000-8000-000000000011` (`dr11@gmail.com`, điện thoại `0391234511`).
 
 - API: `GET {{baseUrl}}/api/v1/drivers?status=PENDING_APPROVAL`
   - Data: Không
@@ -214,7 +220,7 @@ Email và số điện thoại ví dụ bên dưới chỉ đăng ký được m
   - Data: `{}`
   - Token: Admin (`{{adminToken}}`)
 - API: `POST {{baseUrl}}/api/v1/auth/login`
-  - Data: `{"phone":"0912345002","password":"TaiXeDemo@123"}`
+  - Data: `{"phone":"0391234511","password":"12345678"}`
   - Token: Không
 - API: `GET {{baseUrl}}/api/v1/notifications?limit=20`
   - Data: Không

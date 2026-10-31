@@ -156,7 +156,7 @@ async function postAuthLogin(input) {
     await repository.updateAccounts4(client, [account.id]);
 
     const jti = crypto.randomUUID();
-    const token = generateToken({ sub: account.id, role: account.role_code, jti });
+    const token = generateToken({ sub: account.public_id, accountId: account.id, role: account.role_code, jti });
 
     return response(200, {
       token,

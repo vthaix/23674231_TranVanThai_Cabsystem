@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { getRedisClient } = require("../db/redis");
 const { encrypt, decrypt, hashPhone } = require("../../../../shared/src/crypto/index");
-const { isValidPhone, isValidPassword, isPlainCode, escapeHTML } = require("../../../../shared/src/validation/index");
+const { isValidPhone, isValidEmail, isValidPassword, isPlainCode, escapeHTML } = require("../../../../shared/src/validation/index");
 const { maskPhone } = require("../utils/maskPhone");
 const { inMemStore, haversineDistanceMeters } = require("../services/driver.service");
 const { parsePagination } = require("../../../../shared/src/pagination");
@@ -106,12 +106,11 @@ async function postDriversRegister(input) {
   const requestId = input.headers["x-request-id"] || crypto.randomUUID();
   const {
     registrationToken,
+    email,
     fullName,
     phone,
     password,
-    licenseNumber,
-    licenseClass,
-    licenseExpiryDate,
+    license,
     vehicle
   } = input.body;
 
@@ -132,56 +131,34 @@ async function postDriversRegister(input) {
     return errorResult(400, "INVALID_REGISTRATION_TOKEN", "Valid OTP registration token for this phone is required", requestId);
   }
 
-  if (!fullName || !licenseNumber || !licenseClass || !licenseExpiryDate) {
-    return errorResult(400, "VALIDATION_ERROR", "Missing required driver fields", requestId);
+  if (!isValidEmail(email) || typeof fullName !== "string" || !fullName.trim() || fullName.length > 150) {
+    return errorResult(400, "VALIDATION_ERROR", "Valid email and fullName are required", requestId);
   }
-  for (const [field, value] of Object.entries({ fullName, licenseNumber, licenseClass, licenseExpiryDate })) {
-    if (typeof value !== "string" || !value.trim()) {
-      return errorResult(400, "VALIDATION_ERROR", `${field} must be a non-empty string`, requestId);
-    }
+  if (!license || !isPlainCode(license.class) || license.class.length > 20) {
+    return errorResult(400, "VALIDATION_ERROR", "license.class is required", requestId);
   }
-  if (vehicle?.vehicleType != null && typeof vehicle.vehicleType !== "string") {
-    return errorResult(400, "VALIDATION_ERROR", "vehicle.vehicleType must be a string", requestId);
-  }
-  if (!isPlainCode(licenseNumber) || !isPlainCode(licenseClass) ||
-      (vehicle?.plateNumber != null && !isPlainCode(vehicle.plateNumber))) {
-    return errorResult(400, "VALIDATION_ERROR", "License and plate codes contain invalid characters", requestId);
-  }
-  for (const field of ["brand", "model", "color"]) {
-    if (vehicle?.[field] != null && typeof vehicle[field] !== "string") {
-      return errorResult(400, "VALIDATION_ERROR", `vehicle.${field} must be a string`, requestId);
-    }
+  if (!vehicle || typeof vehicle.type !== "string" || !["BIKE", "SEDAN", "SUV"].includes(vehicle.type.toUpperCase()) ||
+      typeof vehicle.model !== "string" || !vehicle.model.trim() || vehicle.model.length > 50) {
+    return errorResult(400, "VALIDATION_ERROR", "vehicle.type (BIKE, SEDAN or SUV) and vehicle.model are required", requestId);
   }
 
-  // Validate license expiry
-  const expiryDate = new Date(licenseExpiryDate);
-  if (isNaN(expiryDate.getTime()) || expiryDate < new Date()) {
-    return errorResult(400, "LICENSE_EXPIRED", "Driver license has expired or invalid", requestId);
-  }
-
-  // Normalize vehicle
-  const vType = (vehicle?.vehicleType || "BIKE").toUpperCase();
+  const vType = vehicle.type.toUpperCase();
   const displayName = escapeHTML(fullName.trim());
   const normalizedVehicle = {
-    vehicleType: ["BIKE", "SEDAN", "SUV"].includes(vType) ? vType : "BIKE",
-    plateNumber: vehicle?.plateNumber || `59X-${Math.floor(10000 + Math.random() * 90000)}`,
-    brand: escapeHTML(vehicle?.brand || "Honda"),
-    model: escapeHTML(vehicle?.model || "Wave"),
-    color: escapeHTML(vehicle?.color || "Đen"),
-    manufactureYear: Number(vehicle?.manufactureYear || 2022),
-    seatCount: Number(vehicle?.seatCount || (vType === "BIKE" ? 1 : 4))
+    vehicleType: vType,
+    model: escapeHTML(vehicle.model.trim())
   };
 
   const driverId = crypto.randomUUID();
   const phoneH = hashPhone(verifiedPhone);
   const phoneEnc = encrypt(verifiedPhone);
-  const licenseEnc = encrypt(licenseNumber);
 
   // Create a disabled account until an admin approves the driver profile.
   try {
     await identityClient.createDriverAccount({
       id: driverId,
       phone: verifiedPhone,
+      email: email.toLowerCase().trim(),
       password,
       displayName
     }, requestId);
@@ -197,15 +174,15 @@ async function postDriversRegister(input) {
     // Insert driver in PENDING_APPROVAL
     await repository.insertDrivers(client, [
       driverId, phoneEnc, phoneH,
-      displayName, `${driverId.slice(0, 8)}@driver.cab`,
-      licenseEnc, licenseClass, licenseExpiryDate
+      displayName, email.toLowerCase().trim(),
+      null, license.class, null
     ]);
 
     // Insert vehicle
     await repository.insertVehicles(client, [
-      driverId, normalizedVehicle.vehicleType, normalizedVehicle.plateNumber,
-      normalizedVehicle.brand, normalizedVehicle.model, normalizedVehicle.color,
-      normalizedVehicle.manufactureYear, normalizedVehicle.seatCount
+      driverId, normalizedVehicle.vehicleType, null,
+      null, normalizedVehicle.model, null,
+      null, null
     ]);
 
     // Outbox event
@@ -236,7 +213,7 @@ async function postDriversRegister(input) {
     });
     console.error("[driver/register]", err.message);
     if (err.code === "23505") {
-      return errorResult(409, "ALREADY_EXISTS", "Driver phone or national ID already registered", requestId);
+      return errorResult(409, "ALREADY_EXISTS", "Driver phone or email already registered", requestId);
     }
     return errorResult(500, "INTERNAL_ERROR", "Registration failed", requestId);
   } finally {
@@ -283,7 +260,7 @@ async function getDriversMe(input) {
       rejectedReason: d.rejected_reason,
       reviewedAt: d.reviewed_at,
       lastOnlineAt: d.last_online_at,
-      vehicle: d.plate_number ? {
+      vehicle: d.vehicle_type ? {
         vehicleType: d.vehicle_type,
         plateNumber: d.plate_number,
         brand: d.brand,
@@ -333,7 +310,7 @@ async function listDrivers(input) {
       reviewedBy: r.reviewed_by,
       reviewedAt: r.reviewed_at,
       rejectedReason: r.rejected_reason,
-      vehicle: r.plate_number ? {
+      vehicle: r.vehicle_type ? {
         vehicleType: r.vehicle_type,
         plateNumber: r.plate_number,
         brand: r.brand,
@@ -380,7 +357,7 @@ async function getAdminDriversId(input) {
       licenseExpiryDate: r.license_expiry_date,
       ratingAvg: Number(r.rating_avg),
       completedTrips: r.completed_trips,
-      vehicle: r.plate_number ? {
+      vehicle: r.vehicle_type ? {
         vehicleType: r.vehicle_type,
         plateNumber: r.plate_number,
         brand: r.brand,
@@ -661,7 +638,7 @@ async function getDriversNearby(input) {
           lng: Number(r.longitude)
         },
         distanceM: dist,
-        vehicle: r.plate_number ? {
+        vehicle: r.vehicle_type ? {
           vehicleType: r.vehicle_type,
           plateNumber: r.plate_number,
           brand: r.brand,
@@ -729,7 +706,7 @@ async function getDriversId(input) {
       ratingCount: d.rating_count,
       completedTrips: d.completed_trips,
       currentTripId: d.current_trip_id,
-      vehicle: d.plate_number ? {
+      vehicle: d.vehicle_type ? {
         vehicleType: d.vehicle_type,
         plateNumber: d.plate_number,
         brand: d.brand,
@@ -901,7 +878,7 @@ async function getInternalDriversIdSummary(input) {
       avatarUrl: r.avatar_url,
       ratingAvg: Number(r.rating_avg),
       completedTrips: r.completed_trips,
-      vehicle: r.plate_number ? {
+      vehicle: r.vehicle_type ? {
         vehicleType: r.vehicle_type,
         plateNumber: r.plate_number,
         brand: r.brand,

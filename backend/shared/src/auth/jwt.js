@@ -8,9 +8,9 @@ const INTERNAL_JWT_SECRET = process.env.INTERNAL_JWT_SECRET || "dev-internal-jwt
 const INTERNAL_JWT_TTL_SEC = parseInt(process.env.INTERNAL_JWT_TTL_SEC || "60", 10);
 
 function generateToken(payload) {
-  const { sub, role, jti } = payload;
+  const { sub, accountId, role, jti } = payload;
   return jwt.sign(
-    { sub, role, jti: jti || require("crypto").randomUUID() },
+    { sub, ...(accountId ? { accountId } : {}), role, jti: jti || require("crypto").randomUUID() },
     JWT_SECRET,
     {
       algorithm: JWT_ALG,
@@ -29,7 +29,9 @@ function verifyToken(token) {
   if (decoded.header.alg !== "HS256") {
     throw new Error("INVALID_ALGORITHM");
   }
-  return jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
+  const claims = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
+  // Application data uses UUIDs; the token's public subject stays user_XX.
+  return { ...claims, sub: claims.accountId || claims.sub };
 }
 
 function generateServiceToken(issuer, audience) {

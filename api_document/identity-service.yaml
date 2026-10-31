@@ -341,10 +341,23 @@ components:
         additionalProperties: false
     LoginResponse:
       type: object
-      description: SRS requires the response to contain a JWT, but the exact JSON property name is not specified. Keep this
-        shape unresolved until implementation fixes the field name.
-      additionalProperties: true
-      x-unresolved: JWT response property name
+      required:
+      - token
+      - accountId
+      - role
+      - displayName
+      properties:
+        token:
+          type: string
+          description: Signed JWT. Its sub is user_XX; accountId is the internal UUID claim.
+        accountId:
+          type: string
+          format: uuid
+        role:
+          type: string
+        displayName:
+          type: string
+      additionalProperties: false
     CreateDriverAccountRequest:
       type: object
       required:

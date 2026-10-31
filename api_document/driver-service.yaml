@@ -656,12 +656,7 @@ components:
       type: object
       required:
       - vehicleType
-      - plateNumber
-      - brand
       - model
-      - color
-      - manufactureYear
-      - seatCount
       properties:
         vehicleType:
           type: string
@@ -671,17 +666,38 @@ components:
           - SUV
         plateNumber:
           type: string
+          nullable: true
         brand:
           type: string
+          nullable: true
         model:
           type: string
         color:
           type: string
+          nullable: true
         manufactureYear:
           type: integer
+          nullable: true
         seatCount:
           type: integer
           minimum: 1
+          nullable: true
+      additionalProperties: false
+    DriverRegisterVehicleInput:
+      type: object
+      required:
+      - type
+      - model
+      properties:
+        type:
+          type: string
+          enum:
+          - BIKE
+          - SEDAN
+          - SUV
+        model:
+          type: string
+          maxLength: 50
       additionalProperties: false
     OtpRequest:
       type: object
@@ -717,14 +733,11 @@ components:
       type: object
       required:
       - registrationToken
+      - email
       - phone
       - password
       - fullName
-      - dateOfBirth
-      - nationalId
-      - licenseNumber
-      - licenseClass
-      - licenseExpiryDate
+      - license
       - vehicle
       properties:
         registrationToken:
@@ -738,23 +751,21 @@ components:
           maxLength: 128
         fullName:
           type: string
+          maxLength: 150
         email:
           type: string
           format: email
-        dateOfBirth:
-          type: string
-          format: date
-        nationalId:
-          type: string
-        licenseNumber:
-          type: string
-        licenseClass:
-          type: string
-        licenseExpiryDate:
-          type: string
-          format: date
+        license:
+          type: object
+          required:
+          - class
+          properties:
+            class:
+              type: string
+              maxLength: 20
+          additionalProperties: false
         vehicle:
-          $ref: '#/components/schemas/VehicleInput'
+          $ref: '#/components/schemas/DriverRegisterVehicleInput'
       additionalProperties: false
     DriverRegisterResponse:
       type: object
@@ -798,11 +809,13 @@ components:
         licenseNumber:
           type: string
           description: Masked.
+          nullable: true
         licenseClass:
           type: string
         licenseExpiryDate:
           type: string
           format: date
+          nullable: true
         avatarUrl:
           type: string
           nullable: true

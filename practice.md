@@ -131,6 +131,8 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 
 ### PC19 – POSTMAN: Thanh toán online
 
+Chuyến mẫu chưa thanh toán: đăng nhập `kh01@gmail.com` / `12345678`, dùng `tripId = 40000000-0000-4000-8000-000000000027` để thử API thanh toán.
+
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
 | GET | `{{baseUrl}}/api/v1/customers/me` | Không | Customer (`{{customerToken}}`) | Không |
@@ -142,6 +144,8 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |
 
 ### PC20 – POSTMAN: Đánh giá chuyến đi
+
+Chuyến mẫu chưa có review: đăng nhập `kh01@gmail.com` / `12345678`, dùng `tripId = 40000000-0000-4000-8000-000000000026` để gửi đánh giá.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
@@ -156,16 +160,18 @@ Trong Compose/Docker Desktop xem cột Ports: chỉ Gateway publish `8000:8000`.
 |---|---|---|---|---|
 | POST | `{{baseUrl}}/api/v1/drivers/otp/request` | `{"phone":"0912345002"}` | Không | Không |
 | POST | `{{baseUrl}}/api/v1/drivers/otp/verify` | `{"phone":"0912345002","otp":"{{otp}}"}` | Không | Không |
-| POST | `{{baseUrl}}/api/v1/drivers/register` | `{"registrationToken":"{{registrationToken}}","phone":"0912345002","password":"TaiXeDemo@123","fullName":"Tai Xe Demo","licenseNumber":"GPLX-DEMO-02","licenseClass":"A1","licenseExpiryDate":"2035-01-01","vehicle":{"vehicleType":"BIKE","plateNumber":"59A1-12345","brand":"Honda","model":"Wave"}}` | Không | Không |
+| POST | `{{baseUrl}}/api/v1/drivers/register` | `{"registrationToken":"{{registrationToken}}","email":"taixe.demo@example.com","phone":"0912345002","password":"TaiXeDemo@123","fullName":"Tai Xe Demo","license":{"class":"A1"},"vehicle":{"type":"BIKE","model":"Wave"}}` | Không | Không |
 
 ### PC22 – POSTMAN: Admin duyệt/từ chối Driver
+
+Tài xế mẫu đang chờ duyệt: `driverId = 20000000-0000-4000-8000-000000000011` (`dr11@gmail.com`, điện thoại `0391234511`). Có thể dùng ID này để thử API duyệt mà không cần đăng ký lại.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
 | GET | `{{baseUrl}}/api/v1/drivers?status=PENDING_APPROVAL` | Không | Admin (`{{adminToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/{{driverId}}/application` | Không | Admin (`{{adminToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/drivers/{{driverId}}/approve` | `{}` | Admin (`{{adminToken}}`) | Không |
-| POST | `{{baseUrl}}/api/v1/auth/login` | `{"phone":"0912345002","password":"TaiXeDemo@123"}` | Không | Không |
+| POST | `{{baseUrl}}/api/v1/auth/login` | `{"phone":"0391234511","password":"12345678"}` | Không | Không |
 | GET | `{{baseUrl}}/api/v1/notifications?limit=20` | Không | Driver (`{{driverToken}}`) | Không |
 
 ### PC23 – POSTMAN: Online/Offline

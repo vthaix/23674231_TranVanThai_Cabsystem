@@ -151,7 +151,7 @@ function buildForwardHeaders(req, requestId, user) {
   headers["x-request-id"] = requestId;
   headers["x-forwarded-by"] = "cab-gateway";
   if (user) {
-    headers["x-user-id"] = user.sub;
+    headers["x-user-id"] = user.accountId || user.sub;
     headers["x-user-role"] = user.role;
   }
 
