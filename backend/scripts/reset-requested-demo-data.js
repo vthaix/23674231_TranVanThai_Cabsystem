@@ -214,7 +214,7 @@ async function seedRides() {
   const ratings = (await pools.trip.query(`SELECT driver_id, COUNT(*)::int AS n,
     SUM(stars)::int AS stars FROM reviews GROUP BY driver_id`)).rows;
   for (const rating of ratings) {
-    await pools.driver.query(`UPDATE drivers SET rating_count=$1,rating_sum=$2,
+    await pools.driver.query(`UPDATE drivers SET rating_count=$1::integer,rating_sum=$2::integer,
       rating_avg=ROUND($2::numeric/$1::numeric,2) WHERE id=$3`,
       [rating.n, rating.stars, rating.driver_id]);
   }
@@ -231,13 +231,27 @@ async function main() {
     throw new Error('Invalid driver phones');
   redisCli('PING');
   try {
-    for (const name of dbNames) await resetPg(name);
-    const collectionCount = Number(runMongoScript(
-      'const names = db.getCollectionNames(); names.forEach(name => db.getCollection(name).deleteMany({})); print(names.length);'
-    ));
-    console.log(`Cleared notification_db (${collectionCount} collections)`);
-    redisCli('FLUSHDB');
-    console.log('Cleared Redis');
+    if (process.argv.includes('--if-empty')) {
+      // Initial setup must never replace existing business data.
+      for (const name of dbNames) {
+        const tables = (await pools[name].query(`SELECT tablename FROM pg_tables
+          WHERE schemaname='public' AND tablename <> '_migrations'`)).rows;
+        for (const { tablename } of tables) {
+          const identifier = '"' + tablename.replaceAll('"', '""') + '"';
+          const { rows } = await pools[name].query(`SELECT 1 FROM ${identifier} LIMIT 1`);
+          if (rows.length) throw new Error(`Initial seed refused: ${name}.${tablename} already contains data`);
+        }
+      }
+      console.log('All business tables are empty; initializing demo data without clearing MongoDB or Redis');
+    } else {
+      for (const name of dbNames) await resetPg(name);
+      const collectionCount = Number(runMongoScript(
+        'const names = db.getCollectionNames(); names.forEach(name => db.getCollection(name).deleteMany({})); print(names.length);'
+      ));
+      console.log(`Cleared notification_db (${collectionCount} collections)`);
+      redisCli('FLUSHDB');
+      console.log('Cleared Redis');
+    }
     await seedIdentity();
     await seedProfiles();
     await seedRides();

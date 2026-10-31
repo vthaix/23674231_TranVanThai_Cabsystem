@@ -14,7 +14,8 @@ docker compose build "${app_services[@]}"
 
 # No application service may write to the databases or Kafka during the reset.
 docker compose stop "${app_services[@]}"
-docker compose up -d --wait kafka redis notification-db
+docker compose --profile tools up -d --wait postgres postgres-tools kafka redis notification-db
+trap 'docker compose --profile tools stop postgres-tools >/dev/null 2>&1 || true' EXIT
 node scripts/clear-kafka-events.js
 docker compose up -d kafka-init
 docker compose wait kafka-init

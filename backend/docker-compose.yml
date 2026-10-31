@@ -1,5 +1,43 @@
 services:
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: cab-postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD in backend/.env}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?Set CUSTOMER_DB_PASSWORD in backend/.env}
+      DRIVER_DB_PASSWORD: ${DRIVER_DB_PASSWORD:?Set DRIVER_DB_PASSWORD in backend/.env}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD:?Set BOOKING_DB_PASSWORD in backend/.env}
+      TRIP_DB_PASSWORD: ${TRIP_DB_PASSWORD:?Set TRIP_DB_PASSWORD in backend/.env}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?Set PAYMENT_DB_PASSWORD in backend/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/01-databases.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    networks:
+      - cab-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  # Optional host access for maintenance; absent from normal `compose up`.
+  postgres-tools:
+    image: node:20-alpine
+    profiles: [tools]
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./scripts/postgres-tunnel.cjs:/tools/postgres-tunnel.cjs:ro
+    command: ["node", "/tools/postgres-tunnel.cjs"]
+    networks:
+      - cab-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # =========================
   # GATEWAY
   # =========================
@@ -34,11 +72,13 @@ services:
       NODE_ENV: development
       SEED_ON_START: "false"
       JWT_TTL_MIN: ${JWT_TTL_MIN:-60}
-      DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@host.docker.internal:5432/identity_db
+      DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@postgres:5432/identity_db
       KAFKA_BROKERS: kafka:9092
     networks:
       - cab-internal
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_healthy
     restart: unless-stopped
@@ -54,9 +94,12 @@ services:
       GRPC_PORT: 50051
       NODE_ENV: development
       SEED_ON_START: "false"
-      DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@host.docker.internal:5432/customer_db
+      DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@postgres:5432/customer_db
     networks:
       - cab-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   driver-service:
@@ -70,13 +113,15 @@ services:
       GRPC_PORT: 50052
       NODE_ENV: development
       SEED_ON_START: "false"
-      DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@host.docker.internal:5432/driver_db
+      DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@postgres:5432/driver_db
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
       OFFER_TTL_SEC: ${OFFER_TTL_SEC:-1800}
     networks:
       - cab-internal
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
@@ -94,12 +139,14 @@ services:
       GRPC_PORT: 50053
       NODE_ENV: development
       SEED_ON_START: "false"
-      DATABASE_URL: postgresql://booking:${BOOKING_DB_PASSWORD}@host.docker.internal:5432/booking_db
+      DATABASE_URL: postgresql://booking:${BOOKING_DB_PASSWORD}@postgres:5432/booking_db
       KAFKA_BROKERS: kafka:9092
       OFFER_TTL_SEC: ${OFFER_TTL_SEC:-1800}
     networks:
       - cab-internal
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_healthy
     restart: unless-stopped
@@ -115,12 +162,14 @@ services:
       GRPC_PORT: 50054
       NODE_ENV: development
       SEED_ON_START: "false"
-      DATABASE_URL: postgresql://trip:${TRIP_DB_PASSWORD}@host.docker.internal:5432/trip_db
+      DATABASE_URL: postgresql://trip:${TRIP_DB_PASSWORD}@postgres:5432/trip_db
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
     networks:
       - cab-internal
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
@@ -137,11 +186,13 @@ services:
       SERVICE_NAME: payment-service
       GRPC_PORT: 50055
       NODE_ENV: development
-      DATABASE_URL: postgresql://payment:${PAYMENT_DB_PASSWORD}@host.docker.internal:5432/payment_db
+      DATABASE_URL: postgresql://payment:${PAYMENT_DB_PASSWORD}@postgres:5432/payment_db
       KAFKA_BROKERS: kafka:9092
     networks:
       - cab-internal
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_healthy
     restart: unless-stopped
@@ -155,7 +206,7 @@ services:
       PORT: 3006
       SERVICE_NAME: notification-service
       GRPC_PORT: 50056
-      MONGO_URL: mongodb://notification:${NOTIFICATION_DB_PASSWORD}@notification-db:27017/notification_db?authSource=admin
+      MONGO_URL: mongodb://notification:${NOTIFICATION_DB_PASSWORD:?Set NOTIFICATION_DB_PASSWORD in backend/.env}@notification-db:27017/notification_db?authSource=admin
       KAFKA_BROKERS: kafka:9092
     networks:
       - cab-internal
@@ -222,7 +273,7 @@ services:
     container_name: cab-notification-db
     environment:
       MONGO_INITDB_ROOT_USERNAME: notification
-      MONGO_INITDB_ROOT_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Set NOTIFICATION_DB_PASSWORD in backend/.env}
       MONGO_INITDB_DATABASE: notification_db
     volumes:
       - notification-db-data:/data/db
@@ -284,5 +335,6 @@ networks:
     driver: bridge
 
 volumes:
+  postgres-data:
   kafka-data:
   notification-db-data:

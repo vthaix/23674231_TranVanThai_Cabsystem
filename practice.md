@@ -45,7 +45,7 @@ Chi tiết cổng và danh mục RPC: [gRPC](backend/shared/proto/README.md).
 
 ### PC5 – Docker Compose và container
 
-Mở `backend/docker-compose.yml` và Docker Desktop: chỉ Gateway, 7 service, Kafka, Redis, MongoDB và mock provider. PostgreSQL của dự án chạy trên host.
+Mở `backend/docker-compose.yml` và Docker Desktop: chỉ Gateway, 7 service, Kafka, Redis, MongoDB và mock provider. PostgreSQL cũng chạy trong Docker, gồm sáu database và user riêng theo service; profile tools chỉ mở cổng localhost tạm thời khi bảo trì.
 
 ### PC6 – POSTMAN: API health check
 

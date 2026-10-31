@@ -1,6 +1,6 @@
-# Cab System backend (PostgreSQL on the host)
+# Cab System backend (Docker Compose)
 
-The seven application services, gateway, Kafka, Redis, MongoDB, and mock providers run in Docker Compose. The six PostgreSQL databases run on the Mac. Docker Desktop resolves `host.docker.internal` to the host; each service uses that address on port `5432`.
+The seven application services, Gateway, PostgreSQL, Kafka, Redis, MongoDB and mock providers run in Docker Compose. PostgreSQL has six separate databases and login roles, one per owning service. No local PostgreSQL installation is required.
 
 ## Communication
 
@@ -10,35 +10,29 @@ Run `npm test` to verify RPC transport, caller authentication and REST → Gatew
 
 ## First-time setup
 
-1. Start PostgreSQL on the Mac and confirm `psql -d postgres -c 'SELECT 1'` works. The setup script needs a local PostgreSQL superuser.
-2. Create `backend/.env` locally and fill in the seven database passwords (`IDENTITY_DB_PASSWORD`, `CUSTOMER_DB_PASSWORD`, `DRIVER_DB_PASSWORD`, `BOOKING_DB_PASSWORD`, `TRIP_DB_PASSWORD`, `PAYMENT_DB_PASSWORD`, `NOTIFICATION_DB_PASSWORD`). The six PostgreSQL passwords must be URL-safe because Compose inserts them into `DATABASE_URL`. Keep this file only on your machine.
-3. From `backend/`, run `python3 scripts/setup-host-postgres.py`. This creates `identity_db`, `customer_db`, `driver_db`, `booking_db`, `trip_db`, and `payment_db`, each owned by its matching service user. It can be run again after changing passwords.
-4. Run `npm install`, then `npm run build`. The build command applies SQL migrations, replaces all application data with the demo seed, and starts the services.
+1. Copy `.env.example` to `.env` inside `backend/`. Set eight non-empty URL-safe passwords: the PostgreSQL administrator, six service roles, and MongoDB notification user. Keep this file local; Git ignores it.
+2. From `backend/`, run `docker compose up -d --build`. PostgreSQL initializes all six databases on its first start. Each service applies its migrations, then listens over gRPC. Compose waits for database health before starting dependent services.
+3. Check `http://localhost:8000/health/services`. All seven services should be `up`.
 
-PostgreSQL must accept connections from Docker Desktop to `host.docker.internal:5432`. Test from a running service with:
-
-```sh
-docker compose exec -T driver-service node -e "const { Client } = require('pg'); const c = new Client({ connectionString: process.env.DATABASE_URL }); c.connect().then(() => c.query('SELECT current_database()')).then(r => { console.log(r.rows[0]); return c.end(); }).catch(e => { console.error(e); process.exitCode = 1; });"
-```
+Data lives in the named volumes `postgres-data` and `notification-db-data`. A normal restart preserves it. Changing passwords in `.env` does not change users already stored in initialized volumes; update the database credentials together.
 
 ## Database connections
 
-| Database | User | pgAdmin host | Port |
-| --- | --- | --- | --- |
-| `identity_db` | `identity` | `localhost` | `5432` |
-| `customer_db` | `customer` | `localhost` | `5432` |
-| `driver_db` | `driver` | `localhost` | `5432` |
-| `booking_db` | `booking` | `localhost` | `5432` |
-| `trip_db` | `trip` | `localhost` | `5432` |
-| `payment_db` | `payment` | `localhost` | `5432` |
+Services connect to `postgres:5432` inside Docker using their matching database/role: `identity_db/identity`, `customer_db/customer`, `driver_db/driver`, `booking_db/booking`, `trip_db/trip`, `payment_db/payment`. MongoDB is also internal. Only Gateway publishes a public API port.
 
-The passwords are in `backend/.env`. In pgAdmin, register a server with host `localhost`, port `5432`, and a matching database/user. The Docker services use `host.docker.internal` instead of `localhost` because they run inside containers.
+Use `docker compose exec postgres psql -U postgres -d identity_db` for SQL access. Host-side seed scripts or pgAdmin can temporarily use the optional maintenance tunnel:
 
-Existing PostgreSQL Docker volumes are not used by this Compose file. Keep them until you have verified the local databases and made a backup of the local PostgreSQL cluster.
+```sh
+docker compose --profile tools up -d postgres-tools
+# Connect to localhost:5432 with the matching database, role and password.
+docker compose --profile tools stop postgres-tools
+```
+
+The tunnel binds only to `127.0.0.1`; it is not started by normal Compose startup. For a first demo seed, stop the six PostgreSQL-backed application services, start the tunnel, run `node scripts/reset-requested-demo-data.js --if-empty`, then restart those services and stop the tunnel. This mode refuses to overwrite any non-empty business table and does not clear MongoDB or Redis.
 
 ## Build and demo dataset
 
-From `backend/`, run `npm run build` each time you want to build the system. The command builds the images first, stops application services, clears records in this project's Kafka topics, runs migrations, clears application tables in all six host PostgreSQL databases plus MongoDB notifications and Redis, loads the seed in `scripts/reset-requested-demo-data.js`, verifies it, and starts fresh application containers. This deletes accounts, bookings, trips, payments, notifications, Kafka events, and other runtime data created since the previous build. Only the seed dataset is restored. PostgreSQL migration history (`_migrations`) and Docker volumes remain.
+From `backend/`, use `docker compose up -d --build` for ordinary builds. Use `npm run build` only when you intend to reset the demo dataset. The reset command temporarily starts the loopback maintenance tunnel, builds the images first, stops application services, clears records in this project's Kafka topics, runs migrations, clears application tables in all six PostgreSQL databases in Docker plus MongoDB notifications and Redis, loads the seed in `scripts/reset-requested-demo-data.js`, verifies it, and starts fresh application containers. This deletes accounts, bookings, trips, payments, notifications, Kafka events, and other runtime data created since the previous build. Only the seed dataset is restored. PostgreSQL migration history (`_migrations`) and Docker volumes remain. The maintenance tunnel is stopped when the script exits.
 
 `docker compose up -d --build` builds images but does not run the reset workflow; use `npm run build` for the requested behavior. The old per-service seed functions are disabled in Compose to avoid adding extra rows after the reset.
 
