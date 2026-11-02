@@ -51,7 +51,7 @@ function findTrips2(db, params) {
 function listTrips(db, { customerId, driverId, status, limit, offset }) {
   const conditions = [];
   const params = [];
-  for (const [column, value] of [['customer_id', customerId], ['driver_id', driverId], ['status', status]]) {
+  for (const [column, value] of [['t.customer_id', customerId], ['t.driver_id', driverId], ['t.status', status]]) {
     if (value != null) {
       params.push(value);
       conditions.push(`${column} = $${params.length}`);
@@ -59,7 +59,9 @@ function listTrips(db, { customerId, driverId, status, limit, offset }) {
   }
   const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
   params.push(limit, offset);
-  return db.query(`SELECT * FROM trips${where} ORDER BY created_at DESC, id DESC
+  return db.query(`SELECT t.*, r.stars AS review_stars, r.comment AS review_comment
+    FROM trips t LEFT JOIN reviews r ON r.trip_id = t.id${where}
+    ORDER BY t.created_at DESC, t.id DESC
     LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 

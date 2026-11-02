@@ -75,7 +75,7 @@ async function postInternalBookingsIdTripStatus(input) {
         updated_at=NOW() WHERE id=$1`, [id]);
     } else {
       await client.query(`UPDATE bookings SET status='CANCELED',canceled_at=NOW(),
-        cancel_reason=LEFT($1,40),updated_at=NOW() WHERE id=$2`,
+        cancel_reason=$1,updated_at=NOW() WHERE id=$2`,
         [reason || 'TRIP_CANCELED', id]);
     }
     await client.query(`INSERT INTO booking_status_history(booking_id,from_status,to_status,reason,request_id)
@@ -558,6 +558,9 @@ async function postBookingsIdCancel(input) {
 
   if (typeof reason !== "string" || !reason.trim()) {
     return errorResult(400, "VALIDATION_ERROR", "Cancellation reason is required", requestId);
+  }
+  if (reason.length > 255) {
+    return errorResult(400, "VALIDATION_ERROR", "Cancellation reason must not exceed 255 characters", requestId);
   }
   const safeReason = escapeHTML(reason);
   if (role !== 'CUSTOMER' && role !== 'ADMIN') {

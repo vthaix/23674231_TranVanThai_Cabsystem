@@ -391,6 +391,7 @@ components:
       properties:
         reason:
           type: string
+          maxLength: 255
       additionalProperties: false
     Offer:
       type: object

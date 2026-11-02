@@ -34,6 +34,10 @@ function tripListView(trip) {
     currency: trip.currency,
     status: trip.status,
     paymentStatus: trip.payment_status,
+    review: {
+      stars: trip.review_stars == null ? null : Number(trip.review_stars),
+      comment: trip.review_comment ?? null
+    },
     createdAt: trip.created_at,
     completedAt: trip.completed_at,
     canceledAt: trip.canceled_at
@@ -349,6 +353,9 @@ async function postTripsIdCancel(input) {
   if (typeof reason !== "string" || !reason.trim()) {
     return errorResult(400, "VALIDATION_ERROR", "Cancellation reason is required", requestId);
   }
+  if (reason.length > 255) {
+    return errorResult(400, "VALIDATION_ERROR", "Cancellation reason must not exceed 255 characters", requestId);
+  }
   const safeReason = escapeHTML(reason);
 
   const client = await pool.connect();
@@ -533,9 +540,10 @@ async function getTripsId(input) {
       status: trip.status,
       paymentStatus: trip.payment_status,
       driverSnapshot: trip.driver_snapshot,
-      review,
-      stars: review ? Number(review.stars) : null,
-      comment: review?.comment ?? null,
+      review: {
+        stars: review?.stars == null ? null : Number(review.stars),
+        comment: review?.comment ?? null
+      },
       assignedAt: trip.assigned_at,
       arrivedAt: trip.arrived_at,
       startedAt: trip.started_at,

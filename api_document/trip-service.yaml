@@ -27,7 +27,7 @@ paths:
       - $ref: '#/components/parameters/RequestId'
       responses:
         '200':
-          description: Trip with driver snapshot, fare, distance and payment status. Authorized admin, customer, and driver responses include stars and comment from the trip review (null when there is no review).
+          description: Trip with driver snapshot, fare, distance, payment status and a review object. Unreviewed trips have review stars and comment set to null.
           content:
             application/json:
               schema:
@@ -286,6 +286,7 @@ components:
       - fare
       - distanceKm
       - paymentStatus
+      - review
       properties:
         id:
           type: string
@@ -327,16 +328,21 @@ components:
           enum:
           - UNPAID
           - PAID
-        stars:
-          type: integer
-          nullable: true
-          description: Customer rating for this trip, or null if not reviewed.
-          minimum: 1
-          maximum: 5
-        comment:
-          type: string
-          nullable: true
-          description: Customer review comment for this trip, or null if not reviewed.
+        review:
+          type: object
+          required:
+          - stars
+          - comment
+          properties:
+            stars:
+              type: integer
+              nullable: true
+              minimum: 1
+              maximum: 5
+            comment:
+              type: string
+              nullable: true
+          additionalProperties: false
         assignedAt:
           type: string
           format: date-time
@@ -389,6 +395,7 @@ components:
       properties:
         reason:
           type: string
+          maxLength: 255
       additionalProperties: false
     TripLocation:
       type: object
