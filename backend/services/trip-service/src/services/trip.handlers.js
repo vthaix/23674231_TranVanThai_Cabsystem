@@ -416,7 +416,7 @@ async function postTripsIdCancel(input) {
   }
 }
 
-async function postTripsIdReviews(input) {
+async function saveTripsIdReview(input, updateExisting) {
   const { sub: userId, role } = input.user;
   const { id: tripId } = input.params;
   const { stars, comment } = input.body;
@@ -456,32 +456,48 @@ async function postTripsIdReviews(input) {
       return errorResult(409, "TRIP_NOT_COMPLETED", "Can only review completed trips", requestId);
     }
 
-    // Check if already reviewed (unique trip_id)
+    // POST creates a review; PUT edits the existing review for this trip.
     const existingRev = await repository.findReviews(client, [tripId]);
-    if (existingRev.rows.length > 0) {
+    if (existingRev.rows.length === 0 && updateExisting) {
+      await repository.rollback(client);
+      return errorResult(404, "REVIEW_NOT_FOUND", "Trip has no review to update", requestId);
+    }
+    if (existingRev.rows.length > 0 && !updateExisting) {
       await repository.rollback(client);
       return errorResult(409, "ALREADY_REVIEWED", "Trip has already been reviewed", requestId);
     }
 
-    const reviewId = crypto.randomUUID();
-
-    await repository.insertReviews(client, [reviewId, tripId, trip.customer_id, trip.driver_id, numStars, sanitizedComment]);
+    let reviewId;
+    let status;
+    let eventType;
+    if (existingRev.rows.length > 0) {
+      reviewId = existingRev.rows[0].id;
+      await repository.updateReviews(client, [numStars, sanitizedComment, tripId]);
+      status = 200;
+      eventType = "trip.review.updated";
+    } else {
+      reviewId = crypto.randomUUID();
+      await repository.insertReviews(client, [reviewId, tripId, trip.customer_id, trip.driver_id, numStars, sanitizedComment]);
+      status = 201;
+      eventType = "trip.reviewed";
+    }
 
     await repository.insertOutboxEvents4(client, [
       tripId,
+      eventType,
       JSON.stringify({ tripId, driverId: trip.driver_id, stars: numStars, reviewId }),
       requestId
     ]);
 
     await repository.commit(client);
 
-    return response(201, {
+    return response(status, {
       id: reviewId,
       tripId,
       driverId: trip.driver_id,
       stars: numStars,
       comment: sanitizedComment,
-      message: "Review submitted successfully",
+      message: updateExisting && existingRev.rows.length > 0 ? "Review updated successfully" : "Review submitted successfully",
       requestId
     });
   } catch (err) {
@@ -494,6 +510,14 @@ async function postTripsIdReviews(input) {
   } finally {
     client.release();
   }
+}
+
+async function postTripsIdReviews(input) {
+  return saveTripsIdReview(input, false);
+}
+
+async function putTripsIdReviews(input) {
+  return saveTripsIdReview(input, true);
 }
 
 async function getTripsId(input) {
@@ -587,4 +611,4 @@ async function getTripsIdLocation(input) {
   }
 }
 
-module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };
+module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, putTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };

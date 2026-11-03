@@ -79,6 +79,19 @@ async function postTripsIdReviews(req, res) {
   return res.status(result.status).json(result.body);
 }
 
+async function putTripsIdReviews(req, res) {
+  const result = await service.putTripsIdReviews({
+    headers: req.headers,
+    body: req.body,
+    params: req.params,
+    query: req.query,
+    user: req.user,
+    requestId: req.requestId,
+    rawBody: req.rawBody
+  });
+  return res.status(result.status).json(result.body);
+}
+
 async function getTripsId(req, res) {
   const result = await service.getTripsId({
     headers: req.headers,
@@ -113,4 +126,4 @@ async function getTripsIdLocation(req, res) {
   return res.status(result.status).json(result.body);
 }
 
-module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };
+module.exports = { postInternalTrips, getInternalTripsId, postInternalTripsIdPaymentStatus, patchTripsIdStatus, postTripsIdCancel, postTripsIdReviews, putTripsIdReviews, getTrips, getTripsId, getTripsIdLocation };

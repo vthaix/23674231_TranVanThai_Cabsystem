@@ -4,7 +4,9 @@ services:
     image: postgres:16-alpine
     container_name: cab-postgres
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+      # Local demo database: services authenticate with their own roles below.
+      # The built-in postgres role is only used for local administration.
+      POSTGRES_HOST_AUTH_METHOD: trust
       IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Set IDENTITY_DB_PASSWORD in backend/.env}
       CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?Set CUSTOMER_DB_PASSWORD in backend/.env}
       DRIVER_DB_PASSWORD: ${DRIVER_DB_PASSWORD:?Set DRIVER_DB_PASSWORD in backend/.env}

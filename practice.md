@@ -14,7 +14,7 @@ Trình bày: “Source được tổ chức theo microservice, mỗi service ph�
 
 ### PC2 – `.gitignore` và `.env` trên GitHub
 
-Mở nhánh hiện tại trên GitHub. Repository này không đưa `.env`, `.env.example` hay `.gitignore` lên nhánh; các file cần dùng chỉ giữ ở máy local. Vì vậy không thể trình bày `.gitignore` trên GitHub như câu chữ PC2.
+Mở `backend/.gitignore` và `backend/.env.example` trong repository. `.env` thật chứa mật khẩu và khóa nên bị Git ignore, không commit lên GitHub; `.env.example` chỉ có tên biến và giá trị mẫu để người khác tự cấu hình. Có thể xác nhận bằng `git check-ignore backend/.env` và kiểm tra rằng `.env` không nằm trong danh sách file đã track (`git ls-files backend/.env`). Không mở hay trình chiếu giá trị bí mật trong `.env`.
 
 ### PC3 – Nhiệm vụ Gateway
 
@@ -22,11 +22,13 @@ Mở [Gateway](backend/gateway/src/index.js) và chỉ route map, xác minh JWT,
 
 ### PC4 – IPC giữa các service
 
-Trình bày: “IPC đồng bộ sử dụng gRPC trên HTTP/2, hợp đồng được khai báo trong file .proto. Ví dụ Identity gọi CustomerService.CreateCustomer khi đăng ký; Booking gọi DriverService.FindNearby, ReserveDriver và TripService.CreateTrip khi đặt xe, nhận chuyến. Mỗi lời gọi mang service token và request ID; server kiểm tra caller theo từng RPC. IPC bất đồng bộ dùng Kafka: Booking ghi event vào outbox, publisher gửi lên booking.events, Notification nhận và xử lý thông báo.”
+Trình bày: “IPC đồng bộ sử dụng gRPC trên HTTP/2. Hợp đồng giao tiếp được khai báo bằng Protocol Buffers trong `backend/shared/proto/cab.proto`: file định nghĩa tên service, RPC, request/response và kiểu dữ liệu mà cả bên gọi lẫn bên nhận phải tuân theo. Đây là hợp đồng nội bộ gRPC, khác với đặc tả REST mà Postman gọi qua Gateway. Ví dụ Identity gọi `CustomerService.CreateCustomer` khi đăng ký; Booking gọi `DriverService.FindNearby`, `ReserveDriver` và `TripService.CreateTrip` khi đặt xe/nhận chuyến. Mỗi lời gọi mang service token và request ID; server kiểm tra caller theo từng RPC. IPC bất đồng bộ dùng Kafka: Booking ghi event vào outbox, publisher gửi lên `booking.events`, Notification nhận và xử lý thông báo.”
+
+Khi trình bày trực tiếp file Proto, chỉ ra các khối `service` (các RPC) và `message` (cấu trúc request/response). Không cần biên dịch `.proto` thủ công trong demo: runtime hiện dùng hợp đồng này để cung cấp các RPC nội bộ. Với API public, dùng các file OpenAPI trong `api_document/` và Postman; `cab.proto` không mô tả các URL REST public.
 
 Mở các file minh chứng:
 
-- `backend/shared/proto/cab.proto`: hợp đồng service và RPC.
+- `backend/shared/proto/cab.proto`: hợp đồng service, RPC, message request/response và kiểu dữ liệu.
 - `backend/shared/src/grpc/transport.js`: gRPC client/server, metadata, deadline.
 - `backend/services/booking-service/src/services/booking.service.js`: gọi FindNearby và ReserveDriver.
 - `backend/services/notification-service/src/workers/kafka.consumer.js`: consumer Kafka.
@@ -139,9 +141,9 @@ Minh chứng:
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
-| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"ARRIVED","lat":10.7901,"lng":106.7101}` | Driver (`{{driverToken}}`) | Không |
-| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"IN_PROGRESS","lat":10.7950,"lng":106.7150}` | Driver (`{{driverToken}}`) | Không |
-| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"COMPLETED","lat":10.8001,"lng":106.7201}` | Driver (`{{driverToken}}`) | Không |
+| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"ARRIVED"}` | Driver (`{{driverToken}}`) | Không |
+| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"IN_PROGRESS"}` | Driver (`{{driverToken}}`) | Không |
+| PATCH | `{{baseUrl}}/api/v1/trips/{{tripId}}/status` | `{"status":"COMPLETED"}` | Driver (`{{driverToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/trips/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 
 ### PC18 – POSTMAN: Hủy chuyến và thông báo
@@ -158,21 +160,21 @@ Minh chứng:
 
 ### PC19 – POSTMAN: Thanh toán online
 
-Chuyến mẫu chưa thanh toán: đăng nhập `kh01@gmail.com` / `12345678`, dùng `tripId = 40000000-0000-4000-8000-000000000027` để thử API thanh toán.
+Các chuyến mẫu chưa thanh toán: `40000000-0000-4000-8000-000000000101` của `kh01@gmail.com`, `...0102` của `kh02@gmail.com`, và `...0103` của `kh03@gmail.com`. Đăng nhập đúng khách sở hữu chuyến, rồi dùng trip ID tương ứng để thử API thanh toán. Mỗi lần thanh toán cần `Idempotency-Key` riêng, ví dụ `pay-trip-101-001`.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
 | GET | `{{baseUrl}}/api/v1/customers/me` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |
-| POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Có: `pay-trip-027-001` |
 | GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/trips/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |
 
 ### PC20 – POSTMAN: Đánh giá chuyến đi
 
-Chuyến mẫu chưa có review: đăng nhập `kh01@gmail.com` / `12345678`, dùng `tripId = 40000000-0000-4000-8000-000000000026` để gửi đánh giá.
+Chuyến mẫu chưa có review: đăng nhập `kh01@gmail.com` / `12345678`, dùng `tripId = 40000000-0000-4000-8000-000000000026` để gửi đánh giá bằng POST. Để sửa một review đã có, gọi PUT cùng URL với body `{ "stars": 4, "comment": "Noi dung da cap nhat" }`; chỉ khách hàng sở hữu chuyến (hoặc Admin) mới được sửa.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
@@ -263,5 +265,6 @@ Gọi `POST {{baseUrl}}/api/v1/bookings/{{xssBookingId}}/cancel` với Customer 
 | GET | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7201},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
 | POST | `{{baseUrl}}/api/v1/bookings` | `{"pickup":{"lat":10.7901,"lng":106.7101},"destination":{"lat":10.8001,"lng":106.7211},"vehicleType":"BIKE"}` | Customer (`{{customerToken}}`) | Có: `demo-ride-001` |
-| POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Không |
+| POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Có: `demo-payment-replay-001` |
+| POST | `{{baseUrl}}/api/v1/payments/{{tripId}}` | Không | Customer (`{{customerToken}}`) | Có: `demo-payment-replay-001` |
 | GET | `{{baseUrl}}/api/v1/drivers/me` | Không | Driver (`{{driverToken}}`) | Không |

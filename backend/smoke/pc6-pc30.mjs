@@ -296,7 +296,8 @@ await check(17, 'trip status transition and location', async () => {
   const invalid = await call('PATCH', `/api/v1/trips/${trip.id}/status`, { status: 'COMPLETED' }, driverToken);
   status(invalid, 409);
   status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, { status: 'CANCELED' }, driverToken), 409);
-  status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 409);
+  status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken,
+    { 'idempotency-key': `smoke-${runId}-payment-before-complete` }), 409);
   for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
     assert.equal(status(await call('PATCH', `/api/v1/trips/${trip.id}/status`, {
       status: next, lat: 10.791, lng: 106.711
@@ -312,7 +313,9 @@ await check(17, 'trip status transition and location', async () => {
 });
 
 await check(19, 'payment confirmation completes payment after trip', async () => {
-  const paid = status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200);
+  const paymentKey = `smoke-${runId}-payment-${trip.id}`;
+  const paid = status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken,
+    { 'idempotency-key': paymentKey }), 200);
   assert.equal(paid.status, 'COMPLETED');
   const payment = status(await call('GET', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200);
   assert.equal(payment.status, 'COMPLETED');
@@ -336,7 +339,8 @@ await check(19, 'payment confirmation completes payment after trip', async () =>
   for (const next of ['ARRIVED', 'IN_PROGRESS', 'COMPLETED']) {
     status(await call('PATCH', `/api/v1/trips/${driverPaidTripId}/status`, { status: next }, driverToken), 200);
   }
-  assert.equal(status(await call('POST', `/api/v1/payments/${driverPaidTripId}`, undefined, driverToken), 200).status, 'COMPLETED');
+  assert.equal(status(await call('POST', `/api/v1/payments/${driverPaidTripId}`, undefined, driverToken,
+    { 'idempotency-key': `smoke-${runId}-driver-payment-${driverPaidTripId}` }), 200).status, 'COMPLETED');
   assert.equal(status(await call('GET', `/api/v1/trips/${driverPaidTripId}`, undefined, customerToken), 200).paymentStatus, 'PAID');
 });
 
@@ -455,7 +459,8 @@ await check(30, 'booking and payment replay are idempotent', async () => {
     ...bookingPayload(booking.pickup.lat, booking.pickup.lng), destinationAddress: 'Different destination'
   }, customerToken, { 'idempotency-key': `smoke-${runId}-ride` });
   status(conflict, 422);
-  assert.equal(status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken), 200).duplicate, true);
+  assert.equal(status(await call('POST', `/api/v1/payments/${trip.id}`, undefined, customerToken,
+    { 'idempotency-key': `smoke-${runId}-payment-${trip.id}` }), 200).duplicate, true);
 });
 
 const passed = results.filter(r => r.ok).length;

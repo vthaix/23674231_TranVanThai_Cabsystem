@@ -146,7 +146,7 @@ function insertOutboxEvents3(db, params) {
 }
 
 function findReviews(db, params) {
-  return db.query("SELECT id FROM reviews WHERE trip_id = $1", params);
+  return db.query("SELECT id FROM reviews WHERE trip_id = $1 FOR UPDATE", params);
 }
 
 function insertReviews(db, params) {
@@ -159,12 +159,16 @@ function insertReviews(db, params) {
 function insertOutboxEvents4(db, params) {
   return db.query(`
       INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, topic, partition_key, payload, request_id)
-      VALUES ('Trip', $1, 'trip.reviewed', 'trip.events', $1::uuid::text, $2, $3)
+      VALUES ('Trip', $1, $2, 'trip.events', $1::uuid::text, $3, $4)
     `, params);
+}
+
+function updateReviews(db, params) {
+  return db.query(`UPDATE reviews SET stars = $1, comment = $2 WHERE trip_id = $3 RETURNING id`, params);
 }
 
 function findReviews2(db, params) {
   return db.query("SELECT stars, comment, created_at FROM reviews WHERE trip_id = $1", params);
 }
 
-module.exports = { findTrips, findFareRules, begin, insertTrips, insertTripStatusHistory, insertOutboxEvents, commit, rollback, findTrips2, listTrips, countTrips, updateTrips, findTrips3, updateTrips2, insertTripStatusHistory2, insertOutboxEvents2, updateTrips3, insertTripStatusHistory3, insertOutboxEvents3, findReviews, insertReviews, insertOutboxEvents4, findReviews2 };
+module.exports = { findTrips, findFareRules, begin, insertTrips, insertTripStatusHistory, insertOutboxEvents, commit, rollback, findTrips2, listTrips, countTrips, updateTrips, findTrips3, updateTrips2, insertTripStatusHistory2, insertOutboxEvents2, updateTrips3, insertTripStatusHistory3, insertOutboxEvents3, findReviews, insertReviews, updateReviews, insertOutboxEvents4, findReviews2 };

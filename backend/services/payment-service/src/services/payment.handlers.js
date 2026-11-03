@@ -25,7 +25,11 @@ async function postPaymentsTrip(input) {
   const { tripId } = input.params;
   const { sub: userId, role } = input.user;
   const { requestId } = input;
+  const idempotencyKey = input.headers?.['idempotency-key'];
   if (!uuid.test(tripId)) return error(400, 'VALIDATION_ERROR', 'Valid tripId required', requestId);
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim() || idempotencyKey.length > 100) {
+    return error(400, 'IDEMPOTENCY_KEY_REQUIRED', 'A valid Idempotency-Key header (1-100 characters) is required', requestId);
+  }
 
   try {
     const tripResponse = await rpcRequest('trip-service', 'GetTrip', { id: tripId }, {
@@ -46,17 +50,47 @@ async function postPaymentsTrip(input) {
     const client = await pool.connect();
     let payment;
     let duplicate;
+    let paymentResponse;
     try {
       await client.query('BEGIN');
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [tripId]);
-      const existing = await client.query("SELECT * FROM payments WHERE trip_id=$1 AND status='COMPLETED'", [tripId]);
-      duplicate = existing.rows.length > 0;
-      if (duplicate) {
-        payment = existing.rows[0];
+      const scope = String(userId);
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${scope}:POST /payments:${idempotencyKey}`]);
+      const idemResult = await client.query(`SELECT request_hash, response_body, resource_id
+        FROM idempotency_records
+        WHERE scope=$1 AND endpoint='POST /payments' AND idempotency_key=$2
+        FOR UPDATE`, [scope, idempotencyKey]);
+      const requestHash = crypto.createHash('sha256').update(JSON.stringify({ tripId, userId })).digest('hex');
+      if (idemResult.rows.length > 0) {
+        const idem = idemResult.rows[0];
+        if (idem.request_hash !== requestHash) {
+          await client.query('ROLLBACK');
+          return error(409, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key was already used for a different request', requestId);
+        }
+        const paymentResult = await client.query('SELECT * FROM payments WHERE id=$1', [idem.resource_id]);
+        if (paymentResult.rows.length === 0) throw new Error('Idempotent payment resource not found');
+        payment = paymentResult.rows[0];
+        paymentResponse = idem.response_body;
+        duplicate = true;
       } else {
-        const inserted = await client.query("INSERT INTO payments (id,trip_id,customer_id,amount,method,status,provider,completed_at) VALUES($1,$2,$3,$4,$5,'COMPLETED','SIMULATED',NOW()) RETURNING *",
-          [crypto.randomUUID(), tripId, trip.customerId, trip.fare, trip.paymentMethod]);
-        payment = inserted.rows[0];
+        const existing = await client.query("SELECT * FROM payments WHERE trip_id=$1 AND status='COMPLETED'", [tripId]);
+        duplicate = existing.rows.length > 0;
+        if (duplicate) {
+          payment = existing.rows[0];
+        } else {
+          const inserted = await client.query("INSERT INTO payments (id,trip_id,customer_id,amount,method,status,provider,completed_at,idempotency_key) VALUES($1,$2,$3,$4,$5,'COMPLETED','SIMULATED',NOW(),$6) RETURNING *",
+            [crypto.randomUUID(), tripId, trip.customerId, trip.fare, trip.paymentMethod, idempotencyKey]);
+          payment = inserted.rows[0];
+        }
+        paymentResponse = {
+          id: payment.id, tripId, bookingId: trip.bookingId, amount: Number(payment.amount),
+          currency: 'VND', paymentMethod: trip.paymentMethod, status: 'COMPLETED',
+          paymentStatus: 'PAID', duplicate, requestId
+        };
+        await client.query(`INSERT INTO idempotency_records
+          (scope, endpoint, idempotency_key, request_hash, status, response_code, response_body, resource_id)
+          VALUES ($1, 'POST /payments', $2, $3, 'COMPLETED', 200, $4, $5)`,
+        [scope, idempotencyKey, requestHash, JSON.stringify(paymentResponse), payment.id]);
       }
       await client.query('COMMIT');
     } catch (e) {
@@ -70,11 +104,7 @@ async function postPaymentsTrip(input) {
     await servicePost('booking-service', trip.bookingId,
       { tripId, status: 'PAID' }, requestId);
 
-    return response(200, {
-      id: payment.id, tripId, bookingId: trip.bookingId, amount: Number(payment.amount),
-      currency: 'VND', paymentMethod: trip.paymentMethod, status: 'COMPLETED',
-      paymentStatus: 'PAID', duplicate, requestId
-    });
+    return response(200, paymentResponse);
   } catch (e) {
     console.error('[payments/trip]', e.message);
     return error(503, 'SERVICE_UNAVAILABLE', 'Payment confirmation failed; retry', requestId);

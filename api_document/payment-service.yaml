@@ -26,6 +26,7 @@ paths:
       parameters:
       - $ref: '#/components/parameters/Id'
       - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
           description: Payment completed and trip payment status updated

@@ -10,7 +10,7 @@ Run `npm test` to verify RPC transport, caller authentication and REST → Gatew
 
 ## First-time setup
 
-1. Copy `.env.example` to `.env` inside `backend/`. Set eight non-empty URL-safe passwords: the PostgreSQL administrator, six service roles, and MongoDB notification user. Keep this file local; Git ignores it.
+1. Copy `.env.example` to `.env` inside `backend/`. Set seven non-empty URL-safe passwords: the six PostgreSQL service roles and MongoDB notification user. PostgreSQL's built-in admin role is local-only; application services use their own role passwords. Keep `.env` local; Git ignores it.
 2. From `backend/`, run `docker compose up -d --build`. PostgreSQL initializes all six databases on its first start. Each service applies its migrations, then listens over gRPC. Compose waits for database health before starting dependent services.
 3. Check `http://localhost:8000/health/services`. All seven services should be `up`.
 
