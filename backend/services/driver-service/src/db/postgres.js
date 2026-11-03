@@ -1,6 +1,7 @@
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
+const { migrateEmailColumn } = require("../../../../shared/src/crypto");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -43,6 +44,7 @@ async function runMigrations() {
         throw err;
       }
     }
+    await migrateEmailColumn(pool, "drivers");
   } finally {
     client.release();
   }

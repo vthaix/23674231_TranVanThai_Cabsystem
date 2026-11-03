@@ -10,11 +10,11 @@ async function existsById(id) {
   return rows.length > 0;
 }
 
-async function createCustomer({ id, fullName, email, phoneEnc, phoneHash }) {
+async function createCustomer({ id, fullName, email, emailHash, phoneEnc, phoneHash }) {
   await pool.query(
-    `INSERT INTO customer_profiles (id, full_name, email, phone_enc, phone_hash, status)
-     VALUES ($1, $2, $3, $4, $5, 'ACTIVE')`,
-    [id, fullName, email, phoneEnc, phoneHash]
+    `INSERT INTO customer_profiles (id, full_name, email, email_hash, phone_enc, phone_hash, status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')`,
+    [id, fullName, email, emailHash, phoneEnc, phoneHash]
   );
 }
 

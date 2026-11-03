@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-const { hashPhone } = require('../shared/src/crypto');
+const { encrypt, hashEmail, hashPhone } = require('../shared/src/crypto');
 
 const adminId = '00000000-0000-4000-8000-000000000001';
 const passwordHash = '$2a$10$wrVP5/5ZS.Wi1VFGstA9XuZ7FsvZ1yHG57Od/CLQztbJWCDWOo5g2'; // 12345678
@@ -35,11 +35,12 @@ async function ensureDemoAdmin(db) {
         VALUES('ADMIN',$1) ON CONFLICT DO NOTHING`, [code]);
     }
     // The schema requires a phone hash; use the email as a non-phone sentinel.
-    await client.query(`INSERT INTO accounts(id,email,phone_hash,password_hash,display_name,status)
-      VALUES($1,'admin@gmail.com',$2,$3,'Administrator','ACTIVE')
-      ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,phone_hash=EXCLUDED.phone_hash,
+    const email = 'admin@gmail.com';
+    await client.query(`INSERT INTO accounts(id,email,email_hash,phone_hash,password_hash,display_name,status)
+      VALUES($1,$2,$3,$4,$5,'Administrator','ACTIVE')
+      ON CONFLICT(id) DO UPDATE SET email=EXCLUDED.email,email_hash=EXCLUDED.email_hash,phone_hash=EXCLUDED.phone_hash,
       password_hash=EXCLUDED.password_hash,display_name=EXCLUDED.display_name,status='ACTIVE'`,
-      [adminId, hashPhone('admin@gmail.com'), passwordHash]);
+      [adminId, encrypt(email), hashEmail(email), hashPhone(email), passwordHash]);
     await client.query(`INSERT INTO account_roles(account_id,role_code,is_primary)
       VALUES($1,'ADMIN',true) ON CONFLICT(account_id,role_code) DO UPDATE SET is_primary=true`, [adminId]);
     await client.query('COMMIT');
@@ -55,6 +56,7 @@ if (require.main === module) {
   const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
     .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
     .map(line => { const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)]; }));
+  process.env.EMAIL_HASH_PEPPER = env.EMAIL_HASH_PEPPER || 'dev-email-index-pepper';
   const pool = new Pool({ host: 'localhost', port: 5433, user: 'identity', database: 'identity_db',
     password: env.IDENTITY_DB_PASSWORD });
   ensureDemoAdmin(pool)

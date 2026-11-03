@@ -193,13 +193,14 @@ Chuyến mẫu chưa có review: đăng nhập `kh01@gmail.com` / `12345678`, d�
 
 ### PC22 – POSTMAN: Admin duyệt/từ chối Driver
 
-Tài xế mẫu đang chờ duyệt: `driverId = 20000000-0000-4000-8000-000000000011` (`dr11@gmail.com`, điện thoại `0391234511`). Có thể dùng ID này để thử API duyệt mà không cần đăng ký lại.
+Hai tài xế mẫu đang chờ duyệt: `dr11@gmail.com` (`20000000-0000-4000-8000-000000000011`, điện thoại `0391234511`) để demo duyệt; `dr12@gmail.com` (`20000000-0000-4000-8000-000000000012`, điện thoại `0391234512`) để demo từ chối. Mật khẩu ban đầu là `12345678`; chỉ đăng nhập admin để duyệt/từ chối.
 
 | Method | URL | Data body | Loại token | Idempotency-Key |
 |---|---|---|---|---|
 | GET | `{{baseUrl}}/api/v1/drivers?status=PENDING_APPROVAL` | Không | Admin (`{{adminToken}}`) | Không |
 | GET | `{{baseUrl}}/api/v1/drivers/{{driverId}}/application` | Không | Admin (`{{adminToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/drivers/{{driverId}}/approve` | `{}` | Admin (`{{adminToken}}`) | Không |
+| POST | `{{baseUrl}}/api/v1/drivers/20000000-0000-4000-8000-000000000012/reject` | `{"reason":"Ho so chua hop le"}` | Admin (`{{adminToken}}`) | Không |
 | POST | `{{baseUrl}}/api/v1/auth/login` | `{"phone":"0391234511","password":"12345678"}` | Không | Không |
 | GET | `{{baseUrl}}/api/v1/notifications?limit=20` | Không | Driver (`{{driverToken}}`) | Không |
 

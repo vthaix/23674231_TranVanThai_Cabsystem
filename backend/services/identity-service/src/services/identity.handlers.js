@@ -2,7 +2,7 @@ const repository = require("../repositories/identity.repository");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
-const { hashPhone } = require("../../../../shared/src/crypto/index");
+const { encrypt, decrypt, hashEmail, hashPhone } = require("../../../../shared/src/crypto/index");
 const { generateToken } = require("../../../../shared/src/auth/jwt");
 const { isValidEmail, isValidPhone, isValidPassword, escapeHTML } = require("../../../../shared/src/validation/index");
 const { SERVICE_NAME } = require("../config");
@@ -36,14 +36,14 @@ async function postAuthRegister(input) {
     await repository.begin(client);
 
     // Check uniqueness (parameterized, not string interpolation — PC25)
-    const existing = await repository.findAccounts(client, [normalizedEmail, phoneHashVal]);
+    const existing = await repository.findAccounts(client, [hashEmail(normalizedEmail), phoneHashVal]);
     if (existing.rows.length > 0) {
       await repository.rollback(client);
       return errorResult(409, "DUPLICATE_ACCOUNT", "Email or phone already registered", requestId);
     }
 
     // Create account PENDING
-    await repository.insertAccounts(client, [accountId, normalizedEmail, phoneHashVal, passwordHash, displayName]);
+    await repository.insertAccounts(client, [accountId, encrypt(normalizedEmail), hashEmail(normalizedEmail), phoneHashVal, passwordHash, displayName]);
 
     await repository.insertAccountRoles(client, [accountId]);
 
@@ -184,7 +184,7 @@ async function getAdminMe(input) {
     }
     return response(200, {
       id: account.id,
-      email: account.email,
+      email: decrypt(account.email),
       displayName: account.display_name,
       role: account.role_code,
       status: account.status,
@@ -233,7 +233,9 @@ async function postInternalAccounts(input) {
     }
 
     await repository.begin(client);
-    await repository.insertAccounts2(client, [targetId, email || null, phoneHashVal, passwordHash, targetName]);
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
+    await repository.insertAccounts2(client, [targetId, normalizedEmail ? encrypt(normalizedEmail) : null,
+      normalizedEmail ? hashEmail(normalizedEmail) : null, phoneHashVal, passwordHash, targetName]);
     await repository.insertAccountRoles2(client, [targetId, targetRole]);
     await repository.commit(client);
 

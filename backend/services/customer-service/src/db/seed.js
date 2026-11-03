@@ -1,5 +1,5 @@
 const { pool } = require("./postgres");
-const { encrypt } = require("../../../../shared/src/crypto/index");
+const { encrypt, hashEmail } = require("../../../../shared/src/crypto/index");
 
 const SEED_IDS = {
   customer1: "10000000-0000-4000-8000-000000000001",
@@ -32,10 +32,10 @@ async function seed() {
     for (const c of customers) {
       const phoneEnc = encrypt(c.phone);
       await client.query(
-        `INSERT INTO customer_profiles (id, full_name, email, phone_enc, phone_hash, status)
-         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+        `INSERT INTO customer_profiles (id, full_name, email, email_hash, phone_enc, phone_hash, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
          ON CONFLICT (id) DO NOTHING`,
-        [c.id, c.fullName, c.email, phoneEnc, c.phoneHash]
+        [c.id, c.fullName, encrypt(c.email), hashEmail(c.email), phoneEnc, c.phoneHash]
       );
     }
 

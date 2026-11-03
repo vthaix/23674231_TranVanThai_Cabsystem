@@ -1,5 +1,5 @@
 const { pool } = require("./postgres");
-const { encrypt, hashPhone, hashNationalId } = require("../../../../shared/src/crypto/index");
+const { encrypt, hashEmail, hashPhone, hashNationalId } = require("../../../../shared/src/crypto/index");
 const { getRedisClient } = require("./redis");
 
 // Five online drivers for PC13: all are within 1 km of (10.7, 106.7).
@@ -200,10 +200,10 @@ async function seed(drivers = SEED_DRIVERS) {
       await client.query(`
         INSERT INTO drivers (
           id, phone_enc, phone_hash, national_id_enc, national_id_hash,
-          full_name, email, date_of_birth, license_number_enc, license_class,
+          full_name, email, email_hash, date_of_birth, license_number_enc, license_class,
           license_expiry_date, status, rating_sum, rating_count, rating_avg
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
         ) ON CONFLICT (id) DO UPDATE SET
           phone_enc = EXCLUDED.phone_enc,
           phone_hash = EXCLUDED.phone_hash,
@@ -220,8 +220,8 @@ async function seed(drivers = SEED_DRIVERS) {
           rating_avg = EXCLUDED.rating_avg
       `, [
         d.id, phoneEnc, phoneH, nationalIdEnc, nationalIdH,
-        d.fullName, `${d.id.slice(0, 8)}@driver.cab`, d.dateOfBirth, licenseEnc, d.licenseClass,
-        d.licenseExpiryDate, d.status, d.ratingSum, d.ratingCount, d.ratingAvg
+        d.fullName, encrypt(`${d.id.slice(0, 8)}@driver.cab`), hashEmail(`${d.id.slice(0, 8)}@driver.cab`),
+        d.dateOfBirth, licenseEnc, d.licenseClass, d.licenseExpiryDate, d.status, d.ratingSum, d.ratingCount, d.ratingAvg
       ]);
 
       // Vehicle

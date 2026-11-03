@@ -4,13 +4,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { Pool } = require('pg');
 const { runMongoScript } = require('./mongo-internal');
-const { encrypt, hashPhone, hashNationalId } = require('../shared/src/crypto');
+const { encrypt, hashEmail, hashPhone, hashNationalId } = require('../shared/src/crypto');
 const { calculateFare } = require('../shared/src/fare');
 const { ensureDemoAdmin, passwordHash } = require('./add-demo-admin');
 
 const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
   .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
   .map(line => { const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)]; }));
+process.env.EMAIL_HASH_PEPPER = env.EMAIL_HASH_PEPPER || 'dev-email-index-pepper';
 const driverPhones = [
   '0391234561', '0391234562', '0391234563', '0391234564', '0391234565',
   '0391234566', '0391234567', '0391234568', '0391234569', '0391234510',
@@ -54,6 +55,10 @@ const pendingDriver = {
   id: driverId(11), email: 'dr11@gmail.com', phone: '0391234511',
   name: 'Tài xế 11',
 };
+const pendingDriverReject = {
+  id: driverId(12), email: 'dr12@gmail.com', phone: '0391234512',
+  name: 'Tài xế chờ từ chối',
+};
 
 async function resetPg(name) {
   const client = await pools[name].connect();
@@ -75,30 +80,35 @@ async function seedIdentity() {
   await db.query("INSERT INTO roles(code,name) VALUES ('CUSTOMER','Customer'),('DRIVER','Driver')");
   await ensureDemoAdmin(db);
   for (const person of [...customer, ...driver]) {
-    await db.query(`INSERT INTO accounts(id,email,phone_hash,password_hash,display_name,status)
-      VALUES($1,$2,$3,$4,$5,'ACTIVE')`,
-      [person.id, person.email, hashPhone(person.phone), passwordHash, person.name]);
+    await db.query(`INSERT INTO accounts(id,email,email_hash,phone_hash,password_hash,display_name,status)
+      VALUES($1,$2,$3,$4,$5,$6,'ACTIVE')`,
+      [person.id, encrypt(person.email), hashEmail(person.email), hashPhone(person.phone), passwordHash, person.name]);
     await db.query(`INSERT INTO account_roles(account_id,role_code,is_primary) VALUES($1,$2,true)`,
       [person.id, person.email.startsWith('kh') ? 'CUSTOMER' : 'DRIVER']);
   }
-  await db.query(`INSERT INTO accounts(id,email,phone_hash,password_hash,display_name,status)
-    VALUES($1,$2,$3,$4,$5,'PENDING')`,
-    [pendingDriver.id, pendingDriver.email, hashPhone(pendingDriver.phone), passwordHash, pendingDriver.name]);
+  await db.query(`INSERT INTO accounts(id,email,email_hash,phone_hash,password_hash,display_name,status)
+    VALUES($1,$2,$3,$4,$5,$6,'PENDING')`,
+    [pendingDriver.id, encrypt(pendingDriver.email), hashEmail(pendingDriver.email), hashPhone(pendingDriver.phone), passwordHash, pendingDriver.name]);
   await db.query(`INSERT INTO account_roles(account_id,role_code,is_primary)
     VALUES($1,'DRIVER',true)`, [pendingDriver.id]);
+  await db.query(`INSERT INTO accounts(id,email,email_hash,phone_hash,password_hash,display_name,status)
+    VALUES($1,$2,$3,$4,$5,$6,'PENDING')`,
+    [pendingDriverReject.id, encrypt(pendingDriverReject.email), hashEmail(pendingDriverReject.email), hashPhone(pendingDriverReject.phone), passwordHash, pendingDriverReject.name]);
+  await db.query(`INSERT INTO account_roles(account_id,role_code,is_primary)
+    VALUES($1,'DRIVER',true)`, [pendingDriverReject.id]);
 }
 
 async function seedProfiles() {
   for (const c of customer) {
-    await pools.customer.query(`INSERT INTO customer_profiles(id,full_name,email,phone_enc,phone_hash,status)
-      VALUES($1,$2,$3,$4,$5,'ACTIVE')`, [c.id, c.name, c.email, encrypt(c.phone), hashPhone(c.phone)]);
+    await pools.customer.query(`INSERT INTO customer_profiles(id,full_name,email,email_hash,phone_enc,phone_hash,status)
+      VALUES($1,$2,$3,$4,$5,$6,'ACTIVE')`, [c.id, c.name, encrypt(c.email), hashEmail(c.email), encrypt(c.phone), hashPhone(c.phone)]);
   }
   for (const d of driver) {
     await pools.driver.query(`INSERT INTO drivers(id,phone_enc,phone_hash,national_id_enc,national_id_hash,
-      full_name,email,date_of_birth,license_number_enc,license_class,license_expiry_date,status)
-      VALUES($1,$2,$3,$4,$5,$6,$7,'1990-01-01',$8,'A1','2035-12-31',$9)`,
+      full_name,email,email_hash,date_of_birth,license_number_enc,license_class,license_expiry_date,status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'1990-01-01',$9,'A1','2035-12-31',$10)`,
       [d.id, encrypt(d.phone), hashPhone(d.phone), encrypt(`00123456${String(d.n).padStart(4, '0')}`),
-        hashNationalId(`00123456${String(d.n).padStart(4, '0')}`), d.name, d.email,
+        hashNationalId(`00123456${String(d.n).padStart(4, '0')}`), d.name, encrypt(d.email), hashEmail(d.email),
         encrypt(`A1-DEMO-${d.n}`), d.status]);
     await pools.driver.query(`INSERT INTO vehicles(driver_id,vehicle_type,plate_number,brand,model,color,
       manufacture_year,seat_count,is_active) VALUES($1,'BIKE',$2,'Honda','Wave','Đen',2023,1,true)`,
@@ -106,12 +116,18 @@ async function seedProfiles() {
     await pools.driver.query(`INSERT INTO driver_locations(driver_id,latitude,longitude) VALUES($1,$2,$3)`,
       [d.id, d.lat, d.lng]);
   }
-  await pools.driver.query(`INSERT INTO drivers(id,phone_enc,phone_hash,full_name,email,license_class,status)
-    VALUES($1,$2,$3,$4,$5,'A1','PENDING_APPROVAL')`,
+  await pools.driver.query(`INSERT INTO drivers(id,phone_enc,phone_hash,full_name,email,email_hash,license_class,status)
+    VALUES($1,$2,$3,$4,$5,$6,'A1','PENDING_APPROVAL')`,
     [pendingDriver.id, encrypt(pendingDriver.phone), hashPhone(pendingDriver.phone),
-      pendingDriver.name, pendingDriver.email]);
+      pendingDriver.name, encrypt(pendingDriver.email), hashEmail(pendingDriver.email)]);
   await pools.driver.query(`INSERT INTO vehicles(driver_id,vehicle_type,model,is_active)
     VALUES($1,'BIKE','Wave',true)`, [pendingDriver.id]);
+  await pools.driver.query(`INSERT INTO drivers(id,phone_enc,phone_hash,full_name,email,email_hash,license_class,status)
+    VALUES($1,$2,$3,$4,$5,$6,'A1','PENDING_APPROVAL')`,
+    [pendingDriverReject.id, encrypt(pendingDriverReject.phone), hashPhone(pendingDriverReject.phone),
+      pendingDriverReject.name, encrypt(pendingDriverReject.email), hashEmail(pendingDriverReject.email)]);
+  await pools.driver.query(`INSERT INTO vehicles(driver_id,vehicle_type,model,is_active)
+    VALUES($1,'BIKE','Wave',true)`, [pendingDriverReject.id]);
 }
 
 async function seedRides() {
@@ -121,7 +137,10 @@ async function seedRides() {
   let tripNo = 0;
   for (const c of customer) {
     for (let slot = 0; slot < 9; slot++) {
-      const status = slot < 5 ? statuses[slot] : 'COMPLETED';
+      // Keep kh01 free of active search/dispatch state in the demo dataset.
+      const status = c.n === 1 && slot === 0
+        ? 'CANCELED'
+        : slot < 5 ? statuses[slot] : 'COMPLETED';
       const b = bookingId(++bookingNo);
       const lat = center.lat + (c.n - 1) * 0.00015 + (slot % 3) * 0.0001;
       const lng = center.lng + (slot % 2) * 0.0001;
@@ -203,13 +222,15 @@ async function seedRides() {
     }
   }
   // Two active search offers let both online drivers exercise GET /offers.
-  for (let i = 0; i < 2; i++) {
+  // Keep them on kh02/kh03; kh01 intentionally has no SEARCHING booking.
+  const offerBookingIndexes = [9, 18];
+  for (let i = 0; i < offerBookingIndexes.length; i++) {
     await pools.booking.query(`INSERT INTO offers(booking_id,driver_id,attempt_no,status,
       distance_to_pickup_m,eta_seconds,expires_at)
       VALUES($1,$2,1,'PENDING',$3,$4,NOW() + INTERVAL '30 minutes')`,
-      [bookingId(i * 9 + 1), driver[i].id, i * 28, i * 4]);
+      [bookingId(offerBookingIndexes[i]), driver[i].id, i * 28, i * 4]);
     await pools.booking.query(`UPDATE bookings SET attempt_count=1,
-      next_dispatch_at=NOW() + INTERVAL '30 minutes' WHERE id=$1`, [bookingId(i * 9 + 1)]);
+      next_dispatch_at=NOW() + INTERVAL '30 minutes' WHERE id=$1`, [bookingId(offerBookingIndexes[i])]);
   }
   const ratings = (await pools.trip.query(`SELECT driver_id, COUNT(*)::int AS n,
     SUM(stars)::int AS stars FROM reviews GROUP BY driver_id`)).rows;
@@ -227,7 +248,7 @@ async function seedRides() {
 }
 
 async function main() {
-  if (driverPhones.length !== 10 || new Set([...driverPhones, pendingDriver.phone]).size !== 11)
+  if (driverPhones.length !== 10 || new Set([...driverPhones, pendingDriver.phone, pendingDriverReject.phone]).size !== 12)
     throw new Error('Invalid driver phones');
   redisCli('PING');
   try {
@@ -257,10 +278,11 @@ async function main() {
     await seedRides();
     redisCli('GEOADD', 'driver:geo', ...driver.filter(d => d.status === 'ONLINE')
       .flatMap(d => [String(d.lng), String(d.lat), d.id]));
-    for (let i = 0; i < 2; i++) {
-      redisCli('SET', `driver:reserve:${driver[i].id}`, bookingId(i * 9 + 1), 'EX', '1700');
+    const offerBookingIndexes = [9, 18];
+    for (let i = 0; i < offerBookingIndexes.length; i++) {
+      redisCli('SET', `driver:reserve:${driver[i].id}`, bookingId(offerBookingIndexes[i]), 'EX', '1700');
     }
-    console.log('Seeded 1 admin, 5 customers, 11 drivers (1 pending approval), 47 bookings, 27 completed trips, 26 reviews, 26 payments, 2 offers');
+    console.log('Seeded 1 admin, 5 customers, 12 drivers (2 pending approval), 47 bookings, 27 completed trips, 26 reviews, 26 payments, 2 offers');
   } finally {
     await Promise.all(Object.values(pools).map(pool => pool.end()));
   }

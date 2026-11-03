@@ -1,4 +1,4 @@
-const { decrypt, encrypt, hashPhone } = require("../../../../shared/src/crypto/index");
+const { decrypt, encrypt, hashEmail, hashPhone } = require("../../../../shared/src/crypto/index");
 const customerRepository = require("../repositories/customer.repository");
 const { maskPhone } = require("../utils/maskPhone");
 
@@ -28,7 +28,7 @@ async function getCustomerById(id, user) {
   return {
     id: customer.id,
     fullName: customer.full_name,
-    email: customer.email,
+    email: decrypt(customer.email),
     phone,
     dateOfBirth: customer.date_of_birth,
     gender: customer.gender,
@@ -51,7 +51,8 @@ async function createCustomerProfile(data) {
     await customerRepository.createCustomer({
       ...data,
       phoneEnc: data.phone ? encrypt(data.phone) : null,
-      email: data.email.toLowerCase()
+      email: encrypt(data.email.toLowerCase()),
+      emailHash: hashEmail(data.email)
     });
   } catch (err) {
     if (err.code !== "23505") throw err;
@@ -70,7 +71,7 @@ async function listCustomers({ page, limit, offset }) {
     data: customers.map(customer => ({
       id: customer.id,
       fullName: customer.full_name,
-      email: customer.email,
+      email: decrypt(customer.email),
       status: customer.status,
       createdAt: customer.created_at
     })),

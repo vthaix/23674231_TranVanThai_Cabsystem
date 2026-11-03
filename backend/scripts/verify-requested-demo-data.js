@@ -2,10 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 const { runMongoScript } = require('./mongo-internal');
+const { hashEmail } = require('../shared/src/crypto');
 
 const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
   .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
   .map(line => { const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)]; }));
+process.env.EMAIL_HASH_PEPPER = env.EMAIL_HASH_PEPPER || 'dev-email-index-pepper';
 const names = ['identity', 'customer', 'driver', 'booking', 'trip', 'payment'];
 const pools = Object.fromEntries(names.map(name => [name, new Pool({
   host: 'localhost', port: 5433, user: name, database: `${name}_db`, password: env[`${name.toUpperCase()}_DB_PASSWORD`],
@@ -25,42 +27,58 @@ const distance = (a, b) => {
 
 async function main() {
   try {
-    expect(await count('identity', 'accounts'), 17, 'Accounts');
+    expect(await count('identity', 'accounts'), 18, 'Accounts');
     expect((await pools.identity.query(`SELECT COUNT(*)::int AS n FROM accounts a
       JOIN account_roles ar ON ar.account_id=a.id
-      WHERE a.email='admin@gmail.com' AND a.status='ACTIVE' AND ar.role_code='ADMIN'`)).rows[0].n,
+      WHERE a.email_hash=$1 AND a.status='ACTIVE' AND ar.role_code='ADMIN'`, [hashEmail('admin@gmail.com')])).rows[0].n,
       1, 'Admin account');
-    const publicIds = (await pools.identity.query('SELECT email,public_id FROM accounts ORDER BY public_id')).rows;
+    const publicIds = (await pools.identity.query('SELECT email_hash,public_id FROM accounts ORDER BY public_id')).rows;
     const expectedEmails = [
       'admin@gmail.com',
       ...Array.from({ length: 5 }, (_, i) => `kh${String(i + 1).padStart(2, '0')}@gmail.com`),
-      ...Array.from({ length: 11 }, (_, i) => `dr${String(i + 1).padStart(2, '0')}@gmail.com`),
+      ...Array.from({ length: 12 }, (_, i) => `dr${String(i + 1).padStart(2, '0')}@gmail.com`),
     ];
     for (const [index, account] of publicIds.entries()) {
       const expectedId = `user_${String(index + 1).padStart(2, '0')}`;
-      if (account.public_id !== expectedId || account.email !== expectedEmails[index]) {
-        throw new Error(`Expected ${expectedEmails[index]} as ${expectedId}, got ${account.email} as ${account.public_id}`);
+      if (account.public_id !== expectedId || account.email_hash !== hashEmail(expectedEmails[index])) {
+        throw new Error(`Expected ${expectedEmails[index]} as ${expectedId}, got a mismatched email hash as ${account.public_id}`);
       }
     }
     expect(await count('customer', 'customer_profiles'), 5, 'Customer profiles');
-    expect(await count('driver', 'drivers'), 11, 'Drivers');
+    expect(await count('driver', 'drivers'), 12, 'Drivers');
     const pendingId = seedId('2', 11);
     expect((await pools.identity.query(`SELECT COUNT(*)::int AS n FROM accounts a
       JOIN account_roles ar ON ar.account_id=a.id AND ar.is_primary=true
-      WHERE a.id=$1 AND a.email='dr11@gmail.com' AND a.public_id='user_17'
-        AND a.status='PENDING' AND ar.role_code='DRIVER'`, [pendingId])).rows[0].n,
+      WHERE a.id=$1 AND a.email_hash=$2 AND a.public_id='user_17'
+        AND a.status='PENDING' AND ar.role_code='DRIVER'`, [pendingId, hashEmail('dr11@gmail.com')])).rows[0].n,
       1, 'Pending driver account');
     expect((await pools.driver.query(`SELECT COUNT(*)::int AS n FROM drivers d
       JOIN vehicles v ON v.driver_id=d.id AND v.is_active=true
       LEFT JOIN driver_locations l ON l.driver_id=d.id
-      WHERE d.id=$1 AND d.email='dr11@gmail.com' AND d.status='PENDING_APPROVAL'
+      WHERE d.id=$1 AND d.email_hash=$2 AND d.status='PENDING_APPROVAL'
         AND d.license_class='A1' AND v.vehicle_type='BIKE' AND v.model='Wave'
-        AND l.driver_id IS NULL`, [pendingId])).rows[0].n,
+        AND l.driver_id IS NULL`, [pendingId, hashEmail('dr11@gmail.com')])).rows[0].n,
       1, 'Pending driver profile');
+    const rejectPendingId = seedId('2', 12);
+    expect((await pools.identity.query(`SELECT COUNT(*)::int AS n FROM accounts a
+      JOIN account_roles ar ON ar.account_id=a.id AND ar.is_primary=true
+      WHERE a.id=$1 AND a.email_hash=$2 AND a.public_id='user_18'
+        AND a.status='PENDING' AND ar.role_code='DRIVER'`, [rejectPendingId, hashEmail('dr12@gmail.com')])).rows[0].n,
+      1, 'Driver rejection demo account');
+    expect((await pools.driver.query(`SELECT COUNT(*)::int AS n FROM drivers d
+      JOIN vehicles v ON v.driver_id=d.id AND v.is_active=true
+      LEFT JOIN driver_locations l ON l.driver_id=d.id
+      WHERE d.id=$1 AND d.email_hash=$2 AND d.status='PENDING_APPROVAL'
+        AND d.license_class='A1' AND v.vehicle_type='BIKE' AND v.model='Wave'
+        AND l.driver_id IS NULL`, [rejectPendingId, hashEmail('dr12@gmail.com')])).rows[0].n,
+      1, 'Driver rejection demo profile');
     expect((await pools.driver.query(`SELECT COUNT(*)::int AS n FROM drivers
-      WHERE status='PENDING_APPROVAL'`)).rows[0].n, 1, 'Pending drivers');
+      WHERE status='PENDING_APPROVAL'`)).rows[0].n, 2, 'Pending drivers');
     expect(await count('booking', 'bookings'), 47, 'Bookings');
     expect(await count('booking', 'offers'), 2, 'Offers');
+    expect((await pools.booking.query(`SELECT COUNT(*)::int AS n FROM bookings
+      WHERE customer_id=$1 AND status='SEARCHING'`, [seedId('1', 1)])).rows[0].n,
+      0, 'kh01 SEARCHING bookings');
     expect(await count('trip', 'trips'), 27, 'Trips');
     expect(await count('trip', 'reviews'), 26, 'Reviews');
     expect(await count('payment', 'payments'), 26, 'Payments');
@@ -85,8 +103,8 @@ async function main() {
       expect(review?.hi, 5, `${c} max stars`);
       expect(review?.missing, 0, `${c} missing comments`);
     }
-    const drivers = (await pools.driver.query(`SELECT d.id,d.email,d.status,l.latitude,l.longitude
-      FROM drivers d JOIN driver_locations l ON l.driver_id=d.id ORDER BY d.email`)).rows;
+    const drivers = (await pools.driver.query(`SELECT d.id,d.status,l.latitude,l.longitude
+      FROM drivers d JOIN driver_locations l ON l.driver_id=d.id ORDER BY d.id`)).rows;
     expect(drivers.filter(d => d.status === 'ONLINE').length, 7, 'Online drivers');
     expect(drivers.filter(d => d.status === 'OFFLINE').length, 3, 'Offline drivers');
     for (let i = 1; i < drivers.length; i++) {
@@ -96,7 +114,7 @@ async function main() {
         { lat: Number(current.latitude), lng: Number(current.longitude) }
       );
       if (Math.abs(meters - 100) > 1)
-        throw new Error(`${previous.email} to ${current.email}: expected ~100m, got ${meters.toFixed(1)}m`);
+        throw new Error(`${previous.id} to ${current.id}: expected ~100m, got ${meters.toFixed(1)}m`);
     }
     const bookings = (await pools.booking.query(`SELECT pickup_lat,pickup_lng,status FROM bookings`)).rows;
     for (const d of drivers) {

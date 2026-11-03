@@ -10,6 +10,7 @@ const env = Object.fromEntries(fs.readFileSync(path.join(backendDir, '.env'), 'u
     const at = line.indexOf('=');
     return [line.slice(0, at), line.slice(at + 1)];
   }));
+process.env.EMAIL_HASH_PEPPER = env.EMAIL_HASH_PEPPER || 'dev-email-index-pepper';
 
 async function main() {
   for (const name of ['identity', 'customer', 'driver', 'booking', 'trip', 'payment']) {

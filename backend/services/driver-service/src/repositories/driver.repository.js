@@ -8,10 +8,10 @@ function insertDrivers(db, params) {
   return db.query(`
       INSERT INTO drivers (
         id, phone_enc, phone_hash,
-        full_name, email, license_number_enc, license_class,
+        full_name, email, email_hash, license_number_enc, license_class,
         license_expiry_date, status, rating_avg, version
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, 'PENDING_APPROVAL', 5.0, 1
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING_APPROVAL', 5.0, 1
       ) ON CONFLICT (id) DO UPDATE SET
         full_name = EXCLUDED.full_name,
         status = 'PENDING_APPROVAL'

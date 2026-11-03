@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("./postgres");
+const { encrypt, hashEmail } = require("../../../../shared/src/crypto/index");
 
 // Known UUIDs for seed data (deterministic)
 const SEED_IDS = {
@@ -113,10 +114,10 @@ async function seed() {
 
     for (const acc of internalAccounts) {
       await client.query(
-        `INSERT INTO accounts (id, email, phone_hash, password_hash, display_name, status)
-         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+        `INSERT INTO accounts (id, email, email_hash, phone_hash, password_hash, display_name, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
          ON CONFLICT (id) DO NOTHING`,
-        [acc.id, acc.email, hashPhone(acc.phone), passwordHash, acc.name]
+        [acc.id, encrypt(acc.email), hashEmail(acc.email), hashPhone(acc.phone), passwordHash, acc.name]
       );
       await client.query(
         `INSERT INTO account_roles (account_id, role_code, is_primary) VALUES ($1, $2, TRUE)
@@ -133,10 +134,10 @@ async function seed() {
 
     for (const c of customers) {
       await client.query(
-        `INSERT INTO accounts (id, email, phone_hash, password_hash, display_name, status)
-         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+        `INSERT INTO accounts (id, email, email_hash, phone_hash, password_hash, display_name, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
          ON CONFLICT (id) DO NOTHING`,
-        [c.id, c.email, hashPhone(c.phone), passwordHash, c.name]
+        [c.id, encrypt(c.email), hashEmail(c.email), hashPhone(c.phone), passwordHash, c.name]
       );
       await client.query(
         `INSERT INTO account_roles (account_id, role_code, is_primary) VALUES ($1, 'CUSTOMER', TRUE)

@@ -73,6 +73,7 @@ services:
       GRPC_PORT: 50050
       NODE_ENV: development
       SEED_ON_START: "false"
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:-dev-email-index-pepper}
       JWT_TTL_MIN: ${JWT_TTL_MIN:-60}
       DATABASE_URL: postgresql://identity:${IDENTITY_DB_PASSWORD}@postgres:5432/identity_db
       KAFKA_BROKERS: kafka:9092
@@ -96,6 +97,7 @@ services:
       GRPC_PORT: 50051
       NODE_ENV: development
       SEED_ON_START: "false"
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:-dev-email-index-pepper}
       DATABASE_URL: postgresql://customer:${CUSTOMER_DB_PASSWORD}@postgres:5432/customer_db
     networks:
       - cab-internal
@@ -115,6 +117,7 @@ services:
       GRPC_PORT: 50052
       NODE_ENV: development
       SEED_ON_START: "false"
+      EMAIL_HASH_PEPPER: ${EMAIL_HASH_PEPPER:-dev-email-index-pepper}
       DATABASE_URL: postgresql://driver:${DRIVER_DB_PASSWORD}@postgres:5432/driver_db
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092

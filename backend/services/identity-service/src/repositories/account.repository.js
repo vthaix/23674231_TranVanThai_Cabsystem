@@ -1,9 +1,10 @@
 const { pool } = require("../db/postgres");
+const { hashEmail } = require("../../../../shared/src/crypto");
 
 async function findByEmail(client, email) {
   const { rows } = await client.query(
-    "SELECT a.*, ar.role_code FROM accounts a LEFT JOIN account_roles ar ON a.id = ar.account_id AND ar.is_primary = TRUE WHERE lower(a.email) = $1 LIMIT 1",
-    [email]
+    "SELECT a.*, ar.role_code FROM accounts a LEFT JOIN account_roles ar ON a.id = ar.account_id AND ar.is_primary = TRUE WHERE a.email_hash = $1 LIMIT 1",
+    [hashEmail(email)]
   );
   return rows[0];
 }

@@ -2,7 +2,7 @@ const repository = require("../repositories/driver.repository");
 const crypto = require("crypto");
 const { pool } = require("../db/postgres");
 const { getRedisClient } = require("../db/redis");
-const { encrypt, decrypt, hashPhone } = require("../../../../shared/src/crypto/index");
+const { encrypt, decrypt, hashEmail, hashPhone } = require("../../../../shared/src/crypto/index");
 const { isValidPhone, isValidEmail, isValidPassword, isPlainCode, escapeHTML } = require("../../../../shared/src/validation/index");
 const { maskPhone } = require("../utils/maskPhone");
 const { inMemStore, haversineDistanceMeters } = require("../services/driver.service");
@@ -174,7 +174,7 @@ async function postDriversRegister(input) {
     // Insert driver in PENDING_APPROVAL
     await repository.insertDrivers(client, [
       driverId, phoneEnc, phoneH,
-      displayName, email.toLowerCase().trim(),
+      displayName, encrypt(email.toLowerCase().trim()), hashEmail(email),
       null, license.class, null
     ]);
 
@@ -247,7 +247,7 @@ async function getDriversMe(input) {
       id: d.id,
       fullName: d.full_name,
       phone: decryptField(d.phone_enc),
-      email: d.email,
+      email: decrypt(d.email),
       licenseNumber: decryptField(d.license_number_enc),
       licenseClass: d.license_class,
       licenseExpiryDate: d.license_expiry_date,

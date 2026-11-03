@@ -5,7 +5,7 @@ function begin(db) {
 }
 
 function findAccounts(db, params) {
-  return db.query("SELECT id FROM accounts WHERE lower(email) = $1 OR phone_hash = $2 LIMIT 1", params);
+  return db.query("SELECT id FROM accounts WHERE email_hash = $1 OR phone_hash = $2 LIMIT 1", params);
 }
 
 function rollback(db) {
@@ -13,8 +13,8 @@ function rollback(db) {
 }
 
 function insertAccounts(db, params) {
-  return db.query(`INSERT INTO accounts (id, email, phone_hash, password_hash, display_name, status)
-       VALUES ($1, $2, $3, $4, $5, 'PENDING')`, params);
+  return db.query(`INSERT INTO accounts (id, email, email_hash, phone_hash, password_hash, display_name, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')`, params);
 }
 
 function insertAccountRoles(db, params) {
@@ -61,8 +61,8 @@ function findAccounts3(db, params) {
 }
 
 function insertAccounts2(db, params) {
-  return db.query(`INSERT INTO accounts (id, email, phone_hash, password_hash, display_name, status)
-       VALUES ($1, $2, $3, $4, $5, 'PENDING')`, params);
+  return db.query(`INSERT INTO accounts (id, email, email_hash, phone_hash, password_hash, display_name, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')`, params);
 }
 
 function activateDriverAccount(db, id) {

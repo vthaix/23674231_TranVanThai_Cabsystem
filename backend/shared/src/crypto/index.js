@@ -61,6 +61,25 @@ function hashPhone(phone) {
   return crypto.createHmac("sha256", pepper).update(phone).digest("hex");
 }
 
+function hashEmail(email) {
+  const pepper = process.env.EMAIL_HASH_PEPPER || "dev-email-index-pepper";
+  return crypto.createHmac("sha256", pepper).update(String(email).toLowerCase().trim()).digest("hex");
+}
+
+async function migrateEmailColumn(db, table) {
+  const allowedTables = new Set(["accounts", "customer_profiles", "drivers"]);
+  if (!allowedTables.has(table)) throw new Error("Unsupported email table");
+  const { rows } = await db.query(`SELECT id, email, email_hash FROM ${table} WHERE email IS NOT NULL`);
+  for (const row of rows) {
+    const normalized = decrypt(row.email).toLowerCase().trim();
+    const encrypted = row.email.startsWith("enc:v1:") ? row.email : encrypt(normalized);
+    const emailHash = hashEmail(normalized);
+    if (row.email !== encrypted || row.email_hash !== emailHash) {
+      await db.query(`UPDATE ${table} SET email=$1, email_hash=$2 WHERE id=$3`, [encrypted, emailHash, row.id]);
+    }
+  }
+}
+
 function hashNationalId(id) {
   const pepper = process.env.NATIONAL_ID_HASH_PEPPER || "dev-national-id-pepper";
   return crypto.createHmac("sha256", pepper).update(id).digest("hex");
@@ -70,4 +89,4 @@ function hashPayload(payload) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
-module.exports = { encrypt, decrypt, hashPhone, hashNationalId, hashPayload };
+module.exports = { encrypt, decrypt, hashPhone, hashEmail, migrateEmailColumn, hashNationalId, hashPayload };
