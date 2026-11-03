@@ -55,7 +55,7 @@ if (require.main === module) {
   const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
     .split(/\r?\n/).filter(line => line && !line.startsWith('#'))
     .map(line => { const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)]; }));
-  const pool = new Pool({ host: 'localhost', port: 5432, user: 'identity', database: 'identity_db',
+  const pool = new Pool({ host: 'localhost', port: 5433, user: 'identity', database: 'identity_db',
     password: env.IDENTITY_DB_PASSWORD });
   ensureDemoAdmin(pool)
     .then(() => console.log('Admin account ready: admin@gmail.com'))

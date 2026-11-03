@@ -32,7 +32,7 @@ const tripId = n => uuid('4', n);
 const paymentId = n => uuid('5', n);
 const dbNames = ['identity', 'customer', 'driver', 'booking', 'trip', 'payment'];
 const pools = Object.fromEntries(dbNames.map(name => [name, new Pool({
-  host: 'localhost', port: 5432, user: name, database: `${name}_db`,
+  host: 'localhost', port: 5433, user: name, database: `${name}_db`,
   password: env[`${name.toUpperCase()}_DB_PASSWORD`],
 })]));
 const redisCli = (...args) => execFileSync('docker', [

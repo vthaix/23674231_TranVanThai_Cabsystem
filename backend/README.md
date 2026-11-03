@@ -24,7 +24,7 @@ Use `docker compose exec postgres psql -U postgres -d identity_db` for SQL acces
 
 ```sh
 docker compose --profile tools up -d postgres-tools
-# Connect to localhost:5432 with the matching database, role and password.
+# Connect to localhost:5433 with the matching database, role and password.
 docker compose --profile tools stop postgres-tools
 ```
 

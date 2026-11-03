@@ -15,7 +15,7 @@ async function main() {
   for (const name of ['identity', 'customer', 'driver', 'booking', 'trip', 'payment']) {
     const password = env[`${name.toUpperCase()}_DB_PASSWORD`];
     if (!password) throw new Error(`Missing ${name.toUpperCase()}_DB_PASSWORD in backend/.env`);
-    process.env.DATABASE_URL = `postgresql://${name}:${encodeURIComponent(password)}@127.0.0.1:5432/${name}_db`;
+    process.env.DATABASE_URL = `postgresql://${name}:${encodeURIComponent(password)}@127.0.0.1:5433/${name}_db`;
     const { pool, runMigrations } = require(path.join(backendDir, 'services', `${name}-service`, 'src', 'db', 'postgres'));
     try {
       await runMigrations();

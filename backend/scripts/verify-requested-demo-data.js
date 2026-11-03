@@ -8,7 +8,7 @@ const env = Object.fromEntries(fs.readFileSync(path.join(__dirname, '..', '.env'
   .map(line => { const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)]; }));
 const names = ['identity', 'customer', 'driver', 'booking', 'trip', 'payment'];
 const pools = Object.fromEntries(names.map(name => [name, new Pool({
-  host: 'localhost', user: name, database: `${name}_db`, password: env[`${name.toUpperCase()}_DB_PASSWORD`],
+  host: 'localhost', port: 5433, user: name, database: `${name}_db`, password: env[`${name.toUpperCase()}_DB_PASSWORD`],
 })]));
 const expect = (actual, wanted, label) => {
   if (Number(actual) !== wanted) throw new Error(`${label}: expected ${wanted}, got ${actual}`);
