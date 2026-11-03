@@ -12,7 +12,9 @@ async function start() {
     await seed();
     await startGrpcServer(SERVICE_NAME, grpcHandlers, undefined, app);
   } catch (err) {
-    console.error("[identity] Startup error:", err.message);
+    // Log the full error: some startup failures (for example, a rejected
+    // connection promise) may not expose a useful `message` property.
+    console.error("[identity] Startup error:", err);
     process.exit(1);
   }
 }
