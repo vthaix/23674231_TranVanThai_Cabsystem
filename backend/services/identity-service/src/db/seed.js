@@ -21,6 +21,8 @@ const SEED_IDS = {
   driver3: "20000000-0000-4000-8000-000000000003",
   driver4: "20000000-0000-4000-8000-000000000004",
   driver5: "20000000-0000-4000-8000-000000000005",
+  driver6: "20000000-0000-4000-8000-000000000006",
+  driver7: "20000000-0000-4000-8000-000000000007",
 };
 
 function hashPhone(phone) {
@@ -159,6 +161,27 @@ async function seed() {
       await client.query(
         `INSERT INTO accounts (id, phone_hash, password_hash, display_name, status)
          VALUES ($1, $2, $3, $4, 'ACTIVE')
+         ON CONFLICT (id) DO NOTHING`,
+        [d.id, hashPhone(d.phone), passwordHash, d.name]
+      );
+      await client.query(
+        `INSERT INTO account_roles (account_id, role_code, is_primary) VALUES ($1, 'DRIVER', TRUE)
+         ON CONFLICT DO NOTHING`,
+        [d.id]
+      );
+    }
+
+    // Driver applications awaiting admin approval. Keep identity accounts pending
+    // so they cannot sign in before their driver profiles are reviewed.
+    const pendingDrivers = [
+      { id: SEED_IDS.driver6, phone: "0902000006", name: "Driver Pending Six" },
+      { id: SEED_IDS.driver7, phone: "0902000007", name: "Driver Pending Seven" },
+    ];
+
+    for (const d of pendingDrivers) {
+      await client.query(
+        `INSERT INTO accounts (id, phone_hash, password_hash, display_name, status)
+         VALUES ($1, $2, $3, $4, 'PENDING')
          ON CONFLICT (id) DO NOTHING`,
         [d.id, hashPhone(d.phone), passwordHash, d.name]
       );
